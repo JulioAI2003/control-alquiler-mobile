@@ -25,6 +25,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.myapplication.MyApplication
 import com.example.myapplication.data.model.EstadoPago
 import com.example.myapplication.data.model.Inquilino
+import com.example.myapplication.data.model.InquilinoMobile
 import com.example.myapplication.data.model.UiState
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
@@ -87,6 +88,13 @@ fun DashboardScreen(onLogout: () -> Unit) {
                     onClick = { currentScreen = "pagados"; scope.launch { drawerState.close() } },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.Group, null) },
+                    label = { Text("Inquilinos") },
+                    selected = currentScreen == "inquilinos",
+                    onClick = { currentScreen = "inquilinos"; scope.launch { drawerState.close() } },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
                 HorizontalDivider(Modifier.padding(vertical = 12.dp, horizontal = 24.dp))
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Default.Logout, null, tint = Color.Red) },
@@ -101,7 +109,7 @@ fun DashboardScreen(onLogout: () -> Unit) {
         Scaffold(
             topBar = {
                 CenterAlignedTopAppBar(
-                    title = { Text(if(currentScreen == "pendientes") "Cobros" else "Pagados", fontWeight = FontWeight.ExtraBold) },
+                    title = { Text(when(currentScreen) { "pendientes" -> "Cobros"; "pagados" -> "Pagados"; else -> "Inquilinos" }, fontWeight = FontWeight.ExtraBold) },
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
                             Icon(Icons.Default.Menu, "Menú")
@@ -114,14 +122,14 @@ fun DashboardScreen(onLogout: () -> Unit) {
             }
         ) { padding ->
             Box(Modifier.padding(padding).fillMaxSize().background(Color(0xFFF5F5F5))) {
-                if (currentScreen == "pendientes") {
-                    ListaPendientes(
-                        vm = vm, 
+                when (currentScreen) {
+                    "pendientes" -> ListaPendientes(
+                        vm = vm,
                         onCardClick = { inquilinoDetalle = it },
                         onPagarClick = { inquilinoAConfirmar = it }
                     )
-                } else {
-                    SeccionPagados(vm)
+                    "pagados" -> SeccionPagados(vm)
+                    else -> SeccionInquilinos(vm)
                 }
             }
         }
@@ -282,6 +290,202 @@ fun SeccionPagados(vm: PagosViewModel) {
                 Text(s.message, color = Color.Red)
             }
             else -> Unit
+        }
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+//  SECCIÓN INQUILINOS
+// ──────────────────────────────────────────────────────────────────────────────
+
+@Composable
+fun SeccionInquilinos(vm: PagosViewModel) {
+    val state       by vm.inquilinosState.collectAsStateWithLifecycle()
+    val retiroState by vm.retiroState.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { vm.cargarInquilinos() }
+
+    var inquilinoSeleccionado by remember { mutableStateOf<InquilinoMobile?>(null) }
+    var inquilinoARetirar     by remember { mutableStateOf<InquilinoMobile?>(null) }
+
+    // Cierra el bottom sheet y limpia el estado cuando la acción de retiro termina
+    LaunchedEffect(retiroState) {
+        if (retiroState is UiState.Success) {
+            inquilinoSeleccionado = null
+            vm.resetRetiroState()
+        }
+    }
+
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Text("Inquilinos activos", fontWeight = FontWeight.Bold, color = Color.Gray)
+        Spacer(Modifier.height(12.dp))
+        when (val s = state) {
+            is UiState.Success -> {
+                if (s.data.isEmpty()) {
+                    Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        Text("No hay inquilinos activos", color = Color.Gray)
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(s.data, key = { it.idInquilino }) { inq ->
+                            val esPendiente = inq.estado == "pendiente_retiro"
+                            val bgColor     = if (esPendiente) Color(0xFFFFCDD2) else Color(0xFFC8E6C9)
+                            val borderColor = if (esPendiente) Color(0xFFD32F2F) else Color(0xFF388E3C)
+                            val textColor   = if (esPendiente) Color(0xFFB71C1C) else Color(0xFF1B5E20)
+                            Card(
+                                modifier = Modifier.fillMaxWidth().clickable { inquilinoSeleccionado = inq },
+                                colors = CardDefaults.cardColors(containerColor = bgColor),
+                                border = BorderStroke(1.dp, borderColor.copy(alpha = 0.5f)),
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        Modifier.size(44.dp).clip(CircleShape).background(borderColor),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(inq.nombre.take(1), color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
+                                    Spacer(Modifier.width(16.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text("${inq.nombre} ${inq.apellidos}", fontWeight = FontWeight.Bold, color = textColor, fontSize = 16.sp)
+                                        Text("${inq.casa} · Cuarto ${inq.nroCuarto}", fontSize = 12.sp, color = Color.DarkGray)
+                                        if (esPendiente) {
+                                            Text(
+                                                "Retiro en ${inq.diasParaRetiro ?: 0} día(s)",
+                                                fontSize = 11.sp, color = textColor, fontWeight = FontWeight.ExtraBold
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            is UiState.Loading -> Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            is UiState.Error   -> Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { Text(s.message, color = Color.Red) }
+            else -> Unit
+        }
+    }
+
+    // Bottom sheet con detalle + acciones
+    if (inquilinoSeleccionado != null) {
+        InquilinoBottomSheet(
+            inquilino   = inquilinoSeleccionado!!,
+            retiroState = retiroState,
+            onRetirar        = { inquilinoARetirar = it },
+            onCancelarRetiro = { vm.cancelarRetiro(it.idInquilino) },
+            onDismiss        = { inquilinoSeleccionado = null; vm.resetRetiroState() }
+        )
+    }
+
+    // Confirmación antes de iniciar retiro
+    if (inquilinoARetirar != null) {
+        AlertDialog(
+            onDismissRequest = { inquilinoARetirar = null },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        vm.iniciarRetiro(inquilinoARetirar!!.idInquilino)
+                        inquilinoARetirar = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
+                ) { Text("Sí, retirar") }
+            },
+            dismissButton = { TextButton(onClick = { inquilinoARetirar = null }) { Text("Cancelar") } },
+            title = { Text("Confirmar Retiro") },
+            text  = { Text("¿Está seguro de retirar a ${inquilinoARetirar?.nombre}? Tendrá 3 días para cancelar la acción antes de que sea definitivo.") }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun InquilinoBottomSheet(
+    inquilino:        InquilinoMobile,
+    retiroState:      UiState<String>,
+    onRetirar:        (InquilinoMobile) -> Unit,
+    onCancelarRetiro: (InquilinoMobile) -> Unit,
+    onDismiss:        () -> Unit
+) {
+    val esPendiente = inquilino.estado == "pendiente_retiro"
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color.White) {
+        Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding()) {
+            Text("Detalle del Inquilino", fontWeight = FontWeight.Black, fontSize = 22.sp, color = AzulPrimario)
+            Spacer(Modifier.height(16.dp))
+            Row(Modifier.padding(vertical = 8.dp)) {
+                Icon(Icons.Default.Person, null, tint = AzulPrimario)
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text("Nombre", fontSize = 11.sp, color = Color.Gray)
+                    Text("${inquilino.nombre} ${inquilino.apellidos}", fontWeight = FontWeight.Bold)
+                }
+            }
+            Row(Modifier.padding(vertical = 8.dp)) {
+                Icon(Icons.Default.Home, null, tint = AzulPrimario)
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text("Habitación", fontSize = 11.sp, color = Color.Gray)
+                    Text("${inquilino.casa} · ${inquilino.piso} · Cuarto ${inquilino.nroCuarto}", fontWeight = FontWeight.Bold)
+                }
+            }
+            if (inquilino.celular != null) {
+                Row(Modifier.padding(vertical = 8.dp)) {
+                    Icon(Icons.Default.Phone, null, tint = AzulPrimario)
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text("Celular", fontSize = 11.sp, color = Color.Gray)
+                        Text(inquilino.celular, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            if (esPendiente) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Warning, null, tint = Color(0xFFD32F2F))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "Le quedan ${inquilino.diasParaRetiro ?: 0} día(s) para que el inquilino sea eliminado definitivamente",
+                            fontSize = 13.sp, color = Color(0xFFB71C1C), fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick  = { onCancelarRetiro(inquilino) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors   = ButtonDefaults.buttonColors(containerColor = Color(0xFF388E3C)),
+                    enabled  = retiroState !is UiState.Loading
+                ) {
+                    if (retiroState is UiState.Loading)
+                        CircularProgressIndicator(Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                    else
+                        Text("Cancelar Retiro")
+                }
+            } else {
+                Button(
+                    onClick  = { onRetirar(inquilino) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors   = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+                    enabled  = retiroState !is UiState.Loading
+                ) {
+                    if (retiroState is UiState.Loading)
+                        CircularProgressIndicator(Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                    else
+                        Text("Retirar Inquilino")
+                }
+            }
+            if (retiroState is UiState.Error) {
+                Spacer(Modifier.height(8.dp))
+                Text((retiroState as UiState.Error).message, color = Color.Red, fontSize = 13.sp)
+            }
         }
     }
 }

@@ -19,4 +19,15 @@ interface AlquilerApiService {
 
     @POST("pagos/revertir/{id_pago}")
     suspend fun revertirPago(@Path("id_pago") idPago: String): PagoRegistradoResponse
+
+    // --- SECCIÓN INQUILINOS ---
+
+    @GET("mobile/inquilinos")
+    suspend fun getInquilinos(@Query("id_usuario") idUsuario: String): List<InquilinoMobile>
+
+    @POST("mobile/inquilino/iniciar-retiro")
+    suspend fun iniciarRetiro(@Body body: IdInquilinoRequest): PagoRegistradoResponse
+
+    @POST("mobile/inquilino/cancelar-retiro")
+    suspend fun cancelarRetiro(@Body body: IdInquilinoRequest): PagoRegistradoResponse
 }

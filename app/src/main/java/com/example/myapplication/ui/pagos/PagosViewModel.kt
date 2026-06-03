@@ -26,6 +26,12 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
     private val _pagoRapidoState = MutableStateFlow<UiState<String>>(UiState.Idle)
     val pagoRapidoState: StateFlow<UiState<String>> = _pagoRapidoState.asStateFlow()
 
+    private val _inquilinosState = MutableStateFlow<UiState<List<InquilinoMobile>>>(UiState.Idle)
+    val inquilinosState: StateFlow<UiState<List<InquilinoMobile>>> = _inquilinosState.asStateFlow()
+
+    private val _retiroState = MutableStateFlow<UiState<String>>(UiState.Idle)
+    val retiroState: StateFlow<UiState<String>> = _retiroState.asStateFlow()
+
     fun cargarPagos() {
         viewModelScope.launch {
             _pagosState.value = UiState.Loading
@@ -92,6 +98,49 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
 
     fun resetPagoRapidoState() {
         _pagoRapidoState.value = UiState.Idle
+    }
+
+    fun cargarInquilinos() {
+        viewModelScope.launch {
+            _inquilinosState.value = UiState.Loading
+            try {
+                val idUsuario = app.sessionDataStore.userId.first() ?: return@launch
+                val lista = AlquilerApiClient.service.getInquilinos(idUsuario)
+                _inquilinosState.value = UiState.Success(lista)
+            } catch (e: Exception) {
+                _inquilinosState.value = UiState.Error(e.message ?: "Error al cargar inquilinos")
+            }
+        }
+    }
+
+    fun iniciarRetiro(idInquilino: String) {
+        viewModelScope.launch {
+            _retiroState.value = UiState.Loading
+            try {
+                AlquilerApiClient.service.iniciarRetiro(IdInquilinoRequest(idInquilino))
+                _retiroState.value = UiState.Success("Retiro iniciado")
+                cargarInquilinos()
+            } catch (e: Exception) {
+                _retiroState.value = UiState.Error(e.message ?: "Error al iniciar retiro")
+            }
+        }
+    }
+
+    fun cancelarRetiro(idInquilino: String) {
+        viewModelScope.launch {
+            _retiroState.value = UiState.Loading
+            try {
+                AlquilerApiClient.service.cancelarRetiro(IdInquilinoRequest(idInquilino))
+                _retiroState.value = UiState.Success("Retiro cancelado")
+                cargarInquilinos()
+            } catch (e: Exception) {
+                _retiroState.value = UiState.Error(e.message ?: "Error al cancelar retiro")
+            }
+        }
+    }
+
+    fun resetRetiroState() {
+        _retiroState.value = UiState.Idle
     }
 
     private fun PagoBackend.toInquilinoUi(hoy: LocalDate): Inquilino {

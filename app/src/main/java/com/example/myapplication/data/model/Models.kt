@@ -112,6 +112,28 @@ data class Inquilino(
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+//  INQUILINOS (SECCIÓN MOBILE)
+// ═════════════════════════════════════════════════════════════════════════════
+
+@Serializable
+data class InquilinoMobile(
+    @SerialName("id_inquilino")    val idInquilino:    String,
+    val nombre:                                        String,
+    val apellidos:                                     String,
+    val celular:                                       String? = null,
+    @SerialName("nro_cuarto")      val nroCuarto:      Int,
+    val piso:                                          String,
+    val casa:                                          String,
+    val estado:                                        String,          // "activo" | "pendiente_retiro"
+    @SerialName("dias_para_retiro") val diasParaRetiro: Int? = null
+)
+
+@Serializable
+data class IdInquilinoRequest(
+    @SerialName("id_inquilino") val idInquilino: String
+)
+
+// ═════════════════════════════════════════════════════════════════════════════
 //  ESTADO GENÉRICO DE UI
 // ═════════════════════════════════════════════════════════════════════════════
 
