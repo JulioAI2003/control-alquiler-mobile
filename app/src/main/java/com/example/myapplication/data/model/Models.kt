@@ -137,17 +137,22 @@ data class IdInquilinoRequest(
 //  SERVICIOS DE CASA (LUZ, AGUA, GAS, ETC.)
 // ═════════════════════════════════════════════════════════════════════════════
 
+/** Recibo mensual de un servicio de casa (luz, agua, gas, etc.).
+ *  Arquitectura idéntica a [Inquilino]: el cron lo genera, el usuario lo paga. */
 @Serializable
 data class ServicioCasa(
-    @SerialName("id_servicio")       val idServicio:       String,
-    val nombre:                                            String,
-    @SerialName("monto_referencial") val montoReferencial: String,
-    @SerialName("dia_vencimiento")   val diaVencimiento:   Int,
-    @SerialName("id_pago")           val idPago:           String? = null,
-    @SerialName("monto_pagado")      val montoPagado:      String? = null,
-    @SerialName("fecha_pago")        val fechaPago:        String? = null,
-    val pagado:                                            Boolean,
-    @SerialName("dias_restantes")    val diasRestantes:    Int
+    @SerialName("id_pago")               val idPago:          String? = null,
+    @SerialName("id_servicio")           val idServicio:      String,
+    val nombre:                                               String,
+    // Saldo pendiente actual (= monto_original_mensual si aún no pagó)
+    @SerialName("monto_referencial")     val montoReferencial: String,
+    @SerialName("monto_original_mensual") val montoOriginal:   String,
+    val dia:                                                   Int,
+    @SerialName("mes_correspondiente")   val mes:             Int,
+    @SerialName("anio_correspondiente")  val anio:            Int,
+    val pagado:                                               Boolean,
+    @SerialName("fecha_pago")            val fechaPago:       String? = null,
+    @SerialName("dias_restantes")        val diasRestantes:   Int
 ) {
     val etiquetaDias: String get() = when {
         pagado              -> "Pagado este mes ✓"

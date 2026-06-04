@@ -244,7 +244,6 @@ fun ListaPendientes(vm: PagosViewModel, onCardClick: (Inquilino) -> Unit, onPaga
                             Column(Modifier.weight(1f)) {
                                 Text(inquilino.nombre, fontWeight = FontWeight.Bold, color = colores.texto, fontSize = 16.sp)
                                 Text(inquilino.etiquetaDias, fontSize = 12.sp, color = colores.texto, fontWeight = FontWeight.ExtraBold)
-                                Text(inquilino.habitacion, fontSize = 11.sp, color = Color.DarkGray)
                             }
                             Button(
                                 onClick = { onPagarClick(inquilino) },
@@ -536,7 +535,7 @@ fun SeccionServicios(vm: PagosViewModel, onPagarClick: (ServicioCasa) -> Unit) {
                                     Column(Modifier.weight(1f)) {
                                         Text(srv.nombre, fontWeight = FontWeight.Bold, color = colores.texto, fontSize = 16.sp)
                                         Text(srv.etiquetaDias, fontSize = 12.sp, color = colores.texto, fontWeight = FontWeight.ExtraBold)
-                                        Text("Día ${srv.diaVencimiento} de cada mes", fontSize = 11.sp, color = Color.DarkGray)
+                                        Text("Día ${srv.dia} de cada mes", fontSize = 11.sp, color = Color.DarkGray)
                                     }
                                     if (srv.pagado) {
                                         Icon(Icons.Default.CheckCircle, null, tint = colores.borde, modifier = Modifier.size(32.dp))
