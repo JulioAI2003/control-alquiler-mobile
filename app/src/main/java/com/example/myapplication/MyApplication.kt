@@ -36,13 +36,34 @@ class MyApplication : Application() {
         sessionDataStore = SessionDataStore(this)
 
         // Carga el token persistido de forma síncrona solo al arrancar.
-        // runBlocking aquí es seguro porque es en Application.onCreate (hilo principal, antes de UI).
+        // Si el token existe pero está expirado, se limpia la sesión y el usuario verá Login.
         runBlocking {
-            cachedToken = sessionDataStore.token.first()
+            val token = sessionDataStore.token.first()
+            when {
+                token.isNullOrBlank()    -> { /* sin token → arranca en Login */ }
+                isTokenExpired(token)    -> { sessionDataStore.limpiarSesion() }
+                else                     -> { cachedToken = token }
+            }
         }
 
         // Retrofit usa esta lambda en cada petición: siempre lee el token actual.
         AlquilerApiClient.init { cachedToken }
+    }
+
+    /** Decodifica el payload JWT y comprueba si el campo `exp` ya pasó. */
+    private fun isTokenExpired(token: String): Boolean {
+        return try {
+            val payload = token.split(".").getOrNull(1) ?: return true
+            val decoded = android.util.Base64.decode(
+                payload, android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING
+            )
+            val json = String(decoded)
+            val exp = Regex("\"exp\":(\\d+)").find(json)
+                ?.groupValues?.get(1)?.toLongOrNull() ?: return true
+            System.currentTimeMillis() / 1000 >= exp
+        } catch (e: Exception) {
+            true
+        }
     }
 
     /** Llamar después de un login exitoso o un logout. */

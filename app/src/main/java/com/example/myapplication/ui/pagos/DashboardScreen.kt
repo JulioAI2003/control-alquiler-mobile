@@ -1,5 +1,7 @@
 package com.example.myapplication.ui.pagos
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,9 +19,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.myapplication.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.myapplication.MyApplication
@@ -219,6 +223,7 @@ fun ListaPendientes(vm: PagosViewModel, onCardClick: (Inquilino) -> Unit, onPaga
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetalleBottomSheet(inquilino: Inquilino, onDismiss: () -> Unit) {
+    val context = LocalContext.current
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color.White) {
         Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding()) {
             Text("Detalle del Inquilino", fontWeight = FontWeight.Black, fontSize = 22.sp, color = AzulPrimario)
@@ -227,6 +232,50 @@ fun DetalleBottomSheet(inquilino: Inquilino, onDismiss: () -> Unit) {
                 Icon(Icons.Default.Person, null, tint = AzulPrimario)
                 Spacer(Modifier.width(12.dp))
                 Column { Text("Nombre", fontSize = 11.sp, color = Color.Gray); Text(inquilino.nombre, fontWeight = FontWeight.Bold) }
+            }
+            if (!inquilino.celular.isNullOrBlank()) {
+                Row(
+                    Modifier.padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Phone, null, tint = AzulPrimario)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Celular", fontSize = 11.sp, color = Color.Gray)
+                        Text(inquilino.celular, fontWeight = FontWeight.Bold)
+                    }
+                    Box(
+                        Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(AzulPrimario)
+                            .clickable {
+                                context.startActivity(
+                                    Intent(Intent.ACTION_DIAL, Uri.parse("tel:${inquilino.celular}"))
+                                )
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Phone, "Llamar", tint = Color.White, modifier = Modifier.size(20.dp))
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Box(
+                        Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF25D366))
+                            .clickable {
+                                val num = inquilino.celular.replace(Regex("[^\\d]"), "")
+                                val waNum = if (num.length == 9) "51$num" else num
+                                context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$waNum"))
+                                )
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(painterResource(R.drawable.ic_whatsapp), "WhatsApp", tint = Color.White, modifier = Modifier.size(20.dp))
+                    }
+                }
             }
             Row(Modifier.padding(vertical = 8.dp)) {
                 Icon(Icons.Default.Home, null, tint = AzulPrimario)

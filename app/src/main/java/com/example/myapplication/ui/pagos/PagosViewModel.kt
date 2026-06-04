@@ -155,7 +155,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
             idPago = idPago,
             idInquilino = idInquilino,
             nombre = "$nombre $apellidos".trim(),
-            habitacion = "$casa · Cuarto $nroCuarto",
+            habitacion = "$casa · $piso · Cuarto $nroCuarto",
             celular = celular,
             monto = montoTotal.toDoubleOrNull() ?: 0.0,
             montoOriginal = montoOriginal.toDoubleOrNull() ?: 0.0,
