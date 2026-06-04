@@ -134,6 +134,37 @@ data class IdInquilinoRequest(
 )
 
 // ═════════════════════════════════════════════════════════════════════════════
+//  SERVICIOS DE CASA (LUZ, AGUA, GAS, ETC.)
+// ═════════════════════════════════════════════════════════════════════════════
+
+@Serializable
+data class ServicioCasa(
+    @SerialName("id_servicio")       val idServicio:       String,
+    val nombre:                                            String,
+    @SerialName("monto_referencial") val montoReferencial: String,
+    @SerialName("dia_vencimiento")   val diaVencimiento:   Int,
+    @SerialName("id_pago")           val idPago:           String? = null,
+    @SerialName("monto_pagado")      val montoPagado:      String? = null,
+    @SerialName("fecha_pago")        val fechaPago:        String? = null,
+    val pagado:                                            Boolean,
+    @SerialName("dias_restantes")    val diasRestantes:    Int
+) {
+    val etiquetaDias: String get() = when {
+        pagado              -> "Pagado este mes ✓"
+        diasRestantes < 0   -> "Vencido hace ${-diasRestantes}d"
+        diasRestantes == 0  -> "¡Vence HOY!"
+        diasRestantes <= 5  -> "${diasRestantes}d para vencer"
+        else                -> "${diasRestantes}d restantes"
+    }
+}
+
+@Serializable
+data class PagarServicioRequest(
+    @SerialName("id_servicio") val idServicio: String,
+    @SerialName("id_usuario")  val idUsuario:  String
+)
+
+// ═════════════════════════════════════════════════════════════════════════════
 //  ESTADO GENÉRICO DE UI
 // ═════════════════════════════════════════════════════════════════════════════
 

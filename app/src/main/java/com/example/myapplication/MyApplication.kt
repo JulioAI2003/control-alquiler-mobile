@@ -2,8 +2,11 @@
 package com.example.myapplication
 
 import android.app.Application
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import com.example.myapplication.data.local.SessionDataStore
 import com.example.myapplication.data.remote.AlquilerApiClient
+import com.example.myapplication.worker.CobroCheckWorker
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
@@ -48,6 +51,19 @@ class MyApplication : Application() {
 
         // Retrofit usa esta lambda en cada petición: siempre lee el token actual.
         AlquilerApiClient.init { cachedToken }
+
+        crearCanalNotificaciones()
+    }
+
+    private fun crearCanalNotificaciones() {
+        val canal = NotificationChannel(
+            CobroCheckWorker.CHANNEL_ID,
+            "Cobros y Servicios",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "Alertas de cobros de inquilinos y servicios pendientes o vencidos"
+        }
+        getSystemService(NotificationManager::class.java).createNotificationChannel(canal)
     }
 
     /** Decodifica el payload JWT y comprueba si el campo `exp` ya pasó. */

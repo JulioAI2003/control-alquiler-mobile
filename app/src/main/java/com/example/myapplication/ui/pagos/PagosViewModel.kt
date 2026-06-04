@@ -32,6 +32,12 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
     private val _retiroState = MutableStateFlow<UiState<String>>(UiState.Idle)
     val retiroState: StateFlow<UiState<String>> = _retiroState.asStateFlow()
 
+    private val _serviciosState = MutableStateFlow<UiState<List<ServicioCasa>>>(UiState.Idle)
+    val serviciosState: StateFlow<UiState<List<ServicioCasa>>> = _serviciosState.asStateFlow()
+
+    private val _pagarServicioState = MutableStateFlow<UiState<String>>(UiState.Idle)
+    val pagarServicioState: StateFlow<UiState<String>> = _pagarServicioState.asStateFlow()
+
     fun cargarPagos() {
         viewModelScope.launch {
             _pagosState.value = UiState.Loading
@@ -141,6 +147,36 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
 
     fun resetRetiroState() {
         _retiroState.value = UiState.Idle
+    }
+
+    fun cargarServicios() {
+        viewModelScope.launch {
+            _serviciosState.value = UiState.Loading
+            try {
+                val idUsuario = app.sessionDataStore.userId.first() ?: return@launch
+                _serviciosState.value = UiState.Success(AlquilerApiClient.service.getServicios(idUsuario))
+            } catch (e: Exception) {
+                _serviciosState.value = UiState.Error(e.message ?: "Error al cargar servicios")
+            }
+        }
+    }
+
+    fun pagarServicio(idServicio: String) {
+        viewModelScope.launch {
+            _pagarServicioState.value = UiState.Loading
+            try {
+                val idUsuario = app.sessionDataStore.userId.first() ?: return@launch
+                val resp = AlquilerApiClient.service.pagarServicio(PagarServicioRequest(idServicio, idUsuario))
+                _pagarServicioState.value = UiState.Success(resp.message)
+                cargarServicios()
+            } catch (e: Exception) {
+                _pagarServicioState.value = UiState.Error(e.message ?: "Error al pagar servicio")
+            }
+        }
+    }
+
+    fun resetPagarServicioState() {
+        _pagarServicioState.value = UiState.Idle
     }
 
     private fun PagoBackend.toInquilinoUi(hoy: LocalDate): Inquilino {

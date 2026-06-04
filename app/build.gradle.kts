@@ -101,6 +101,9 @@ dependencies {
     // ── Coroutines ────────────────────────────────────────────────────────────
     implementation(libs.kotlinx.coroutines.android)
 
+    // ── WorkManager (notificaciones locales en segundo plano) ─────────────────
+    implementation(libs.androidx.work.runtime)
+
     // ── Tests ─────────────────────────────────────────────────────────────────
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

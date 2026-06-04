@@ -15,6 +15,7 @@ datastore            = "1.1.7"
 coroutines           = "1.10.2"
 splashscreen         = "1.0.1"
 material             = "1.12.0"
+workManager          = "2.9.1"
 junit                = "4.13.2"
 junitVersion         = "1.2.1"
 espressoCore         = "3.6.1"
@@ -55,6 +56,9 @@ androidx-datastore           = { group = "androidx.datastore",        name = "da
 
 # Coroutines
 kotlinx-coroutines-android   = { group = "org.jetbrains.kotlinx",    name = "kotlinx-coroutines-android",             version.ref = "coroutines"         }
+
+# WorkManager
+androidx-work-runtime        = { group = "androidx.work",            name = "work-runtime-ktx",         version.ref = "workManager" }
 
 # Tests
 junit                        = { group = "junit",                     name = "junit",                                  version.ref = "junit"              }

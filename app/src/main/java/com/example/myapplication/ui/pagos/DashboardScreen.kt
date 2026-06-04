@@ -30,6 +30,7 @@ import com.example.myapplication.MyApplication
 import com.example.myapplication.data.model.EstadoPago
 import com.example.myapplication.data.model.Inquilino
 import com.example.myapplication.data.model.InquilinoMobile
+import com.example.myapplication.data.model.ServicioCasa
 import com.example.myapplication.data.model.UiState
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
@@ -44,6 +45,13 @@ private fun Inquilino.colores(): EstadoColores = when (estadoPago) {
     EstadoPago.VENCIDO    -> coloresVencido
     EstadoPago.POR_VENCER -> coloresPorVencer
     EstadoPago.AL_DIA     -> coloresAlDia
+}
+
+private fun ServicioCasa.colores(): EstadoColores = when {
+    pagado             -> coloresAlDia
+    diasRestantes < 0  -> coloresVencido
+    diasRestantes <= 5 -> coloresPorVencer
+    else               -> coloresAlDia
 }
 
 private val AzulPrimario = Color(0xFF1A237E)
@@ -61,14 +69,23 @@ fun DashboardScreen(onLogout: () -> Unit) {
     // Estados para Modales
     var inquilinoDetalle by remember { mutableStateOf<Inquilino?>(null) }
     var inquilinoAConfirmar by remember { mutableStateOf<Inquilino?>(null) }
+    var servicioAConfirmar by remember { mutableStateOf<ServicioCasa?>(null) }
     var mensajeExito by remember { mutableStateOf<String?>(null) }
 
     val pagoRapidoState by vm.pagoRapidoState.collectAsStateWithLifecycle()
+    val pagarServicioState by vm.pagarServicioState.collectAsStateWithLifecycle()
 
     LaunchedEffect(pagoRapidoState) {
         if (pagoRapidoState is UiState.Success) {
             mensajeExito = (pagoRapidoState as UiState.Success<String>).data
             vm.resetPagoRapidoState()
+        }
+    }
+
+    LaunchedEffect(pagarServicioState) {
+        if (pagarServicioState is UiState.Success) {
+            mensajeExito = (pagarServicioState as UiState.Success<String>).data
+            vm.resetPagarServicioState()
         }
     }
 
@@ -99,6 +116,13 @@ fun DashboardScreen(onLogout: () -> Unit) {
                     onClick = { currentScreen = "inquilinos"; scope.launch { drawerState.close() } },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.ElectricBolt, null) },
+                    label = { Text("Servicios") },
+                    selected = currentScreen == "servicios",
+                    onClick = { currentScreen = "servicios"; scope.launch { drawerState.close() } },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
                 HorizontalDivider(Modifier.padding(vertical = 12.dp, horizontal = 24.dp))
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Default.Logout, null, tint = Color.Red) },
@@ -113,7 +137,7 @@ fun DashboardScreen(onLogout: () -> Unit) {
         Scaffold(
             topBar = {
                 CenterAlignedTopAppBar(
-                    title = { Text(when(currentScreen) { "pendientes" -> "Cobros"; "pagados" -> "Pagados"; else -> "Inquilinos" }, fontWeight = FontWeight.ExtraBold) },
+                    title = { Text(when(currentScreen) { "pendientes" -> "Cobros"; "pagados" -> "Pagados"; "servicios" -> "Servicios"; else -> "Inquilinos" }, fontWeight = FontWeight.ExtraBold) },
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
                             Icon(Icons.Default.Menu, "Menú")
@@ -132,8 +156,9 @@ fun DashboardScreen(onLogout: () -> Unit) {
                         onCardClick = { inquilinoDetalle = it },
                         onPagarClick = { inquilinoAConfirmar = it }
                     )
-                    "pagados" -> SeccionPagados(vm)
-                    else -> SeccionInquilinos(vm)
+                    "pagados"   -> SeccionPagados(vm)
+                    "servicios" -> SeccionServicios(vm, onPagarClick = { servicioAConfirmar = it })
+                    else        -> SeccionInquilinos(vm)
                 }
             }
         }
@@ -146,7 +171,7 @@ fun DashboardScreen(onLogout: () -> Unit) {
         DetalleBottomSheet(inquilinoDetalle!!, onDismiss = { inquilinoDetalle = null })
     }
 
-    // 2. Confirmación (Click en Botón S/)
+    // 2a. Confirmación pago de inquilino
     if (inquilinoAConfirmar != null) {
         AlertDialog(
             onDismissRequest = { inquilinoAConfirmar = null },
@@ -161,6 +186,25 @@ fun DashboardScreen(onLogout: () -> Unit) {
             dismissButton = { TextButton(onClick = { inquilinoAConfirmar = null }) { Text("Cancelar") } },
             title = { Text("Confirmar Pago") },
             text = { Text("¿Deseas registrar el pago de ${inquilinoAConfirmar?.nombre}?") }
+        )
+    }
+
+    // 2b. Confirmación pago de servicio
+    if (servicioAConfirmar != null) {
+        AlertDialog(
+            onDismissRequest = { servicioAConfirmar = null },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        vm.pagarServicio(servicioAConfirmar!!.idServicio)
+                        servicioAConfirmar = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AzulPrimario)
+                ) { Text("Sí, registrar pago") }
+            },
+            dismissButton = { TextButton(onClick = { servicioAConfirmar = null }) { Text("Cancelar") } },
+            title = { Text("Confirmar Pago") },
+            text = { Text("¿Registrar pago de ${servicioAConfirmar?.nombre}?\nMonto: S/ ${servicioAConfirmar?.montoReferencial}") }
         )
     }
 
@@ -447,6 +491,75 @@ fun SeccionInquilinos(vm: PagosViewModel) {
             title = { Text("Confirmar Retiro") },
             text  = { Text("¿Está seguro de retirar a ${inquilinoARetirar?.nombre}? Tendrá 3 días para cancelar la acción antes de que sea definitivo.") }
         )
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+//  SECCIÓN SERVICIOS
+// ──────────────────────────────────────────────────────────────────────────────
+
+@Composable
+fun SeccionServicios(vm: PagosViewModel, onPagarClick: (ServicioCasa) -> Unit) {
+    val state by vm.serviciosState.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { vm.cargarServicios() }
+
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Text("Servicios del mes actual", fontWeight = FontWeight.Bold, color = Color.Gray)
+        Spacer(Modifier.height(12.dp))
+        when (val s = state) {
+            is UiState.Success -> {
+                if (s.data.isEmpty()) {
+                    Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        Text("No hay servicios registrados.\nCrea uno desde la web.", color = Color.Gray)
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(s.data, key = { it.idServicio }) { srv ->
+                            val colores = srv.colores()
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = colores.fondo),
+                                border = BorderStroke(1.dp, colores.borde.copy(alpha = 0.5f)),
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        Modifier.size(44.dp).clip(CircleShape).background(colores.borde),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(srv.nombre.take(1), color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
+                                    Spacer(Modifier.width(16.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(srv.nombre, fontWeight = FontWeight.Bold, color = colores.texto, fontSize = 16.sp)
+                                        Text(srv.etiquetaDias, fontSize = 12.sp, color = colores.texto, fontWeight = FontWeight.ExtraBold)
+                                        Text("Día ${srv.diaVencimiento} de cada mes", fontSize = 11.sp, color = Color.DarkGray)
+                                    }
+                                    if (srv.pagado) {
+                                        Icon(Icons.Default.CheckCircle, null, tint = colores.borde, modifier = Modifier.size(32.dp))
+                                    } else {
+                                        Button(
+                                            onClick = { onPagarClick(srv) },
+                                            colors = ButtonDefaults.buttonColors(containerColor = colores.borde),
+                                            shape = RoundedCornerShape(10.dp),
+                                            contentPadding = PaddingValues(horizontal = 12.dp)
+                                        ) {
+                                            Text("S/ ${"%.2f".format(srv.montoReferencial.toDoubleOrNull() ?: 0.0)}", fontWeight = FontWeight.Black)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            is UiState.Loading -> Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            is UiState.Error   -> Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { Text(s.message, color = Color.Red) }
+            else -> Unit
+        }
     }
 }
 
