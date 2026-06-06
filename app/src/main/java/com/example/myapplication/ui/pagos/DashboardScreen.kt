@@ -14,6 +14,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -538,55 +540,65 @@ fun SeccionInquilinos(vm: PagosViewModel) {
 // ──────────────────────────────────────────────────────────────────────────────
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun SeccionServicios(vm: PagosViewModel, onPagarClick: (ServicioCasa) -> Unit) {
     val state by vm.serviciosState.collectAsStateWithLifecycle()
+    val isRefreshing = state is UiState.Loading
+    val pullState = rememberPullToRefreshState()
     LaunchedEffect(Unit) { vm.cargarServicios() }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Servicios pendientes", fontWeight = FontWeight.Bold, color = Color.Gray)
         Spacer(Modifier.height(12.dp))
-        when (val s = state) {
-            is UiState.Success -> {
-                if (s.data.isEmpty()) {
-                    Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                        Text("No hay servicios registrados.\nCrea uno desde la web.", color = Color.Gray)
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(s.data, key = { "${it.idServicio}-${it.mes}-${it.anio}" }) { srv ->
-                            val colores = srv.colores()
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = colores.fondo),
-                                border = BorderStroke(1.dp, colores.borde.copy(alpha = 0.5f)),
-                                shape = RoundedCornerShape(16.dp)
-                            ) {
-                                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        Modifier.size(44.dp).clip(CircleShape).background(colores.borde),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(srv.nombre.take(1), color = Color.White, fontWeight = FontWeight.Bold)
-                                    }
-                                    Spacer(Modifier.width(16.dp))
-                                    Column(Modifier.weight(1f)) {
-                                        Text(srv.nombre, fontWeight = FontWeight.Bold, color = colores.texto, fontSize = 16.sp)
-                                        Text(srv.etiquetaDias, fontSize = 12.sp, color = colores.texto, fontWeight = FontWeight.ExtraBold)
-                                        Text("${srv.nombreMes} ${srv.anio} · Día ${srv.dia}", fontSize = 11.sp, color = Color.DarkGray)
-                                    }
-                                    if (srv.pagado) {
-                                        Icon(Icons.Default.CheckCircle, null, tint = colores.borde, modifier = Modifier.size(32.dp))
-                                    } else {
-                                        Button(
-                                            onClick = { onPagarClick(srv) },
-                                            colors = ButtonDefaults.buttonColors(containerColor = colores.borde),
-                                            shape = RoundedCornerShape(10.dp),
-                                            contentPadding = PaddingValues(horizontal = 12.dp)
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh    = { vm.cargarServicios() },
+            state        = pullState,
+            modifier     = Modifier.weight(1f)
+        ) {
+            when (val s = state) {
+                is UiState.Success -> {
+                    if (s.data.isEmpty()) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("No hay servicios pendientes.\nDesliza hacia abajo para actualizar.", color = Color.Gray)
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(s.data, key = { "${it.idServicio}-${it.mes}-${it.anio}" }) { srv ->
+                                val colores = srv.colores()
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(containerColor = colores.fondo),
+                                    border = BorderStroke(1.dp, colores.borde.copy(alpha = 0.5f)),
+                                    shape = RoundedCornerShape(16.dp)
+                                ) {
+                                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            Modifier.size(44.dp).clip(CircleShape).background(colores.borde),
+                                            contentAlignment = Alignment.Center
                                         ) {
-                                            Text("S/ ${"%.2f".format(srv.montoReferencial.toDoubleOrNull() ?: 0.0)}", fontWeight = FontWeight.Black)
+                                            Text(srv.nombre.take(1), color = Color.White, fontWeight = FontWeight.Bold)
+                                        }
+                                        Spacer(Modifier.width(16.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Text(srv.nombre, fontWeight = FontWeight.Bold, color = colores.texto, fontSize = 16.sp)
+                                            Text(srv.etiquetaDias, fontSize = 12.sp, color = colores.texto, fontWeight = FontWeight.ExtraBold)
+                                            Text("${srv.nombreMes} ${srv.anio} · Día ${srv.dia}", fontSize = 11.sp, color = Color.DarkGray)
+                                        }
+                                        if (srv.pagado) {
+                                            Icon(Icons.Default.CheckCircle, null, tint = colores.borde, modifier = Modifier.size(32.dp))
+                                        } else {
+                                            Button(
+                                                onClick = { onPagarClick(srv) },
+                                                colors = ButtonDefaults.buttonColors(containerColor = colores.borde),
+                                                shape = RoundedCornerShape(10.dp),
+                                                contentPadding = PaddingValues(horizontal = 12.dp)
+                                            ) {
+                                                Text("S/ ${"%.2f".format(srv.montoReferencial.toDoubleOrNull() ?: 0.0)}", fontWeight = FontWeight.Black)
+                                            }
                                         }
                                     }
                                 }
@@ -594,10 +606,9 @@ fun SeccionServicios(vm: PagosViewModel, onPagarClick: (ServicioCasa) -> Unit) {
                         }
                     }
                 }
+                is UiState.Error -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(s.message, color = Color.Red) }
+                else -> Unit
             }
-            is UiState.Loading -> Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-            is UiState.Error   -> Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { Text(s.message, color = Color.Red) }
-            else -> Unit
         }
     }
 }
