@@ -161,12 +161,14 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
         }
     }
 
-    fun pagarServicio(idServicio: String) {
+    fun pagarServicio(idServicio: String, idPago: String? = null, montoPagado: Double? = null) {
         viewModelScope.launch {
             _pagarServicioState.value = UiState.Loading
             try {
                 val idUsuario = app.sessionDataStore.userId.first() ?: return@launch
-                val resp = AlquilerApiClient.service.pagarServicio(PagarServicioRequest(idServicio, idUsuario))
+                val resp = AlquilerApiClient.service.pagarServicio(
+                    PagarServicioRequest(idServicio, idUsuario, idPago, montoPagado)
+                )
                 _pagarServicioState.value = UiState.Success(resp.message)
                 cargarServicios()
             } catch (e: Exception) {

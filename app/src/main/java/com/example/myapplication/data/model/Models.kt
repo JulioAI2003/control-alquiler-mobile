@@ -141,19 +141,24 @@ data class IdInquilinoRequest(
  *  Arquitectura idéntica a [Inquilino]: el cron lo genera, el usuario lo paga. */
 @Serializable
 data class ServicioCasa(
-    @SerialName("id_pago")               val idPago:          String? = null,
-    @SerialName("id_servicio")           val idServicio:      String,
-    val nombre:                                               String,
-    // Saldo pendiente actual (= monto_original_mensual si aún no pagó)
-    @SerialName("monto_referencial")     val montoReferencial: String,
-    @SerialName("monto_original_mensual") val montoOriginal:   String,
+    @SerialName("id_pago")                val idPago:          String? = null,
+    @SerialName("id_servicio")            val idServicio:      String,
+    val nombre:                                                String,
+    @SerialName("monto_referencial")      val montoReferencial: String,
+    @SerialName("monto_original_mensual") val montoOriginal:   String? = null,
     val dia:                                                   Int,
-    @SerialName("mes_correspondiente")   val mes:             Int,
-    @SerialName("anio_correspondiente")  val anio:            Int,
+    @SerialName("mes_correspondiente")    val mes:             Int,
+    @SerialName("anio_correspondiente")   val anio:            Int,
     val pagado:                                               Boolean,
-    @SerialName("fecha_pago")            val fechaPago:       String? = null,
-    @SerialName("dias_restantes")        val diasRestantes:   Int
+    @SerialName("precio_fijo")            val precioFijo:      Boolean = true,
+    @SerialName("fecha_pago")             val fechaPago:       String? = null,
+    @SerialName("dias_restantes")         val diasRestantes:   Int
 ) {
+    val nombreMes: String get() = listOf(
+        "", "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+        "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
+    ).getOrElse(mes) { mes.toString() }
+
     val etiquetaDias: String get() = when {
         pagado              -> "Pagado este mes ✓"
         diasRestantes < 0   -> "Vencido hace ${-diasRestantes}d"
@@ -165,8 +170,10 @@ data class ServicioCasa(
 
 @Serializable
 data class PagarServicioRequest(
-    @SerialName("id_servicio") val idServicio: String,
-    @SerialName("id_usuario")  val idUsuario:  String
+    @SerialName("id_servicio")   val idServicio:  String,
+    @SerialName("id_usuario")    val idUsuario:   String,
+    @SerialName("id_pago")       val idPago:      String? = null,
+    @SerialName("monto_pagado")  val montoPagado: Double? = null
 )
 
 // ═════════════════════════════════════════════════════════════════════════════

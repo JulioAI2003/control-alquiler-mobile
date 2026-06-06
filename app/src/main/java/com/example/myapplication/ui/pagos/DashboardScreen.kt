@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -21,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.myapplication.R
@@ -70,7 +72,11 @@ fun DashboardScreen(onLogout: () -> Unit) {
     var inquilinoDetalle by remember { mutableStateOf<Inquilino?>(null) }
     var inquilinoAConfirmar by remember { mutableStateOf<Inquilino?>(null) }
     var servicioAConfirmar by remember { mutableStateOf<ServicioCasa?>(null) }
+    var montoIngresadoServicio by remember { mutableStateOf("") }
     var mensajeExito by remember { mutableStateOf<String?>(null) }
+
+    // Reset monto al abrir/cerrar el diálogo de servicio
+    LaunchedEffect(servicioAConfirmar) { montoIngresadoServicio = "" }
 
     val pagoRapidoState by vm.pagoRapidoState.collectAsStateWithLifecycle()
     val pagarServicioState by vm.pagarServicioState.collectAsStateWithLifecycle()
@@ -191,20 +197,54 @@ fun DashboardScreen(onLogout: () -> Unit) {
 
     // 2b. Confirmación pago de servicio
     if (servicioAConfirmar != null) {
+        val srv = servicioAConfirmar!!
+        val esPrecioFijo = srv.precioFijo
+        val montoValido = esPrecioFijo || montoIngresadoServicio.toDoubleOrNull() != null
+
         AlertDialog(
             onDismissRequest = { servicioAConfirmar = null },
             confirmButton = {
                 Button(
                     onClick = {
-                        vm.pagarServicio(servicioAConfirmar!!.idServicio)
+                        val monto = if (esPrecioFijo) null else montoIngresadoServicio.toDoubleOrNull()
+                        vm.pagarServicio(
+                            idServicio = srv.idServicio,
+                            idPago     = srv.idPago,
+                            montoPagado = monto
+                        )
                         servicioAConfirmar = null
                     },
+                    enabled = montoValido,
                     colors = ButtonDefaults.buttonColors(containerColor = AzulPrimario)
                 ) { Text("Sí, registrar pago") }
             },
             dismissButton = { TextButton(onClick = { servicioAConfirmar = null }) { Text("Cancelar") } },
             title = { Text("Confirmar Pago") },
-            text = { Text("¿Registrar pago de ${servicioAConfirmar?.nombre}?\nMonto: S/ ${servicioAConfirmar?.montoReferencial}") }
+            text = {
+                Column {
+                    Text("${srv.nombre} · ${srv.nombreMes} ${srv.anio}")
+                    Spacer(Modifier.height(8.dp))
+                    if (esPrecioFijo) {
+                        Text("Monto: S/ ${"%.2f".format(srv.montoReferencial.toDoubleOrNull() ?: 0.0)}")
+                    } else {
+                        Text(
+                            "Precio variable — ingrese el monto real de este mes:",
+                            fontSize = 13.sp, color = Color.Gray
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = montoIngresadoServicio,
+                            onValueChange = { v ->
+                                montoIngresadoServicio = v.filter { it.isDigit() || it == '.' }
+                            },
+                            label = { Text("Monto (S/)") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            }
         )
     }
 
@@ -503,7 +543,7 @@ fun SeccionServicios(vm: PagosViewModel, onPagarClick: (ServicioCasa) -> Unit) {
     LaunchedEffect(Unit) { vm.cargarServicios() }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Servicios del mes actual", fontWeight = FontWeight.Bold, color = Color.Gray)
+        Text("Servicios pendientes", fontWeight = FontWeight.Bold, color = Color.Gray)
         Spacer(Modifier.height(12.dp))
         when (val s = state) {
             is UiState.Success -> {
@@ -516,7 +556,7 @@ fun SeccionServicios(vm: PagosViewModel, onPagarClick: (ServicioCasa) -> Unit) {
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(s.data, key = { it.idServicio }) { srv ->
+                        items(s.data, key = { "${it.idServicio}-${it.mes}-${it.anio}" }) { srv ->
                             val colores = srv.colores()
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
@@ -535,7 +575,7 @@ fun SeccionServicios(vm: PagosViewModel, onPagarClick: (ServicioCasa) -> Unit) {
                                     Column(Modifier.weight(1f)) {
                                         Text(srv.nombre, fontWeight = FontWeight.Bold, color = colores.texto, fontSize = 16.sp)
                                         Text(srv.etiquetaDias, fontSize = 12.sp, color = colores.texto, fontWeight = FontWeight.ExtraBold)
-                                        Text("Día ${srv.dia} de cada mes", fontSize = 11.sp, color = Color.DarkGray)
+                                        Text("${srv.nombreMes} ${srv.anio} · Día ${srv.dia}", fontSize = 11.sp, color = Color.DarkGray)
                                     }
                                     if (srv.pagado) {
                                         Icon(Icons.Default.CheckCircle, null, tint = colores.borde, modifier = Modifier.size(32.dp))
