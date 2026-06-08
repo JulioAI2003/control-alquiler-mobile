@@ -27,6 +27,7 @@ import com.example.myapplication.data.model.UiState
 import com.example.myapplication.data.remote.AlquilerApiClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -42,9 +43,11 @@ class CambiarPasswordViewModel(private val app: MyApplication) : ViewModel() {
     fun cambiarPassword(passwordActual: String, passwordNuevo: String) {
         viewModelScope.launch {
             _state.value = UiState.Loading
+            // Leer el id_usuario guardado en DataStore al momento del login
+            val idUsuario = app.sessionDataStore.userId.first().orEmpty()
             try {
                 val resp = AlquilerApiClient.service.cambiarPassword(
-                    CambiarPasswordRequest(passwordActual, passwordNuevo)
+                    CambiarPasswordRequest(idUsuario, passwordActual, passwordNuevo)
                 )
                 // Persiste el nuevo token — este dispositivo no pierde la sesión.
                 app.sessionDataStore.actualizarToken(resp.token)

@@ -182,6 +182,7 @@ data class PagarServicioRequest(
 
 @Serializable
 data class CambiarPasswordRequest(
+    @SerialName("id_usuario")      val idUsuario:      String,
     @SerialName("password_actual") val passwordActual: String,
     @SerialName("password_nuevo")  val passwordNuevo:  String
 )
