@@ -16,10 +16,10 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.myapplication"
+        applicationId = "com.example.myapplication2"
         minSdk        = 26          // java.time.LocalDate sin desugaring
         targetSdk     = 35
-        versionCode   = 1
+        versionCode   = 99
         versionName   = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
