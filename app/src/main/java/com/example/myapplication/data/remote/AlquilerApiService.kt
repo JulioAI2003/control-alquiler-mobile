@@ -38,4 +38,9 @@ interface AlquilerApiService {
 
     @POST("mobile/servicios/pagar")
     suspend fun pagarServicio(@Body body: PagarServicioRequest): PagoRegistradoResponse
+
+    // --- CAMBIO DE CONTRASEÑA ---
+
+    @POST("cambiar-password")
+    suspend fun cambiarPassword(@Body body: CambiarPasswordRequest): CambiarPasswordResponse
 }

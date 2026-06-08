@@ -177,6 +177,22 @@ data class PagarServicioRequest(
 )
 
 // ═════════════════════════════════════════════════════════════════════════════
+//  CAMBIO DE CONTRASEÑA
+// ═════════════════════════════════════════════════════════════════════════════
+
+@Serializable
+data class CambiarPasswordRequest(
+    @SerialName("password_actual") val passwordActual: String,
+    @SerialName("password_nuevo")  val passwordNuevo:  String
+)
+
+@Serializable
+data class CambiarPasswordResponse(
+    val token:   String,
+    val message: String
+)
+
+// ═════════════════════════════════════════════════════════════════════════════
 //  ESTADO GENÉRICO DE UI
 // ═════════════════════════════════════════════════════════════════════════════
 

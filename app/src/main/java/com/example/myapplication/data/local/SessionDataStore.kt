@@ -45,6 +45,11 @@ class SessionDataStore(private val context: Context) {
         }
     }
 
+    /** Actualiza solo el JWT sin tocar userId/nombre/rol (usado al cambiar contraseña). */
+    suspend fun actualizarToken(token: String) {
+        context.dataStore.edit { prefs -> prefs[KEY_TOKEN] = token }
+    }
+
     /** Borra todos los datos de sesión (logout). */
     suspend fun limpiarSesion() {
         context.dataStore.edit { it.clear() }

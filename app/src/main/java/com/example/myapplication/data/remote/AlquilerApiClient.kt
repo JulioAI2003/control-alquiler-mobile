@@ -26,7 +26,7 @@ object AlquilerApiClient {
      * [tokenProvider] es una lambda que devuelve el JWT en memoria;
      * esto permite que el interceptor siempre lea el token actualizado.
      */
-    fun init(tokenProvider: () -> String?) {
+    fun init(tokenProvider: () -> String?, onUnauthorized: () -> Unit = {}) {
         if (_service != null) return   // idempotente
 
         // JSON permisivo: ignora campos desconocidos del backend.
@@ -48,7 +48,7 @@ object AlquilerApiClient {
         }
 
         val okHttp = OkHttpClient.Builder()
-            .addInterceptor(AuthInterceptor(tokenProvider))
+            .addInterceptor(AuthInterceptor(tokenProvider, onUnauthorized))
             .addInterceptor(logging)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)

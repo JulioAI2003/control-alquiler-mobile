@@ -11,6 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.core.app.ActivityCompat
@@ -24,6 +25,7 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.example.myapplication.ui.auth.CambiarPasswordScreen
 import com.example.myapplication.ui.auth.LoginScreen
 import com.example.myapplication.ui.pagos.DashboardScreen
 import com.example.myapplication.ui.theme.MyApplicationTheme
@@ -86,6 +88,15 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val navController = rememberNavController()
 
+                    // Navega a Login cuando el servidor invalida el token (contraseña cambiada).
+                    LaunchedEffect(Unit) {
+                        app.sessionExpired.collect {
+                            navController.navigate("login") {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }
+                    }
+
                     NavHost(
                         navController    = navController,
                         startDestination = startDestination
@@ -95,7 +106,6 @@ class MainActivity : ComponentActivity() {
                         composable("login") {
                             LoginScreen(
                                 onLoginSuccess = {
-                                    // Sustituye Login por Dashboard en el back-stack
                                     navController.navigate("dashboard") {
                                         popUpTo("login") { inclusive = true }
                                     }
@@ -107,11 +117,20 @@ class MainActivity : ComponentActivity() {
                         composable("dashboard") {
                             DashboardScreen(
                                 onLogout = {
-                                    // Sustituye Dashboard por Login en el back-stack
                                     navController.navigate("login") {
                                         popUpTo("dashboard") { inclusive = true }
                                     }
+                                },
+                                onCambiarPassword = {
+                                    navController.navigate("cambiar-password")
                                 }
+                            )
+                        }
+
+                        // ── CAMBIAR CONTRASEÑA ────────────────────────────────
+                        composable("cambiar-password") {
+                            CambiarPasswordScreen(
+                                onBack = { navController.popBackStack() }
                             )
                         }
                     }

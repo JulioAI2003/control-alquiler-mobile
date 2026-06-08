@@ -62,7 +62,7 @@ private val AzulPrimario = Color(0xFF1A237E)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DashboardScreen(onLogout: () -> Unit) {
+fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
     val app = LocalContext.current.applicationContext as MyApplication
     val vm: PagosViewModel = viewModel(factory = PagosViewModel.factory(app))
     
@@ -132,6 +132,13 @@ fun DashboardScreen(onLogout: () -> Unit) {
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
                 HorizontalDivider(Modifier.padding(vertical = 12.dp, horizontal = 24.dp))
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.Lock, null) },
+                    label = { Text("Cambiar contraseña") },
+                    selected = false,
+                    onClick = { scope.launch { drawerState.close() }; onCambiarPassword() },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Default.Logout, null, tint = Color.Red) },
                     label = { Text("Cerrar Sesión", color = Color.Red) },
