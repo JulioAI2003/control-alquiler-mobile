@@ -28,6 +28,8 @@ import com.example.myapplication.data.remote.AlquilerApiClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import retrofit2.HttpException
 
 // ─── ViewModel ────────────────────────────────────────────────────────────────
@@ -49,8 +51,18 @@ class CambiarPasswordViewModel(private val app: MyApplication) : ViewModel() {
                 app.updateToken(resp.token)
                 _state.value = UiState.Success(resp.message)
             } catch (e: HttpException) {
-                val msg = when (e.code()) {
-                    401 -> "Contraseña actual incorrecta."
+                // Intenta leer el mensaje de error que devuelve el servidor
+                val serverMsg = try {
+                    e.response()?.errorBody()?.string()
+                        ?.let { body ->
+                            errorJson.parseToJsonElement(body)
+                                .jsonObject["message"]?.jsonPrimitive?.content
+                        }
+                } catch (_: Exception) { null }
+
+                val msg = when {
+                    e.code() == 401 -> "Contraseña actual incorrecta."
+                    !serverMsg.isNullOrBlank() -> serverMsg
                     else -> "Error al cambiar la contraseña (${e.code()})."
                 }
                 _state.value = UiState.Error(msg)
@@ -63,6 +75,8 @@ class CambiarPasswordViewModel(private val app: MyApplication) : ViewModel() {
     fun resetState() { _state.value = UiState.Idle }
 
     companion object {
+        private val errorJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+
         fun factory(app: MyApplication) = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>) =
@@ -91,7 +105,8 @@ fun CambiarPasswordScreen(onBack: () -> Unit) {
     var mostrarNuevo   by remember { mutableStateOf(false) }
     var mostrarConfirm by remember { mutableStateOf(false) }
 
-    val confirmError = passwordConfirm.isNotBlank() && passwordNuevo != passwordConfirm
+    val longitudError = passwordNuevo.isNotBlank() && passwordNuevo.length < 6
+    val confirmError  = passwordConfirm.isNotBlank() && passwordNuevo != passwordConfirm
 
     LaunchedEffect(state) {
         when (state) {
@@ -158,6 +173,8 @@ fun CambiarPasswordScreen(onBack: () -> Unit) {
                 label = { Text("Nueva contraseña") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
+                isError = longitudError,
+                supportingText = { if (longitudError) Text("Mínimo 6 caracteres") },
                 visualTransformation = if (mostrarNuevo) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 trailingIcon = {
@@ -195,7 +212,7 @@ fun CambiarPasswordScreen(onBack: () -> Unit) {
             Button(
                 onClick = { vm.cambiarPassword(passwordActual, passwordNuevo) },
                 enabled = passwordActual.isNotBlank()
-                        && passwordNuevo.isNotBlank()
+                        && passwordNuevo.length >= 6
                         && passwordNuevo == passwordConfirm
                         && state !is UiState.Loading,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
