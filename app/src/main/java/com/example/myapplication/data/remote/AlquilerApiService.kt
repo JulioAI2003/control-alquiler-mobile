@@ -31,6 +31,11 @@ interface AlquilerApiService {
     @POST("mobile/inquilino/cancelar-retiro")
     suspend fun cancelarRetiro(@Body body: IdInquilinoRequest): PagoRegistradoResponse
 
+    // --- SECCIÓN CUARTOS LIBRES ---
+
+    @GET("mobile/cuartos-libres")
+    suspend fun getCuartosLibres(@Query("id_usuario") idUsuario: String): List<CuartoLibre>
+
     // --- SECCIÓN SERVICIOS ---
 
     @GET("mobile/servicios")

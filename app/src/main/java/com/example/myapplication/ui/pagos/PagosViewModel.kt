@@ -35,6 +35,9 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
     private val _serviciosState = MutableStateFlow<UiState<List<ServicioCasa>>>(UiState.Idle)
     val serviciosState: StateFlow<UiState<List<ServicioCasa>>> = _serviciosState.asStateFlow()
 
+    private val _cuartosLibresState = MutableStateFlow<UiState<List<CuartoLibre>>>(UiState.Idle)
+    val cuartosLibresState: StateFlow<UiState<List<CuartoLibre>>> = _cuartosLibresState.asStateFlow()
+
     private val _pagarServicioState = MutableStateFlow<UiState<String>>(UiState.Idle)
     val pagarServicioState: StateFlow<UiState<String>> = _pagarServicioState.asStateFlow()
 
@@ -147,6 +150,19 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
 
     fun resetRetiroState() {
         _retiroState.value = UiState.Idle
+    }
+
+    fun cargarCuartosLibres() {
+        viewModelScope.launch {
+            _cuartosLibresState.value = UiState.Loading
+            try {
+                val idUsuario = app.sessionDataStore.userId.first() ?: return@launch
+                val lista = AlquilerApiClient.service.getCuartosLibres(idUsuario)
+                _cuartosLibresState.value = UiState.Success(lista)
+            } catch (e: Exception) {
+                _cuartosLibresState.value = UiState.Error(e.message ?: "Error al cargar cuartos libres")
+            }
+        }
     }
 
     fun cargarServicios() {

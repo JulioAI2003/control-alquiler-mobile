@@ -134,6 +134,21 @@ data class IdInquilinoRequest(
 )
 
 // ═════════════════════════════════════════════════════════════════════════════
+//  CUARTOS LIBRES (SECCIÓN MOBILE)
+// ═════════════════════════════════════════════════════════════════════════════
+
+@Serializable
+data class CuartoLibre(
+    @SerialName("id_cuarto")  val idCuarto:    String,
+    @SerialName("nro_cuarto") val nroCuarto:   String,
+    val precio:                                String? = null,
+    val descripcion:                           String? = null,
+    val garantia:                              String? = null,
+    val piso:                                  String,
+    val casa:                                  String
+)
+
+// ═════════════════════════════════════════════════════════════════════════════
 //  SERVICIOS DE CASA (LUZ, AGUA, GAS, ETC.)
 // ═════════════════════════════════════════════════════════════════════════════
 

@@ -33,6 +33,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.myapplication.MyApplication
 import com.example.myapplication.data.model.EstadoPago
 import com.example.myapplication.data.model.Inquilino
+import com.example.myapplication.data.model.CuartoLibre
 import com.example.myapplication.data.model.InquilinoMobile
 import com.example.myapplication.data.model.ServicioCasa
 import com.example.myapplication.data.model.UiState
@@ -125,6 +126,13 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
                 NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.MeetingRoom, null) },
+                    label = { Text("Cuartos Libres") },
+                    selected = currentScreen == "cuartos",
+                    onClick = { currentScreen = "cuartos"; scope.launch { drawerState.close() } },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
+                NavigationDrawerItem(
                     icon = { Icon(Icons.Default.ElectricBolt, null) },
                     label = { Text("Servicios") },
                     selected = currentScreen == "servicios",
@@ -152,7 +160,7 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
         Scaffold(
             topBar = {
                 CenterAlignedTopAppBar(
-                    title = { Text(when(currentScreen) { "pendientes" -> "Cobros"; "pagados" -> "Pagados"; "servicios" -> "Servicios"; else -> "Inquilinos" }, fontWeight = FontWeight.ExtraBold) },
+                    title = { Text(when(currentScreen) { "pendientes" -> "Cobros"; "pagados" -> "Pagados"; "servicios" -> "Servicios"; "cuartos" -> "Cuartos Libres"; else -> "Inquilinos" }, fontWeight = FontWeight.ExtraBold) },
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
                             Icon(Icons.Default.Menu, "Menú")
@@ -172,6 +180,7 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                         onPagarClick = { inquilinoAConfirmar = it }
                     )
                     "pagados"   -> SeccionPagados(vm)
+                    "cuartos"   -> SeccionCuartosLibres(vm)
                     "servicios" -> SeccionServicios(vm, onPagarClick = { servicioAConfirmar = it })
                     else        -> SeccionInquilinos(vm)
                 }
@@ -447,6 +456,7 @@ fun SeccionInquilinos(vm: PagosViewModel) {
 
     var inquilinoSeleccionado by remember { mutableStateOf<InquilinoMobile?>(null) }
     var inquilinoARetirar     by remember { mutableStateOf<InquilinoMobile?>(null) }
+    var filtroNombre by remember { mutableStateOf("") }
 
     // Cierra el bottom sheet y limpia el estado cuando la acción de retiro termina
     LaunchedEffect(retiroState) {
@@ -458,19 +468,50 @@ fun SeccionInquilinos(vm: PagosViewModel) {
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Inquilinos activos", fontWeight = FontWeight.Bold, color = Color.Gray)
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = filtroNombre,
+            onValueChange = { filtroNombre = it },
+            placeholder = { Text("Buscar por nombre…") },
+            leadingIcon = { Icon(Icons.Default.Search, null, tint = Color.Gray) },
+            trailingIcon = {
+                if (filtroNombre.isNotEmpty()) {
+                    IconButton(onClick = { filtroNombre = "" }) {
+                        Icon(Icons.Default.Close, "Limpiar", tint = Color.Gray)
+                    }
+                }
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = AzulPrimario,
+                unfocusedBorderColor = Color.LightGray,
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White
+            ),
+            modifier = Modifier.fillMaxWidth()
+        )
         Spacer(Modifier.height(12.dp))
         when (val s = state) {
             is UiState.Success -> {
-                if (s.data.isEmpty()) {
+                val filtrados = if (filtroNombre.isBlank()) s.data
+                else s.data.filter {
+                    "${it.nombre} ${it.apellidos}".contains(filtroNombre, ignoreCase = true)
+                }
+                if (filtrados.isEmpty()) {
                     Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                        Text("No hay inquilinos activos", color = Color.Gray)
+                        Text(
+                            if (s.data.isEmpty()) "No hay inquilinos activos"
+                            else "Sin resultados para \"$filtroNombre\"",
+                            color = Color.Gray
+                        )
                     }
                 } else {
                     LazyColumn(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(s.data, key = { it.idInquilino }) { inq ->
+                        items(filtrados, key = { it.idInquilino }) { inq ->
                             val esPendiente = inq.estado == "pendiente_retiro"
                             val bgColor     = if (esPendiente) Color(0xFFFFCDD2) else Color(0xFFC8E6C9)
                             val borderColor = if (esPendiente) Color(0xFFD32F2F) else Color(0xFF388E3C)
@@ -537,8 +578,173 @@ fun SeccionInquilinos(vm: PagosViewModel) {
             },
             dismissButton = { TextButton(onClick = { inquilinoARetirar = null }) { Text("Cancelar") } },
             title = { Text("Confirmar Retiro") },
-            text  = { Text("¿Está seguro de retirar a ${inquilinoARetirar?.nombre}? Tendrá 3 días para cancelar la acción antes de que sea definitivo.") }
+            text  = { Text("¿Está seguro de retirar a ${inquilinoARetirar?.nombre}? Tendrá 24 horas para cancelar la acción antes de que sea definitivo.") }
         )
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+//  SECCIÓN CUARTOS LIBRES
+// ──────────────────────────────────────────────────────────────────────────────
+
+private val coloresCuartoLibre = EstadoColores(Color(0xFFBBDEFB), Color(0xFF1565C0), Color(0xFF0D47A1))
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SeccionCuartosLibres(vm: PagosViewModel) {
+    val state by vm.cuartosLibresState.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { vm.cargarCuartosLibres() }
+
+    var cuartoSeleccionado by remember { mutableStateOf<CuartoLibre?>(null) }
+
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Text("Cuartos disponibles", fontWeight = FontWeight.Bold, color = Color.Gray)
+        Spacer(Modifier.height(12.dp))
+        when (val s = state) {
+            is UiState.Success -> {
+                if (s.data.isEmpty()) {
+                    Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF4CAF50),
+                                modifier = Modifier.size(64.dp)
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                "No hay cuartos libres",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp,
+                                color = Color(0xFF388E3C)
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "¡Todos los cuartos están ocupados!",
+                                fontSize = 14.sp,
+                                color = Color.Gray
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(s.data, key = { it.idCuarto }) { cuarto ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth().clickable { cuartoSeleccionado = cuarto },
+                                colors = CardDefaults.cardColors(containerColor = coloresCuartoLibre.fondo),
+                                border = BorderStroke(1.dp, coloresCuartoLibre.borde.copy(alpha = 0.5f)),
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        Modifier.size(44.dp).clip(CircleShape).background(coloresCuartoLibre.borde),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.MeetingRoom, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                                    }
+                                    Spacer(Modifier.width(16.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text("Cuarto ${cuarto.nroCuarto}", fontWeight = FontWeight.Bold, color = coloresCuartoLibre.texto, fontSize = 16.sp)
+                                        Text("${cuarto.casa} · ${cuarto.piso}", fontSize = 12.sp, color = Color.DarkGray)
+                                    }
+                                    val precio = cuarto.precio?.toDoubleOrNull()
+                                    if (precio != null) {
+                                        Text(
+                                            "S/ ${"%.2f".format(precio)}",
+                                            fontWeight = FontWeight.Black,
+                                            color = coloresCuartoLibre.borde,
+                                            fontSize = 14.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            is UiState.Loading -> Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            is UiState.Error   -> Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { Text(s.message, color = Color.Red) }
+            else -> Unit
+        }
+    }
+
+    if (cuartoSeleccionado != null) {
+        CuartoBottomSheet(cuarto = cuartoSeleccionado!!, onDismiss = { cuartoSeleccionado = null })
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CuartoBottomSheet(cuarto: CuartoLibre, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color.White) {
+        Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding()) {
+            Text("Detalle del Cuarto", fontWeight = FontWeight.Black, fontSize = 22.sp, color = AzulPrimario)
+            Spacer(Modifier.height(16.dp))
+            Row(Modifier.padding(vertical = 8.dp)) {
+                Icon(Icons.Default.MeetingRoom, null, tint = AzulPrimario)
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text("Cuarto", fontSize = 11.sp, color = Color.Gray)
+                    Text("Nro. ${cuarto.nroCuarto}", fontWeight = FontWeight.Bold)
+                }
+            }
+            Row(Modifier.padding(vertical = 8.dp)) {
+                Icon(Icons.Default.Home, null, tint = AzulPrimario)
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text("Ubicación", fontSize = 11.sp, color = Color.Gray)
+                    Text("${cuarto.casa} · ${cuarto.piso}", fontWeight = FontWeight.Bold)
+                }
+            }
+            val precio = cuarto.precio?.toDoubleOrNull()
+            if (precio != null) {
+                Row(Modifier.padding(vertical = 8.dp)) {
+                    Icon(Icons.Default.Payments, null, tint = AzulPrimario)
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text("Precio mensual", fontSize = 11.sp, color = Color.Gray)
+                        Text("S/ ${"%.2f".format(precio)}", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            val garantia = cuarto.garantia?.toDoubleOrNull()
+            if (garantia != null && garantia > 0) {
+                Row(Modifier.padding(vertical = 8.dp)) {
+                    Icon(Icons.Default.Shield, null, tint = AzulPrimario)
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text("Garantía", fontSize = 11.sp, color = Color.Gray)
+                        Text("S/ ${"%.2f".format(garantia)}", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            if (!cuarto.descripcion.isNullOrBlank()) {
+                Row(Modifier.padding(vertical = 8.dp)) {
+                    Icon(Icons.Default.Info, null, tint = AzulPrimario)
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text("Descripción", fontSize = 11.sp, color = Color.Gray)
+                        Text(cuarto.descripcion, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF388E3C))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Disponible", fontSize = 14.sp, color = Color(0xFF1B5E20), fontWeight = FontWeight.Bold)
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+            Button(onClick = onDismiss, Modifier.fillMaxWidth()) { Text("Cerrar") }
+        }
     }
 }
 
