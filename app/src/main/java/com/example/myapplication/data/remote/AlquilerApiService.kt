@@ -31,6 +31,9 @@ interface AlquilerApiService {
     @POST("mobile/inquilino/cancelar-retiro")
     suspend fun cancelarRetiro(@Body body: IdInquilinoRequest): PagoRegistradoResponse
 
+    @POST("mobile/inquilino/pagar-garantia")
+    suspend fun pagarGarantia(@Body body: IdInquilinoRequest): PagoRegistradoResponse
+
     // --- SECCIÓN CUARTOS LIBRES ---
 
     @GET("mobile/cuartos-libres")
@@ -43,6 +46,39 @@ interface AlquilerApiService {
 
     @POST("mobile/servicios/pagar")
     suspend fun pagarServicio(@Body body: PagarServicioRequest): PagoRegistradoResponse
+
+    @POST("servicios/revertir/{id_pago}")
+    suspend fun revertirServicio(@Path("id_pago") idPago: String): PagoRegistradoResponse
+
+    // --- ADMIN: USUARIOS ---
+
+    @GET("usuarios")
+    suspend fun getUsuarios(
+        @Header("id_rol") idRol: String,
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 50
+    ): UsuariosResponse
+
+    @PUT("mobile/usuarios/{id_usuario}/estado")
+    suspend fun cambiarEstadoUsuario(
+        @Path("id_usuario") idUsuario: String,
+        @Header("id_rol") idRol: String,
+        @Body body: CambiarEstadoUsuarioRequest
+    ): PagoRegistradoResponse
+
+    // --- ADMIN: PAGOS DE SUSCRIPCIÓN ---
+
+    @GET("pagos-usuarios")
+    suspend fun getPagosUsuarios(): List<PagoUsuario>
+
+    @GET("pagos-usuarios/realizados")
+    suspend fun getPagosUsuariosRealizados(): List<PagoUsuario>
+
+    @PUT("pagos-usuarios")
+    suspend fun confirmarPagoUsuario(@Body body: ConfirmarPagoUsuarioRequest): PagoRegistradoResponse
+
+    @PUT("pagos-usuarios/revertir")
+    suspend fun revertirPagoUsuario(@Body body: RevertirPagoUsuarioRequest): PagoRegistradoResponse
 
     // --- CAMBIO DE CONTRASEÑA ---
 

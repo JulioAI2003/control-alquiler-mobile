@@ -37,6 +37,8 @@ import com.example.myapplication.data.model.CuartoLibre
 import com.example.myapplication.data.model.InquilinoMobile
 import com.example.myapplication.data.model.ServicioCasa
 import com.example.myapplication.data.model.UiState
+import com.example.myapplication.data.model.UsuarioAdmin
+import com.example.myapplication.data.model.PagoUsuario
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
 
@@ -66,10 +68,13 @@ private val AzulPrimario = Color(0xFF1A237E)
 fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
     val app = LocalContext.current.applicationContext as MyApplication
     val vm: PagosViewModel = viewModel(factory = PagosViewModel.factory(app))
-    
+
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-    var currentScreen by remember { mutableStateOf("pendientes") }
+    val rol by app.sessionDataStore.rol.collectAsStateWithLifecycle(initialValue = null)
+    val esAdmin = rol == "Administrador"
+    var currentScreen by remember { mutableStateOf(if (esAdmin) "admin_usuarios" else "pendientes") }
+    LaunchedEffect(esAdmin) { if (esAdmin && currentScreen == "pendientes") currentScreen = "admin_usuarios" }
 
     // Estados para Modales
     var inquilinoDetalle by remember { mutableStateOf<Inquilino?>(null) }
@@ -83,6 +88,7 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
 
     val pagoRapidoState by vm.pagoRapidoState.collectAsStateWithLifecycle()
     val pagarServicioState by vm.pagarServicioState.collectAsStateWithLifecycle()
+    val retiroStateGlobal by vm.retiroState.collectAsStateWithLifecycle()
 
     LaunchedEffect(pagoRapidoState) {
         if (pagoRapidoState is UiState.Success) {
@@ -98,47 +104,80 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
         }
     }
 
+    LaunchedEffect(retiroStateGlobal) {
+        if (retiroStateGlobal is UiState.Success && inquilinoDetalle != null) {
+            mensajeExito = (retiroStateGlobal as UiState.Success<String>).data
+            inquilinoDetalle = null
+            vm.resetRetiroState()
+        }
+    }
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet(drawerContainerColor = Color.White) {
                 Spacer(Modifier.height(16.dp))
                 Text("Cobros App", Modifier.padding(24.dp), fontWeight = FontWeight.Black, fontSize = 22.sp, color = AzulPrimario)
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.PendingActions, null) },
-                    label = { Text("Pendientes de Cobro") },
-                    selected = currentScreen == "pendientes",
-                    onClick = { currentScreen = "pendientes"; scope.launch { drawerState.close() } },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.History, null) },
-                    label = { Text("Inquilinos Pagados") },
-                    selected = currentScreen == "pagados",
-                    onClick = { currentScreen = "pagados"; scope.launch { drawerState.close() } },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.Group, null) },
-                    label = { Text("Inquilinos") },
-                    selected = currentScreen == "inquilinos",
-                    onClick = { currentScreen = "inquilinos"; scope.launch { drawerState.close() } },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.MeetingRoom, null) },
-                    label = { Text("Cuartos Libres") },
-                    selected = currentScreen == "cuartos",
-                    onClick = { currentScreen = "cuartos"; scope.launch { drawerState.close() } },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.ElectricBolt, null) },
-                    label = { Text("Servicios") },
-                    selected = currentScreen == "servicios",
-                    onClick = { currentScreen = "servicios"; scope.launch { drawerState.close() } },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
+                if (!esAdmin) {
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.Default.PendingActions, null) },
+                        label = { Text("Pendientes de Cobro") },
+                        selected = currentScreen == "pendientes",
+                        onClick = { currentScreen = "pendientes"; scope.launch { drawerState.close() } },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.Default.History, null) },
+                        label = { Text("Inquilinos Pagados") },
+                        selected = currentScreen == "pagados",
+                        onClick = { currentScreen = "pagados"; scope.launch { drawerState.close() } },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.Default.Group, null) },
+                        label = { Text("Inquilinos") },
+                        selected = currentScreen == "inquilinos",
+                        onClick = { currentScreen = "inquilinos"; scope.launch { drawerState.close() } },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.Default.MeetingRoom, null) },
+                        label = { Text("Cuartos Libres") },
+                        selected = currentScreen == "cuartos",
+                        onClick = { currentScreen = "cuartos"; scope.launch { drawerState.close() } },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.Default.ElectricBolt, null) },
+                        label = { Text("Servicios") },
+                        selected = currentScreen == "servicios",
+                        onClick = { currentScreen = "servicios"; scope.launch { drawerState.close() } },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
+                }
+                if (esAdmin) {
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.Default.People, null) },
+                        label = { Text("Usuarios") },
+                        selected = currentScreen == "admin_usuarios",
+                        onClick = { currentScreen = "admin_usuarios"; scope.launch { drawerState.close() } },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.Default.Payment, null) },
+                        label = { Text("Pagos Pendientes") },
+                        selected = currentScreen == "admin_pagos",
+                        onClick = { currentScreen = "admin_pagos"; scope.launch { drawerState.close() } },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.Default.History, null) },
+                        label = { Text("Pagos Registrados") },
+                        selected = currentScreen == "admin_pagos_realizados",
+                        onClick = { currentScreen = "admin_pagos_realizados"; scope.launch { drawerState.close() } },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
+                }
                 HorizontalDivider(Modifier.padding(vertical = 12.dp, horizontal = 24.dp))
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Default.Lock, null) },
@@ -160,7 +199,7 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
         Scaffold(
             topBar = {
                 CenterAlignedTopAppBar(
-                    title = { Text(when(currentScreen) { "pendientes" -> "Cobros"; "pagados" -> "Pagados"; "servicios" -> "Servicios"; "cuartos" -> "Cuartos Libres"; else -> "Inquilinos" }, fontWeight = FontWeight.ExtraBold) },
+                    title = { Text(when(currentScreen) { "pendientes" -> "Cobros"; "pagados" -> "Pagados"; "servicios" -> "Servicios"; "cuartos" -> "Cuartos Libres"; "admin_usuarios" -> "Usuarios"; "admin_pagos" -> "Pagos Pendientes"; "admin_pagos_realizados" -> "Pagos Registrados"; else -> "Inquilinos" }, fontWeight = FontWeight.ExtraBold) },
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
                             Icon(Icons.Default.Menu, "Menú")
@@ -179,10 +218,13 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                         onCardClick = { inquilinoDetalle = it },
                         onPagarClick = { inquilinoAConfirmar = it }
                     )
-                    "pagados"   -> SeccionPagados(vm)
-                    "cuartos"   -> SeccionCuartosLibres(vm)
-                    "servicios" -> SeccionServicios(vm, onPagarClick = { servicioAConfirmar = it })
-                    else        -> SeccionInquilinos(vm)
+                    "pagados"        -> SeccionPagados(vm)
+                    "cuartos"        -> SeccionCuartosLibres(vm)
+                    "servicios"      -> SeccionServicios(vm, onPagarClick = { servicioAConfirmar = it })
+                    "admin_usuarios"         -> SeccionAdminUsuarios(vm)
+                    "admin_pagos"            -> SeccionAdminPagos(vm)
+                    "admin_pagos_realizados" -> SeccionAdminPagosRealizados(vm)
+                    else                     -> SeccionInquilinos(vm)
                 }
             }
         }
@@ -192,7 +234,7 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
 
     // 1. Detalle Deslizable (Click en Tarjeta)
     if (inquilinoDetalle != null) {
-        DetalleBottomSheet(inquilinoDetalle!!, onDismiss = { inquilinoDetalle = null })
+        DetalleBottomSheet(inquilinoDetalle!!, vm = vm, onDismiss = { inquilinoDetalle = null })
     }
 
     // 2a. Confirmación pago de inquilino
@@ -295,8 +337,15 @@ fun ListaPendientes(vm: PagosViewModel, onCardClick: (Inquilino) -> Unit, onPaga
                         shape = RoundedCornerShape(16.dp)
                     ) {
                         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(44.dp).clip(CircleShape).background(colores.borde), contentAlignment = Alignment.Center) {
-                                Text(inquilino.nombre.take(1), color = Color.White, fontWeight = FontWeight.Bold)
+                            Box(contentAlignment = Alignment.Center) {
+                                Box(Modifier.size(44.dp).clip(CircleShape).background(colores.borde), contentAlignment = Alignment.Center) {
+                                    Text(inquilino.nombre.take(1), color = Color.White, fontWeight = FontWeight.Bold)
+                                }
+                                if (!inquilino.garantiaPagada && (inquilino.montoGarantia ?: 0.0) > 0) {
+                                    Box(
+                                        Modifier.align(Alignment.TopEnd).size(12.dp).clip(CircleShape).background(Color(0xFFFFC107))
+                                    )
+                                }
                             }
                             Spacer(Modifier.width(16.dp))
                             Column(Modifier.weight(1f)) {
@@ -323,8 +372,9 @@ fun ListaPendientes(vm: PagosViewModel, onCardClick: (Inquilino) -> Unit, onPaga
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DetalleBottomSheet(inquilino: Inquilino, onDismiss: () -> Unit) {
+fun DetalleBottomSheet(inquilino: Inquilino, vm: PagosViewModel, onDismiss: () -> Unit) {
     val context = LocalContext.current
+    val retiroState by vm.retiroState.collectAsStateWithLifecycle()
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color.White) {
         Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding()) {
             Text("Detalle del Inquilino", fontWeight = FontWeight.Black, fontSize = 22.sp, color = AzulPrimario)
@@ -388,6 +438,51 @@ fun DetalleBottomSheet(inquilino: Inquilino, onDismiss: () -> Unit) {
                 Spacer(Modifier.width(12.dp))
                 Column { Text("Saldo Pendiente", fontSize = 11.sp, color = Color.Gray); Text("S/ ${inquilino.monto}", fontWeight = FontWeight.Bold) }
             }
+
+            // ── Garantía ──
+            val montoGar = inquilino.montoGarantia
+            if (montoGar != null && montoGar > 0) {
+                Spacer(Modifier.height(8.dp))
+                if (inquilino.garantiaPagada) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF388E3C))
+                            Spacer(Modifier.width(8.dp))
+                            Column {
+                                Text("Garantía: S/ ${"%.2f".format(montoGar)}", fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
+                                Text("Pagado", fontSize = 12.sp, color = Color(0xFF388E3C))
+                            }
+                        }
+                    }
+                } else {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Warning, null, tint = Color(0xFFE65100))
+                            Spacer(Modifier.width(8.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("Garantía: S/ ${"%.2f".format(montoGar)}", fontWeight = FontWeight.Bold, color = Color(0xFFE65100))
+                                Text("Pendiente de pago", fontSize = 12.sp, color = Color(0xFFBF360C))
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = { vm.pagarGarantia(inquilino.idInquilino) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF388E3C)),
+                        enabled = retiroState !is UiState.Loading
+                    ) { Text("Pagar Garantía") }
+                }
+            }
+
             Spacer(Modifier.height(24.dp))
             Button(onClick = onDismiss, Modifier.fillMaxWidth()) { Text("Cerrar") }
         }
@@ -523,11 +618,18 @@ fun SeccionInquilinos(vm: PagosViewModel) {
                                 shape = RoundedCornerShape(16.dp)
                             ) {
                                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        Modifier.size(44.dp).clip(CircleShape).background(borderColor),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(inq.nombre.take(1), color = Color.White, fontWeight = FontWeight.Bold)
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Box(
+                                            Modifier.size(44.dp).clip(CircleShape).background(borderColor),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(inq.nombre.take(1), color = Color.White, fontWeight = FontWeight.Bold)
+                                        }
+                                        if (inq.fechaGarantia == null && (inq.montoGarantia?.toDoubleOrNull() ?: 0.0) > 0) {
+                                            Box(
+                                                Modifier.align(Alignment.TopEnd).size(12.dp).clip(CircleShape).background(Color(0xFFFFC107))
+                                            )
+                                        }
                                     }
                                     Spacer(Modifier.width(16.dp))
                                     Column(Modifier.weight(1f)) {
@@ -559,6 +661,7 @@ fun SeccionInquilinos(vm: PagosViewModel) {
             retiroState = retiroState,
             onRetirar        = { inquilinoARetirar = it },
             onCancelarRetiro = { vm.cancelarRetiro(it.idInquilino) },
+            onPagarGarantia  = { vm.pagarGarantia(it.idInquilino) },
             onDismiss        = { inquilinoSeleccionado = null; vm.resetRetiroState() }
         )
     }
@@ -760,6 +863,8 @@ fun SeccionServicios(vm: PagosViewModel, onPagarClick: (ServicioCasa) -> Unit) {
     val pullState = rememberPullToRefreshState()
     LaunchedEffect(Unit) { vm.cargarServicios() }
 
+    var servicioARevertir by remember { mutableStateOf<ServicioCasa?>(null) }
+
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Servicios pendientes", fontWeight = FontWeight.Bold, color = Color.Gray)
         Spacer(Modifier.height(12.dp))
@@ -802,7 +907,9 @@ fun SeccionServicios(vm: PagosViewModel, onPagarClick: (ServicioCasa) -> Unit) {
                                             Text("${srv.nombreMes} ${srv.anio} · Día ${srv.dia}", fontSize = 11.sp, color = Color.DarkGray)
                                         }
                                         if (srv.pagado) {
-                                            Icon(Icons.Default.CheckCircle, null, tint = colores.borde, modifier = Modifier.size(32.dp))
+                                            TextButton(onClick = { servicioARevertir = srv }) {
+                                                Text("Revertir", color = Color(0xFFE65100), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                            }
                                         } else {
                                             Button(
                                                 onClick = { onPagarClick(srv) },
@@ -824,6 +931,25 @@ fun SeccionServicios(vm: PagosViewModel, onPagarClick: (ServicioCasa) -> Unit) {
             }
         }
     }
+
+    if (servicioARevertir != null) {
+        val srv = servicioARevertir!!
+        AlertDialog(
+            onDismissRequest = { servicioARevertir = null },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        srv.idPago?.let { vm.revertirServicio(it) }
+                        servicioARevertir = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100))
+                ) { Text("Sí, revertir") }
+            },
+            dismissButton = { TextButton(onClick = { servicioARevertir = null }) { Text("Cancelar") } },
+            title = { Text("Revertir Pago") },
+            text = { Text("¿Deseas revertir el pago de ${srv.nombre} (${srv.nombreMes} ${srv.anio})?") }
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -833,6 +959,7 @@ fun InquilinoBottomSheet(
     retiroState:      UiState<String>,
     onRetirar:        (InquilinoMobile) -> Unit,
     onCancelarRetiro: (InquilinoMobile) -> Unit,
+    onPagarGarantia:  (InquilinoMobile) -> Unit,
     onDismiss:        () -> Unit
 ) {
     val esPendiente = inquilino.estado == "pendiente_retiro"
@@ -866,6 +993,50 @@ fun InquilinoBottomSheet(
                     }
                 }
             }
+            // ── Garantía ──
+            val montoGar = inquilino.montoGarantia?.toDoubleOrNull()
+            if (montoGar != null && montoGar > 0) {
+                Spacer(Modifier.height(8.dp))
+                if (inquilino.fechaGarantia != null) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF388E3C))
+                            Spacer(Modifier.width(8.dp))
+                            Column {
+                                Text("Garantía: S/ ${"%.2f".format(montoGar)}", fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
+                                Text("Pagado", fontSize = 12.sp, color = Color(0xFF388E3C))
+                            }
+                        }
+                    }
+                } else {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Warning, null, tint = Color(0xFFE65100))
+                            Spacer(Modifier.width(8.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("Garantía: S/ ${"%.2f".format(montoGar)}", fontWeight = FontWeight.Bold, color = Color(0xFFE65100))
+                                Text("Pendiente de pago", fontSize = 12.sp, color = Color(0xFFBF360C))
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = { onPagarGarantia(inquilino) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF388E3C)),
+                        enabled = retiroState !is UiState.Loading
+                    ) { Text("Pagar Garantía") }
+                }
+            }
+
             Spacer(Modifier.height(16.dp))
             if (esPendiente) {
                 Card(
@@ -912,5 +1083,418 @@ fun InquilinoBottomSheet(
                 Text((retiroState as UiState.Error).message, color = Color.Red, fontSize = 13.sp)
             }
         }
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  SECCIÓN ADMIN — USUARIOS
+// ═════════════════════════════════════════════════════════════════════════════
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SeccionAdminUsuarios(vm: PagosViewModel) {
+    val state by vm.usuariosState.collectAsStateWithLifecycle()
+    val adminAction by vm.adminActionState.collectAsStateWithLifecycle()
+    val isRefreshing = state is UiState.Loading
+    val pullState = rememberPullToRefreshState()
+    LaunchedEffect(Unit) { vm.cargarUsuarios() }
+
+    var usuarioSeleccionado by remember { mutableStateOf<UsuarioAdmin?>(null) }
+    var mensajeExitoAdmin by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(adminAction) {
+        if (adminAction is UiState.Success) {
+            mensajeExitoAdmin = (adminAction as UiState.Success<String>).data
+            usuarioSeleccionado = null
+            vm.resetAdminActionState()
+        }
+    }
+
+    LaunchedEffect(mensajeExitoAdmin) {
+        if (mensajeExitoAdmin != null) {
+            kotlinx.coroutines.delay(1000)
+            mensajeExitoAdmin = null
+        }
+    }
+
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Text("Lista de usuarios registrados", fontWeight = FontWeight.Bold, color = Color.Gray)
+        Spacer(Modifier.height(12.dp))
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh    = { vm.cargarUsuarios() },
+            state        = pullState,
+            modifier     = Modifier.weight(1f)
+        ) {
+            when (val s = state) {
+                is UiState.Success -> {
+                    if (s.data.isEmpty()) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("No hay usuarios registrados.", color = Color.Gray)
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(s.data, key = { it.idUsuario }) { usr ->
+                                val colorEstado = when (usr.estado) {
+                                    "activo"    -> Color(0xFF388E3C)
+                                    "pendiente" -> Color(0xFFE65100)
+                                    else        -> Color.Gray
+                                }
+                                Card(
+                                    modifier = Modifier.fillMaxWidth().clickable { usuarioSeleccionado = usr },
+                                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                                    border = BorderStroke(1.dp, colorEstado.copy(alpha = 0.4f)),
+                                    shape = RoundedCornerShape(16.dp)
+                                ) {
+                                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            Modifier.size(44.dp).clip(CircleShape).background(AzulPrimario),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(usr.nombre.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
+                                        }
+                                        Spacer(Modifier.width(16.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Text("${usr.nombre} ${usr.apellido ?: ""}", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                            Text(usr.email ?: "Sin email", fontSize = 12.sp, color = Color.Gray)
+                                            Text("Plan: ${usr.plan ?: "Sin plan"} · Activos: ${usr.inquilinosActivos ?: 0}/${usr.planCapacidad ?: "∞"}", fontSize = 11.sp, color = Color.DarkGray)
+                                        }
+                                        Text(
+                                            (usr.estado ?: "?").replaceFirstChar { it.uppercase() },
+                                            color = colorEstado,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                is UiState.Error -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(s.message, color = Color.Red) }
+                else -> Unit
+            }
+        }
+    }
+
+    if (usuarioSeleccionado != null) {
+        UsuarioDetalleBottomSheet(
+            usuario = usuarioSeleccionado!!,
+            adminAction = adminAction,
+            onCambiarEstado = { usr, estado -> vm.cambiarEstadoUsuario(usr.idUsuario, estado) },
+            onDismiss = { usuarioSeleccionado = null; vm.resetAdminActionState() }
+        )
+    }
+
+    if (mensajeExitoAdmin != null) {
+        Snackbar(
+            modifier = Modifier.padding(16.dp),
+            action = { TextButton(onClick = { mensajeExitoAdmin = null }) { Text("OK", color = Color.White) } },
+            containerColor = Color(0xFF388E3C)
+        ) { Text(mensajeExitoAdmin!!, color = Color.White) }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun UsuarioDetalleBottomSheet(
+    usuario: UsuarioAdmin,
+    adminAction: UiState<String>,
+    onCambiarEstado: (UsuarioAdmin, String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color.White) {
+        Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding()) {
+            Text("Detalle del Usuario", fontWeight = FontWeight.Black, fontSize = 22.sp, color = AzulPrimario)
+            Spacer(Modifier.height(16.dp))
+            Row(Modifier.padding(vertical = 8.dp)) {
+                Icon(Icons.Default.Person, null, tint = AzulPrimario)
+                Spacer(Modifier.width(12.dp))
+                Column { Text("Nombre", fontSize = 11.sp, color = Color.Gray); Text("${usuario.nombre} ${usuario.apellido ?: ""}", fontWeight = FontWeight.Bold) }
+            }
+            if (!usuario.email.isNullOrBlank()) {
+                Row(Modifier.padding(vertical = 8.dp)) {
+                    Icon(Icons.Default.Email, null, tint = AzulPrimario)
+                    Spacer(Modifier.width(12.dp))
+                    Column { Text("Email", fontSize = 11.sp, color = Color.Gray); Text(usuario.email, fontWeight = FontWeight.Bold) }
+                }
+            }
+            if (!usuario.celular.isNullOrBlank()) {
+                Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Phone, null, tint = AzulPrimario)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) { Text("Celular", fontSize = 11.sp, color = Color.Gray); Text(usuario.celular, fontWeight = FontWeight.Bold) }
+                    Box(
+                        Modifier.size(36.dp).clip(CircleShape).background(AzulPrimario)
+                            .clickable { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${usuario.celular}"))) },
+                        contentAlignment = Alignment.Center
+                    ) { Icon(Icons.Default.Phone, "Llamar", tint = Color.White, modifier = Modifier.size(20.dp)) }
+                    Spacer(Modifier.width(8.dp))
+                    Box(
+                        Modifier.size(36.dp).clip(CircleShape).background(Color(0xFF25D366))
+                            .clickable {
+                                val num = usuario.celular.replace(Regex("[^\\d]"), "")
+                                val waNum = if (num.length == 9) "51$num" else num
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$waNum")))
+                            },
+                        contentAlignment = Alignment.Center
+                    ) { Icon(painterResource(R.drawable.ic_whatsapp), "WhatsApp", tint = Color.White, modifier = Modifier.size(20.dp)) }
+                }
+            }
+            if (!usuario.dni.isNullOrBlank()) {
+                Row(Modifier.padding(vertical = 8.dp)) {
+                    Icon(Icons.Default.Badge, null, tint = AzulPrimario)
+                    Spacer(Modifier.width(12.dp))
+                    Column { Text("DNI", fontSize = 11.sp, color = Color.Gray); Text(usuario.dni, fontWeight = FontWeight.Bold) }
+                }
+            }
+            Row(Modifier.padding(vertical = 8.dp)) {
+                Icon(Icons.Default.WorkspacePremium, null, tint = AzulPrimario)
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text("Plan", fontSize = 11.sp, color = Color.Gray)
+                    Text("${usuario.plan ?: "Sin plan"} · Activos: ${usuario.inquilinosActivos ?: 0}/${usuario.planCapacidad ?: "∞"}", fontWeight = FontWeight.Bold)
+                }
+            }
+
+            val colorEstado = when (usuario.estado) { "activo" -> Color(0xFF388E3C); "pendiente" -> Color(0xFFE65100); else -> Color.Gray }
+            Row(Modifier.padding(vertical = 8.dp)) {
+                Icon(Icons.Default.Circle, null, tint = colorEstado, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(12.dp))
+                Column { Text("Estado", fontSize = 11.sp, color = Color.Gray); Text((usuario.estado ?: "?").replaceFirstChar { it.uppercase() }, fontWeight = FontWeight.Bold, color = colorEstado) }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            if (usuario.estado == "activo") {
+                Button(
+                    onClick = { onCambiarEstado(usuario, "inactivo") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+                    enabled = adminAction !is UiState.Loading
+                ) {
+                    if (adminAction is UiState.Loading) CircularProgressIndicator(Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                    else Text("Inactivar Usuario")
+                }
+            } else {
+                Button(
+                    onClick = { onCambiarEstado(usuario, "activo") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF388E3C)),
+                    enabled = adminAction !is UiState.Loading
+                ) {
+                    if (adminAction is UiState.Loading) CircularProgressIndicator(Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                    else Text("Activar Usuario")
+                }
+            }
+
+            if (adminAction is UiState.Error) {
+                Spacer(Modifier.height(8.dp))
+                Text((adminAction as UiState.Error).message, color = Color.Red, fontSize = 13.sp)
+            }
+        }
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  SECCIÓN ADMIN — PAGOS PENDIENTES DE SUSCRIPCIÓN
+// ═════════════════════════════════════════════════════════════════════════════
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SeccionAdminPagos(vm: PagosViewModel) {
+    val state by vm.pagosUsuariosState.collectAsStateWithLifecycle()
+    val adminAction by vm.adminActionState.collectAsStateWithLifecycle()
+    val isRefreshing = state is UiState.Loading
+    val pullState = rememberPullToRefreshState()
+    LaunchedEffect(Unit) { vm.cargarPagosUsuarios() }
+
+    var pagoAConfirmar by remember { mutableStateOf<PagoUsuario?>(null) }
+
+    LaunchedEffect(adminAction) {
+        if (adminAction is UiState.Success) {
+            pagoAConfirmar = null
+            vm.resetAdminActionState()
+        }
+    }
+
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Text("Pagos de suscripción pendientes", fontWeight = FontWeight.Bold, color = Color.Gray)
+        Spacer(Modifier.height(12.dp))
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh    = { vm.cargarPagosUsuarios() },
+            state        = pullState,
+            modifier     = Modifier.weight(1f)
+        ) {
+            when (val s = state) {
+                is UiState.Success -> {
+                    if (s.data.isEmpty()) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("No hay pagos pendientes.\nDesliza hacia abajo para actualizar.", color = Color.Gray)
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(s.data, key = { it.idPagoUsuario }) { pago ->
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+                                    border = BorderStroke(1.dp, Color(0xFFE65100).copy(alpha = 0.4f)),
+                                    shape = RoundedCornerShape(16.dp)
+                                ) {
+                                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            Modifier.size(44.dp).clip(CircleShape).background(Color(0xFFE65100)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(Icons.Default.Payment, null, tint = Color.White)
+                                        }
+                                        Spacer(Modifier.width(16.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Text(pago.nombres ?: "Usuario", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                            Text("DNI: ${pago.dni ?: "—"}", fontSize = 12.sp, color = Color.Gray)
+                                            Text("Plan: ${pago.nombrePlan ?: "—"}", fontSize = 11.sp, color = Color.DarkGray)
+                                            if (pago.fechaFacturacion != null) {
+                                                Text("Facturado: ${pago.fechaFacturacion.take(10)}", fontSize = 11.sp, color = Color.DarkGray)
+                                            }
+                                        }
+                                        Button(
+                                            onClick = { pagoAConfirmar = pago },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF388E3C)),
+                                            shape = RoundedCornerShape(10.dp),
+                                            contentPadding = PaddingValues(horizontal = 12.dp)
+                                        ) {
+                                            Text("S/ ${pago.monto ?: "0"}", fontWeight = FontWeight.Black)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                is UiState.Error -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(s.message, color = Color.Red) }
+                else -> Unit
+            }
+        }
+    }
+
+    if (pagoAConfirmar != null) {
+        val pago = pagoAConfirmar!!
+        AlertDialog(
+            onDismissRequest = { pagoAConfirmar = null },
+            confirmButton = {
+                Button(
+                    onClick = { vm.confirmarPagoUsuario(pago.idPagoUsuario); pagoAConfirmar = null },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF388E3C))
+                ) { Text("Sí, confirmar") }
+            },
+            dismissButton = { TextButton(onClick = { pagoAConfirmar = null }) { Text("Cancelar") } },
+            title = { Text("Confirmar Pago") },
+            text = { Text("¿Confirmar pago de S/ ${pago.monto ?: "0"} de ${pago.nombres ?: "usuario"}?") }
+        )
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  SECCIÓN ADMIN — PAGOS REGISTRADOS (HISTORIAL + REVERTIR)
+// ═════════════════════════════════════════════════════════════════════════════
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SeccionAdminPagosRealizados(vm: PagosViewModel) {
+    val state by vm.pagosRealizadosState.collectAsStateWithLifecycle()
+    val adminAction by vm.adminActionState.collectAsStateWithLifecycle()
+    val isRefreshing = state is UiState.Loading
+    val pullState = rememberPullToRefreshState()
+    LaunchedEffect(Unit) { vm.cargarPagosRealizados() }
+
+    var pagoARevertir by remember { mutableStateOf<PagoUsuario?>(null) }
+
+    LaunchedEffect(adminAction) {
+        if (adminAction is UiState.Success) {
+            pagoARevertir = null
+            vm.resetAdminActionState()
+        }
+    }
+
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Text("Pagos de suscripción realizados", fontWeight = FontWeight.Bold, color = Color.Gray)
+        Spacer(Modifier.height(12.dp))
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh    = { vm.cargarPagosRealizados() },
+            state        = pullState,
+            modifier     = Modifier.weight(1f)
+        ) {
+            when (val s = state) {
+                is UiState.Success -> {
+                    if (s.data.isEmpty()) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("No hay pagos registrados.\nDesliza hacia abajo para actualizar.", color = Color.Gray)
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(s.data, key = { it.idPagoUsuario }) { pago ->
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                                    border = BorderStroke(1.dp, Color(0xFF388E3C).copy(alpha = 0.4f)),
+                                    shape = RoundedCornerShape(16.dp)
+                                ) {
+                                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            Modifier.size(44.dp).clip(CircleShape).background(Color(0xFF388E3C)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(Icons.Default.CheckCircle, null, tint = Color.White)
+                                        }
+                                        Spacer(Modifier.width(16.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Text(pago.nombres ?: "Usuario", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                            Text("Plan: ${pago.nombrePlan ?: "—"}", fontSize = 12.sp, color = Color.Gray)
+                                            Text("S/ ${pago.monto ?: "0"}", fontSize = 12.sp, color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold)
+                                            if (pago.fechaRegistro != null) {
+                                                Text("Pagado: ${pago.fechaRegistro.take(10)}", fontSize = 11.sp, color = Color.DarkGray)
+                                            }
+                                        }
+                                        TextButton(onClick = { pagoARevertir = pago }) {
+                                            Text("Revertir", color = Color(0xFFE65100), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                is UiState.Error -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(s.message, color = Color.Red) }
+                else -> Unit
+            }
+        }
+    }
+
+    if (pagoARevertir != null) {
+        val pago = pagoARevertir!!
+        AlertDialog(
+            onDismissRequest = { pagoARevertir = null },
+            confirmButton = {
+                Button(
+                    onClick = { vm.revertirPagoUsuario(pago.idPagoUsuario); pagoARevertir = null },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100))
+                ) { Text("Sí, revertir") }
+            },
+            dismissButton = { TextButton(onClick = { pagoARevertir = null }) { Text("Cancelar") } },
+            title = { Text("Revertir Pago") },
+            text = { Text("¿Deseas revertir el pago de S/ ${pago.monto ?: "0"} de ${pago.nombres ?: "usuario"}?") }
+        )
     }
 }

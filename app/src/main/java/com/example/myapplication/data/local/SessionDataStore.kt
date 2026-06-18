@@ -28,6 +28,7 @@ class SessionDataStore(private val context: Context) {
     val userId: Flow<String?>   = context.dataStore.data.map { it[KEY_USER_ID]  }
     val nombre: Flow<String?>   = context.dataStore.data.map { it[KEY_NOMBRE]   }
     val rol: Flow<String?>      = context.dataStore.data.map { it[KEY_ROL]      }
+    val idRol: Flow<String?>    = context.dataStore.data.map { it[KEY_ID_ROL]   }
 
     // ── Escritura ─────────────────────────────────────────────────────────────
 
@@ -35,13 +36,15 @@ class SessionDataStore(private val context: Context) {
         token:    String,
         userId:   String,
         nombre:   String,
-        rol:      String
+        rol:      String,
+        idRol:    String = ""
     ) {
         context.dataStore.edit { prefs ->
             prefs[KEY_TOKEN]   = token
             prefs[KEY_USER_ID] = userId
             prefs[KEY_NOMBRE]  = nombre
             prefs[KEY_ROL]     = rol
+            prefs[KEY_ID_ROL]  = idRol
         }
     }
 
@@ -62,5 +65,6 @@ class SessionDataStore(private val context: Context) {
         val KEY_USER_ID = stringPreferencesKey("user_id")
         val KEY_NOMBRE  = stringPreferencesKey("nombre")
         val KEY_ROL     = stringPreferencesKey("rol")
+        val KEY_ID_ROL  = stringPreferencesKey("id_rol")
     }
 }

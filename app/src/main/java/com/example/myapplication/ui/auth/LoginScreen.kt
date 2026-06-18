@@ -56,14 +56,23 @@ class LoginViewModel(private val app: MyApplication) : ViewModel() {
                 val response = AlquilerApiClient.service.login(
                     LoginRequest(email = email.trim(), password = password)
                 )
-                // Persiste la sesión en DataStore
+
+                if (response.error != null) {
+                    _state.value = when (response.estado) {
+                        "inactivo"  -> UiState.Error("Su usuario está inactivo, contactarse con el administrador.")
+                        "pendiente" -> UiState.Error("Su usuario está pendiente de aprobación, contactarse con el administrador.")
+                        else        -> UiState.Error(response.error)
+                    }
+                    return@launch
+                }
+
                 app.sessionDataStore.guardarSesion(
-                    token  = response.token,
-                    userId = response.idUsuario,
-                    nombre = response.nombre,
-                    rol    = response.rol
+                    token  = response.token!!,
+                    userId = response.idUsuario!!,
+                    nombre = response.nombre!!,
+                    rol    = response.rol!!,
+                    idRol  = response.idRol
                 )
-                // Actualiza el token en memoria para el interceptor
                 app.updateToken(response.token)
 
                 _state.value = UiState.Success(response)
@@ -71,9 +80,8 @@ class LoginViewModel(private val app: MyApplication) : ViewModel() {
             } catch (e: HttpException) {
                 _state.value = UiState.Error(
                     when (e.code()) {
-                        400  -> "Datos incorrectos."
-                        401  -> "Correo o contraseña incorrectos."
-                        403  -> "Cuenta inactiva o pendiente. Contacta al administrador."
+                        404  -> "El usuario no existe."
+                        401  -> "El usuario no existe."
                         500  -> "Error en el servidor. Intenta más tarde."
                         else -> "Error ${e.code()}."
                     }

@@ -17,10 +17,13 @@ data class LoginRequest(
 
 @Serializable
 data class LoginResponse(
-    val token:    String,
-    @SerialName("id_usuario") val idUsuario: String,
-    val nombre:   String,
-    val rol:      String
+    val token:    String? = null,
+    @SerialName("id_usuario") val idUsuario: String? = null,
+    val nombre:   String? = null,
+    val rol:      String? = null,
+    @SerialName("id_rol") val idRol: String = "",
+    val error:    String? = null,
+    val estado:   String? = null
 )
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -46,7 +49,8 @@ data class PagoBackend(
     @SerialName("mensualidad_pagada")    val mensualidadPagada: Boolean,
     val celular:                                                 String? = null,
     val garantia:                                                Double? = null,
-    @SerialName("fecha_garantia")        val fechaGarantia:     String? = null
+    @SerialName("fecha_garantia")          val fechaGarantia:         String? = null,
+    @SerialName("fecha_esperada_garantia") val fechaEsperadaGarantia: String? = null
 )
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -95,7 +99,10 @@ data class Inquilino(
     val estadoPago:       EstadoPago,
     // Período de cobro para mostrar en la tarjeta
     val periodoMes:       Int,
-    val periodoAnio:      Int
+    val periodoAnio:      Int,
+    // Garantía
+    val montoGarantia:    Double? = null,
+    val garantiaPagada:   Boolean = true
 ) {
     /** Texto descriptivo del vencimiento, listo para mostrar en la UI. */
     val etiquetaDias: String get() = when {
@@ -117,15 +124,18 @@ data class Inquilino(
 
 @Serializable
 data class InquilinoMobile(
-    @SerialName("id_inquilino")    val idInquilino:    String,
-    val nombre:                                        String,
-    val apellidos:                                     String,
-    val celular:                                       String? = null,
-    @SerialName("nro_cuarto")      val nroCuarto:      Int,
-    val piso:                                          String,
-    val casa:                                          String,
-    val estado:                                        String,          // "activo" | "pendiente_retiro"
-    @SerialName("dias_para_retiro") val diasParaRetiro: Int? = null
+    @SerialName("id_inquilino")            val idInquilino:           String,
+    val nombre:                                                       String,
+    val apellidos:                                                    String,
+    val celular:                                                      String? = null,
+    @SerialName("nro_cuarto")              val nroCuarto:             Int,
+    val piso:                                                         String,
+    val casa:                                                         String,
+    val estado:                                                       String,
+    @SerialName("dias_para_retiro")        val diasParaRetiro:        Int? = null,
+    @SerialName("fecha_garantia")          val fechaGarantia:         String? = null,
+    @SerialName("fecha_esperada_garantia") val fechaEsperadaGarantia: String? = null,
+    @SerialName("monto_garantia")          val montoGarantia:         String? = null
 )
 
 @Serializable
@@ -206,6 +216,66 @@ data class CambiarPasswordRequest(
 data class CambiarPasswordResponse(
     val token:   String,
     val message: String
+)
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  ADMIN — USUARIOS Y PAGOS DE SUSCRIPCIÓN
+// ═════════════════════════════════════════════════════════════════════════════
+
+@Serializable
+data class UsuarioAdmin(
+    val nombre:                                                     String,
+    val apellido:                                                   String? = null,
+    val dni:                                                        String? = null,
+    val celular:                                                    String? = null,
+    val email:                                                      String? = null,
+    val estado:                                                     String? = null,
+    @SerialName("fecha_registro")       val fechaRegistro:          String? = null,
+    @SerialName("id_usuario")           val idUsuario:              String,
+    val plan:                                                       String? = null,
+    @SerialName("plan_capacidad")       val planCapacidad:          Int? = null,
+    @SerialName("inquilinos_registrados") val inquilinosRegistrados: Int? = null,
+    @SerialName("inquilinos_activos")   val inquilinosActivos:      Int? = null
+)
+
+@Serializable
+data class UsuariosResponse(
+    val data:  List<UsuarioAdmin>,
+    val total: Int,
+    val page:  Int,
+    val limit: Int
+)
+
+@Serializable
+data class PagoUsuario(
+    @SerialName("id_pagousuario")      val idPagoUsuario:    String,
+    @SerialName("id_usuario")          val idUsuario:        String,
+    val monto:                                               String? = null,
+    @SerialName("nombre_plan")         val nombrePlan:       String? = null,
+    @SerialName("fecha_facturacion")   val fechaFacturacion: String? = null,
+    @SerialName("fecha_registro")      val fechaRegistro:    String? = null,
+    @SerialName("mensualidad_pagada")  val pagada:           Boolean,
+    @SerialName("metodo_pago")         val metodoPago:       String? = null,
+    val nombres:                                             String? = null,
+    val dni:                                                 String? = null,
+    val celular:                                             String? = null,
+    val estado:                                              String? = null
+)
+
+@Serializable
+data class ConfirmarPagoUsuarioRequest(
+    @SerialName("id_pagousuario") val idPagoUsuario: String,
+    @SerialName("metodo_pago")    val metodoPago:    String
+)
+
+@Serializable
+data class RevertirPagoUsuarioRequest(
+    @SerialName("id_pagousuario") val idPagoUsuario: String
+)
+
+@Serializable
+data class CambiarEstadoUsuarioRequest(
+    val estado: String
 )
 
 // ═════════════════════════════════════════════════════════════════════════════

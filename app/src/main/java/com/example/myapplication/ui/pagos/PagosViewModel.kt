@@ -41,6 +41,12 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
     private val _pagarServicioState = MutableStateFlow<UiState<String>>(UiState.Idle)
     val pagarServicioState: StateFlow<UiState<String>> = _pagarServicioState.asStateFlow()
 
+    private val _usuariosState = MutableStateFlow<UiState<List<UsuarioAdmin>>>(UiState.Idle)
+    val usuariosState: StateFlow<UiState<List<UsuarioAdmin>>> = _usuariosState.asStateFlow()
+
+    private val _pagosUsuariosState = MutableStateFlow<UiState<List<PagoUsuario>>>(UiState.Idle)
+    val pagosUsuariosState: StateFlow<UiState<List<PagoUsuario>>> = _pagosUsuariosState.asStateFlow()
+
     fun cargarPagos() {
         viewModelScope.launch {
             _pagosState.value = UiState.Loading
@@ -135,6 +141,20 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
         }
     }
 
+    fun pagarGarantia(idInquilino: String) {
+        viewModelScope.launch {
+            _retiroState.value = UiState.Loading
+            try {
+                AlquilerApiClient.service.pagarGarantia(IdInquilinoRequest(idInquilino))
+                _retiroState.value = UiState.Success("Garantía registrada como pagada")
+                cargarInquilinos()
+                cargarPagos()
+            } catch (e: Exception) {
+                _retiroState.value = UiState.Error(e.message ?: "Error al registrar garantía")
+            }
+        }
+    }
+
     fun cancelarRetiro(idInquilino: String) {
         viewModelScope.launch {
             _retiroState.value = UiState.Loading
@@ -193,9 +213,108 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
         }
     }
 
+    fun revertirServicio(idPago: String) {
+        viewModelScope.launch {
+            _pagarServicioState.value = UiState.Loading
+            try {
+                val resp = AlquilerApiClient.service.revertirServicio(idPago)
+                _pagarServicioState.value = UiState.Success(resp.message)
+                cargarServicios()
+            } catch (e: Exception) {
+                _pagarServicioState.value = UiState.Error(e.message ?: "Error al revertir pago")
+            }
+        }
+    }
+
     fun resetPagarServicioState() {
         _pagarServicioState.value = UiState.Idle
     }
+
+    fun cargarUsuarios() {
+        viewModelScope.launch {
+            _usuariosState.value = UiState.Loading
+            try {
+                val idRol = app.sessionDataStore.idRol.first() ?: return@launch
+                val resp = AlquilerApiClient.service.getUsuarios(idRol)
+                _usuariosState.value = UiState.Success(resp.data)
+            } catch (e: Exception) {
+                _usuariosState.value = UiState.Error(e.message ?: "Error al cargar usuarios")
+            }
+        }
+    }
+
+    fun cargarPagosUsuarios() {
+        viewModelScope.launch {
+            _pagosUsuariosState.value = UiState.Loading
+            try {
+                val lista = AlquilerApiClient.service.getPagosUsuarios()
+                _pagosUsuariosState.value = UiState.Success(lista)
+            } catch (e: Exception) {
+                _pagosUsuariosState.value = UiState.Error(e.message ?: "Error al cargar pagos")
+            }
+        }
+    }
+
+    private val _pagosRealizadosState = MutableStateFlow<UiState<List<PagoUsuario>>>(UiState.Idle)
+    val pagosRealizadosState: StateFlow<UiState<List<PagoUsuario>>> = _pagosRealizadosState.asStateFlow()
+
+    private val _adminActionState = MutableStateFlow<UiState<String>>(UiState.Idle)
+    val adminActionState: StateFlow<UiState<String>> = _adminActionState.asStateFlow()
+
+    fun cargarPagosRealizados() {
+        viewModelScope.launch {
+            _pagosRealizadosState.value = UiState.Loading
+            try {
+                val lista = AlquilerApiClient.service.getPagosUsuariosRealizados()
+                _pagosRealizadosState.value = UiState.Success(lista)
+            } catch (e: Exception) {
+                _pagosRealizadosState.value = UiState.Error(e.message ?: "Error al cargar pagos realizados")
+            }
+        }
+    }
+
+    fun cambiarEstadoUsuario(idUsuario: String, nuevoEstado: String) {
+        viewModelScope.launch {
+            _adminActionState.value = UiState.Loading
+            try {
+                val idRol = app.sessionDataStore.idRol.first() ?: return@launch
+                AlquilerApiClient.service.cambiarEstadoUsuario(idUsuario, idRol, CambiarEstadoUsuarioRequest(nuevoEstado))
+                _adminActionState.value = UiState.Success("Usuario ${if (nuevoEstado == "activo") "activado" else "inactivado"}")
+                cargarUsuarios()
+            } catch (e: Exception) {
+                _adminActionState.value = UiState.Error(e.message ?: "Error al cambiar estado")
+            }
+        }
+    }
+
+    fun confirmarPagoUsuario(idPagoUsuario: String) {
+        viewModelScope.launch {
+            _adminActionState.value = UiState.Loading
+            try {
+                AlquilerApiClient.service.confirmarPagoUsuario(ConfirmarPagoUsuarioRequest(idPagoUsuario, "Yape"))
+                _adminActionState.value = UiState.Success("Pago confirmado")
+                cargarPagosUsuarios()
+            } catch (e: Exception) {
+                _adminActionState.value = UiState.Error(e.message ?: "Error al confirmar pago")
+            }
+        }
+    }
+
+    fun revertirPagoUsuario(idPagoUsuario: String) {
+        viewModelScope.launch {
+            _adminActionState.value = UiState.Loading
+            try {
+                AlquilerApiClient.service.revertirPagoUsuario(RevertirPagoUsuarioRequest(idPagoUsuario))
+                _adminActionState.value = UiState.Success("Pago revertido")
+                cargarPagosRealizados()
+                cargarPagosUsuarios()
+            } catch (e: Exception) {
+                _adminActionState.value = UiState.Error(e.message ?: "Error al revertir pago")
+            }
+        }
+    }
+
+    fun resetAdminActionState() { _adminActionState.value = UiState.Idle }
 
     private fun PagoBackend.toInquilinoUi(hoy: LocalDate): Inquilino {
         val fechaVenc = LocalDate.of(anio, mes, dia)
@@ -218,7 +337,9 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
             diasRestantes = dias,
             estadoPago = estadoPago,
             periodoMes = mes,
-            periodoAnio = anio
+            periodoAnio = anio,
+            montoGarantia = garantia,
+            garantiaPagada = fechaGarantia != null
         )
     }
 
