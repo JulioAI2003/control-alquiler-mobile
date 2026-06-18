@@ -171,6 +171,7 @@ data class ServicioCasa(
     val nombre:                                                String,
     @SerialName("monto_referencial")      val montoReferencial: String,
     @SerialName("monto_original_mensual") val montoOriginal:   String? = null,
+    @SerialName("monto_pagado")          val montoPagado:     String? = null,
     val dia:                                                   Int,
     @SerialName("mes_correspondiente")    val mes:             Int,
     @SerialName("anio_correspondiente")   val anio:            Int,

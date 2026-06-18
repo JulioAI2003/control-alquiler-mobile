@@ -35,6 +35,9 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
     private val _serviciosState = MutableStateFlow<UiState<List<ServicioCasa>>>(UiState.Idle)
     val serviciosState: StateFlow<UiState<List<ServicioCasa>>> = _serviciosState.asStateFlow()
 
+    private val _serviciosRealizadosState = MutableStateFlow<UiState<List<ServicioCasa>>>(UiState.Idle)
+    val serviciosRealizadosState: StateFlow<UiState<List<ServicioCasa>>> = _serviciosRealizadosState.asStateFlow()
+
     private val _cuartosLibresState = MutableStateFlow<UiState<List<CuartoLibre>>>(UiState.Idle)
     val cuartosLibresState: StateFlow<UiState<List<CuartoLibre>>> = _cuartosLibresState.asStateFlow()
 
@@ -197,6 +200,18 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
         }
     }
 
+    fun cargarServiciosRealizados() {
+        viewModelScope.launch {
+            _serviciosRealizadosState.value = UiState.Loading
+            try {
+                val idUsuario = app.sessionDataStore.userId.first() ?: return@launch
+                _serviciosRealizadosState.value = UiState.Success(AlquilerApiClient.service.getServiciosRealizados(idUsuario))
+            } catch (e: Exception) {
+                _serviciosRealizadosState.value = UiState.Error(e.message ?: "Error al cargar servicios pagados")
+            }
+        }
+    }
+
     fun pagarServicio(idServicio: String, idPago: String? = null, montoPagado: Double? = null) {
         viewModelScope.launch {
             _pagarServicioState.value = UiState.Loading
@@ -220,6 +235,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                 val resp = AlquilerApiClient.service.revertirServicio(idPago)
                 _pagarServicioState.value = UiState.Success(resp.message)
                 cargarServicios()
+                cargarServiciosRealizados()
             } catch (e: Exception) {
                 _pagarServicioState.value = UiState.Error(e.message ?: "Error al revertir pago")
             }

@@ -44,6 +44,9 @@ interface AlquilerApiService {
     @GET("mobile/servicios")
     suspend fun getServicios(@Query("id_usuario") idUsuario: String): List<ServicioCasa>
 
+    @GET("mobile/servicios/realizados")
+    suspend fun getServiciosRealizados(@Query("id_usuario") idUsuario: String): List<ServicioCasa>
+
     @POST("mobile/servicios/pagar")
     suspend fun pagarServicio(@Body body: PagarServicioRequest): PagoRegistradoResponse
 

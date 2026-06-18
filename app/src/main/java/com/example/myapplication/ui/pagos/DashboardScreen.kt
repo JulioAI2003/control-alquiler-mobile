@@ -154,6 +154,13 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                         onClick = { currentScreen = "servicios"; scope.launch { drawerState.close() } },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.Default.ReceiptLong, null) },
+                        label = { Text("Servicios Pagados") },
+                        selected = currentScreen == "servicios_pagados",
+                        onClick = { currentScreen = "servicios_pagados"; scope.launch { drawerState.close() } },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
                 }
                 if (esAdmin) {
                     NavigationDrawerItem(
@@ -199,7 +206,7 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
         Scaffold(
             topBar = {
                 CenterAlignedTopAppBar(
-                    title = { Text(when(currentScreen) { "pendientes" -> "Cobros"; "pagados" -> "Pagados"; "servicios" -> "Servicios"; "cuartos" -> "Cuartos Libres"; "admin_usuarios" -> "Usuarios"; "admin_pagos" -> "Pagos Pendientes"; "admin_pagos_realizados" -> "Pagos Registrados"; else -> "Inquilinos" }, fontWeight = FontWeight.ExtraBold) },
+                    title = { Text(when(currentScreen) { "pendientes" -> "Cobros"; "pagados" -> "Pagados"; "servicios" -> "Servicios"; "servicios_pagados" -> "Servicios Pagados"; "cuartos" -> "Cuartos Libres"; "admin_usuarios" -> "Usuarios"; "admin_pagos" -> "Pagos Pendientes"; "admin_pagos_realizados" -> "Pagos Registrados"; else -> "Inquilinos" }, fontWeight = FontWeight.ExtraBold) },
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
                             Icon(Icons.Default.Menu, "Menú")
@@ -220,7 +227,8 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                     )
                     "pagados"        -> SeccionPagados(vm)
                     "cuartos"        -> SeccionCuartosLibres(vm)
-                    "servicios"      -> SeccionServicios(vm, onPagarClick = { servicioAConfirmar = it })
+                    "servicios"          -> SeccionServicios(vm, onPagarClick = { servicioAConfirmar = it })
+                    "servicios_pagados"  -> SeccionServiciosPagados(vm)
                     "admin_usuarios"         -> SeccionAdminUsuarios(vm)
                     "admin_pagos"            -> SeccionAdminPagos(vm)
                     "admin_pagos_realizados" -> SeccionAdminPagosRealizados(vm)
@@ -919,6 +927,100 @@ fun SeccionServicios(vm: PagosViewModel, onPagarClick: (ServicioCasa) -> Unit) {
                                             ) {
                                                 Text("S/ ${"%.2f".format(srv.montoReferencial.toDoubleOrNull() ?: 0.0)}", fontWeight = FontWeight.Black)
                                             }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                is UiState.Error -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(s.message, color = Color.Red) }
+                else -> Unit
+            }
+        }
+    }
+
+    if (servicioARevertir != null) {
+        val srv = servicioARevertir!!
+        AlertDialog(
+            onDismissRequest = { servicioARevertir = null },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        srv.idPago?.let { vm.revertirServicio(it) }
+                        servicioARevertir = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100))
+                ) { Text("Sí, revertir") }
+            },
+            dismissButton = { TextButton(onClick = { servicioARevertir = null }) { Text("Cancelar") } },
+            title = { Text("Revertir Pago") },
+            text = { Text("¿Deseas revertir el pago de ${srv.nombre} (${srv.nombreMes} ${srv.anio})?") }
+        )
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  SECCIÓN SERVICIOS PAGADOS
+// ═════════════════════════════════════════════════════════════════════════════
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SeccionServiciosPagados(vm: PagosViewModel) {
+    val state by vm.serviciosRealizadosState.collectAsStateWithLifecycle()
+    val pagarServicioState by vm.pagarServicioState.collectAsStateWithLifecycle()
+    val isRefreshing = state is UiState.Loading
+    val pullState = rememberPullToRefreshState()
+    LaunchedEffect(Unit) { vm.cargarServiciosRealizados() }
+
+    var servicioARevertir by remember { mutableStateOf<ServicioCasa?>(null) }
+
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Text("Servicios pagados recientemente", fontWeight = FontWeight.Bold, color = Color.Gray)
+        Spacer(Modifier.height(12.dp))
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh    = { vm.cargarServiciosRealizados() },
+            state        = pullState,
+            modifier     = Modifier.weight(1f)
+        ) {
+            when (val s = state) {
+                is UiState.Success -> {
+                    if (s.data.isEmpty()) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("No hay servicios pagados.\nDesliza hacia abajo para actualizar.", color = Color.Gray)
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(s.data, key = { "${it.idPago}-${it.idServicio}-${it.mes}-${it.anio}" }) { srv ->
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                                    border = BorderStroke(1.dp, Color(0xFF388E3C).copy(alpha = 0.4f)),
+                                    shape = RoundedCornerShape(16.dp)
+                                ) {
+                                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            Modifier.size(44.dp).clip(CircleShape).background(Color(0xFF388E3C)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(srv.nombre.take(1), color = Color.White, fontWeight = FontWeight.Bold)
+                                        }
+                                        Spacer(Modifier.width(16.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Text(srv.nombre, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                            val montoMostrar = srv.montoPagado?.toDoubleOrNull() ?: srv.montoReferencial.toDoubleOrNull() ?: 0.0
+                                            Text("S/ ${"%.2f".format(montoMostrar)}", fontSize = 12.sp, color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold)
+                                            Text("${srv.nombreMes} ${srv.anio} · Día ${srv.dia}", fontSize = 11.sp, color = Color.DarkGray)
+                                            if (srv.fechaPago != null) {
+                                                Text("Pagado: ${srv.fechaPago.take(10)}", fontSize = 11.sp, color = Color.DarkGray)
+                                            }
+                                        }
+                                        TextButton(onClick = { servicioARevertir = srv }) {
+                                            Text("Revertir", color = Color(0xFFE65100), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                         }
                                     }
                                 }
