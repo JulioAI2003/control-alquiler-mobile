@@ -30,6 +30,21 @@ class CobroCheckWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker
             crearCanales()
 
             val hoy = LocalDate.now()
+            val rol = dataStore.rol.first()
+
+            // ── Usuario Individual: ingresos/gastos recurrentes ────────────
+            if (rol == "Individual") {
+                val movimientos = AlquilerApiClient.service.getMovimientosIndividuales(userId, "")
+                movimientos.forEach { mov ->
+                    if (!mov.conciliado && mov.diasRestantes <= 0) {
+                        val etiqueta = if (mov.diasRestantes == 0) "vence HOY" else "vencido hace ${-mov.diasRestantes}d"
+                        val verbo = if (mov.esIngreso) "Cobro" else "Pago"
+                        val texto = "${mov.nombre} · S/ ${"%.2f".format(mov.montoMostrar)} ($etiqueta)"
+                        avisar((mov.idMovimiento ?: mov.idConcepto).hashCode(), "$verbo pendiente", texto, usarAlarma)
+                    }
+                }
+                return Result.success()
+            }
 
             // ── Cobros de inquilinos ───────────────────────────────────────
             val pagos = AlquilerApiClient.service.getPagosPendientes(userId)

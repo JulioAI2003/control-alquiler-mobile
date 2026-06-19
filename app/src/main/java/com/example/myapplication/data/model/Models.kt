@@ -203,6 +203,92 @@ data class PagarServicioRequest(
 )
 
 // ═════════════════════════════════════════════════════════════════════════════
+//  MÓDULO INDIVIDUAL (ingresos / gastos recurrentes)
+// ═════════════════════════════════════════════════════════════════════════════
+
+/** Movimiento mensual (recibo) de un concepto individual. tipo = ingreso | gasto. */
+@Serializable
+data class MovimientoIndividual(
+    @SerialName("id_movimiento")          val idMovimiento:     String? = null,
+    @SerialName("id_concepto")            val idConcepto:       String,
+    val nombre:                                                 String,
+    val tipo:                                                   String,
+    val descripcion:                                            String? = null,
+    @SerialName("monto_referencial")      val montoReferencial: String? = null,
+    @SerialName("monto_total")            val montoTotal:       String? = null,
+    @SerialName("monto_original_mensual") val montoOriginal:    String? = null,
+    @SerialName("monto_pagado")           val montoPagado:      String? = null,
+    val dia:                                                    Int,
+    @SerialName("mes_correspondiente")    val mes:              Int,
+    @SerialName("anio_correspondiente")   val anio:             Int,
+    val conciliado:                                             Boolean = false,
+    @SerialName("metodo_pago")            val metodoPago:       String? = null,
+    @SerialName("fecha_registro")         val fechaRegistro:    String? = null,
+    @SerialName("dias_restantes")         val diasRestantes:    Int = 0
+) {
+    val esIngreso: Boolean get() = tipo == "ingreso"
+
+    val montoMostrar: Double get() =
+        (montoTotal ?: montoOriginal ?: montoReferencial)?.toDoubleOrNull() ?: 0.0
+
+    val nombreMes: String get() = listOf(
+        "", "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+        "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
+    ).getOrElse(mes) { mes.toString() }
+
+    val etiquetaDias: String get() = when {
+        conciliado          -> "Registrado ✓"
+        diasRestantes < 0   -> "Vencido hace ${-diasRestantes}d"
+        diasRestantes == 0  -> "¡Vence HOY!"
+        diasRestantes <= 5  -> "${diasRestantes}d para vencer"
+        else                -> "${diasRestantes}d restantes"
+    }
+}
+
+/** Plantilla de concepto recurrente (ingreso o gasto). */
+@Serializable
+data class ConceptoIndividual(
+    @SerialName("id_concepto")     val idConcepto:     String,
+    val tipo:                                          String,
+    val nombre:                                        String,
+    val descripcion:                                   String? = null,
+    val monto:                                         String,
+    @SerialName("dia_vencimiento") val diaVencimiento: Int,
+    val activo:                                        Boolean = true
+)
+
+@Serializable
+data class RegistrarMovimientoRequest(
+    @SerialName("id_concepto")   val idConcepto:   String,
+    @SerialName("id_usuario")    val idUsuario:    String,
+    @SerialName("id_movimiento") val idMovimiento: String? = null,
+    @SerialName("monto_pagado")  val montoPagado:  Double? = null,
+    @SerialName("metodo_pago")   val metodoPago:   String? = null,
+    val descripcion:                               String? = null
+)
+
+@Serializable
+data class CrearConceptoRequest(
+    @SerialName("id_usuario")      val idUsuario:      String,
+    val tipo:                                          String,
+    val nombre:                                        String,
+    val descripcion:                                   String? = null,
+    val monto:                                         Double,
+    @SerialName("dia_vencimiento") val diaVencimiento: Int
+)
+
+@Serializable
+data class ResumenIndividual(
+    val mes:  Int = 0,
+    val anio: Int = 0,
+    val ingresos: Double = 0.0,
+    val gastos:   Double = 0.0,
+    val balance:  Double = 0.0,
+    @SerialName("num_ingresos") val numIngresos: Int = 0,
+    @SerialName("num_gastos")   val numGastos:   Int = 0
+)
+
+// ═════════════════════════════════════════════════════════════════════════════
 //  CAMBIO DE CONTRASEÑA
 // ═════════════════════════════════════════════════════════════════════════════
 

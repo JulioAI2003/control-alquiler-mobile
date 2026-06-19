@@ -87,4 +87,39 @@ interface AlquilerApiService {
 
     @POST("cambiar-password")
     suspend fun cambiarPassword(@Body body: CambiarPasswordRequest): CambiarPasswordResponse
+
+    // --- MÓDULO INDIVIDUAL (ingresos / gastos) ---
+
+    @GET("individual/movimientos")
+    suspend fun getMovimientosIndividuales(
+        @Query("id_usuario") idUsuario: String,
+        @Query("tipo") tipo: String = ""
+    ): List<MovimientoIndividual>
+
+    @GET("individual/movimientos/realizados")
+    suspend fun getMovimientosIndividualesRealizados(
+        @Query("id_usuario") idUsuario: String,
+        @Query("tipo") tipo: String = ""
+    ): List<MovimientoIndividual>
+
+    @POST("individual/movimientos/registrar")
+    suspend fun registrarMovimiento(@Body body: RegistrarMovimientoRequest): PagoRegistradoResponse
+
+    @POST("individual/movimientos/revertir/{id_movimiento}")
+    suspend fun revertirMovimiento(@Path("id_movimiento") idMovimiento: String): PagoRegistradoResponse
+
+    @GET("individual/conceptos")
+    suspend fun getConceptosIndividuales(
+        @Query("id_usuario") idUsuario: String,
+        @Query("tipo") tipo: String = ""
+    ): List<ConceptoIndividual>
+
+    @POST("individual/concepto")
+    suspend fun crearConcepto(@Body body: CrearConceptoRequest): ConceptoIndividual
+
+    @DELETE("individual/concepto")
+    suspend fun eliminarConcepto(@Query("id_concepto") idConcepto: String): PagoRegistradoResponse
+
+    @GET("individual/resumen")
+    suspend fun getResumenIndividual(@Query("id_usuario") idUsuario: String): ResumenIndividual
 }

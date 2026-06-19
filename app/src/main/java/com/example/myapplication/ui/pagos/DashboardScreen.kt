@@ -75,8 +75,10 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
     val rol by app.sessionDataStore.rol.collectAsStateWithLifecycle(initialValue = null)
     val nombreUsuario by app.sessionDataStore.nombre.collectAsStateWithLifecycle(initialValue = null)
     val esAdmin = rol == "Administrador"
+    val esIndividual = rol == "Individual"
     var currentScreen by remember { mutableStateOf(if (esAdmin) "admin_usuarios" else "pendientes") }
     LaunchedEffect(esAdmin) { if (esAdmin && currentScreen == "pendientes") currentScreen = "admin_usuarios" }
+    LaunchedEffect(esIndividual) { if (esIndividual && currentScreen == "pendientes") currentScreen = "individual_ingresos" }
 
     // Estados para Modales
     var inquilinoDetalle by remember { mutableStateOf<Inquilino?>(null) }
@@ -120,7 +122,7 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
             ModalDrawerSheet(drawerContainerColor = Color.White) {
                 Spacer(Modifier.height(16.dp))
                 Text("Cobros App", Modifier.padding(24.dp), fontWeight = FontWeight.Black, fontSize = 22.sp, color = AzulPrimario)
-                if (!esAdmin) {
+                if (!esAdmin && !esIndividual) {
                     NavigationDrawerItem(
                         icon = { Icon(Icons.Default.Home, null) },
                         label = { Text("Inicio") },
@@ -154,6 +156,29 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                         label = { Text("Ajustes") },
                         selected = currentScreen == "ajustes",
                         onClick = { currentScreen = "ajustes"; scope.launch { drawerState.close() } },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
+                }
+                if (esIndividual) {
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.Default.Payment, null) },
+                        label = { Text("Ingresos") },
+                        selected = currentScreen == "individual_ingresos",
+                        onClick = { currentScreen = "individual_ingresos"; scope.launch { drawerState.close() } },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.Default.ReceiptLong, null) },
+                        label = { Text("Gastos") },
+                        selected = currentScreen == "individual_gastos",
+                        onClick = { currentScreen = "individual_gastos"; scope.launch { drawerState.close() } },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.Default.Home, null) },
+                        label = { Text("Resumen") },
+                        selected = currentScreen == "individual_resumen",
+                        onClick = { currentScreen = "individual_resumen"; scope.launch { drawerState.close() } },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
                 }
@@ -198,8 +223,10 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
             }
         }
     ) {
-        val tabScreens = listOf("pendientes", "servicios", "cuartos")
-        val tabTitles  = listOf("Cobros", "Servicios", "Cuartos Libres")
+        val tabScreens = if (esIndividual) listOf("individual_ingresos", "individual_gastos", "individual_resumen")
+                         else listOf("pendientes", "servicios", "cuartos")
+        val tabTitles  = if (esIndividual) listOf("Ingresos", "Gastos", "Resumen")
+                         else listOf("Cobros", "Servicios", "Cuartos Libres")
         val selectedTab = tabScreens.indexOf(currentScreen).coerceAtLeast(0)
         val showTabs = !esAdmin && currentScreen in tabScreens
 
@@ -208,6 +235,7 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
             "servicios_pagados" -> "Servicios Pagados"; "cuartos" -> "Cuartos Libres"
             "admin_usuarios" -> "Usuarios"; "admin_pagos" -> "Pagos Pendientes"
             "admin_pagos_realizados" -> "Pagos Registrados"; "ajustes" -> "Ajustes"
+            "individual_ingresos" -> "Ingresos"; "individual_gastos" -> "Gastos"; "individual_resumen" -> "Resumen"
             else -> "Inquilinos"
         }
 
@@ -261,6 +289,9 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                     "admin_pagos"            -> SeccionAdminPagos(vm)
                     "admin_pagos_realizados" -> SeccionAdminPagosRealizados(vm)
                     "ajustes"                -> SeccionAjustes()
+                    "individual_ingresos"    -> SeccionIndividual(vm, "ingreso")
+                    "individual_gastos"      -> SeccionIndividual(vm, "gasto")
+                    "individual_resumen"     -> SeccionResumenIndividual(vm)
                     else                     -> SeccionInquilinos(vm)
                 }
             }

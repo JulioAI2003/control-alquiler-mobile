@@ -50,6 +50,22 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
     private val _pagosUsuariosState = MutableStateFlow<UiState<List<PagoUsuario>>>(UiState.Idle)
     val pagosUsuariosState: StateFlow<UiState<List<PagoUsuario>>> = _pagosUsuariosState.asStateFlow()
 
+    // ── MÓDULO INDIVIDUAL ─────────────────────────────────────────────────────
+    private val _movIndividualState = MutableStateFlow<UiState<List<MovimientoIndividual>>>(UiState.Idle)
+    val movIndividualState: StateFlow<UiState<List<MovimientoIndividual>>> = _movIndividualState.asStateFlow()
+
+    private val _movIndividualRealizadosState = MutableStateFlow<UiState<List<MovimientoIndividual>>>(UiState.Idle)
+    val movIndividualRealizadosState: StateFlow<UiState<List<MovimientoIndividual>>> = _movIndividualRealizadosState.asStateFlow()
+
+    private val _conceptosIndividualState = MutableStateFlow<UiState<List<ConceptoIndividual>>>(UiState.Idle)
+    val conceptosIndividualState: StateFlow<UiState<List<ConceptoIndividual>>> = _conceptosIndividualState.asStateFlow()
+
+    private val _resumenIndividualState = MutableStateFlow<UiState<ResumenIndividual>>(UiState.Idle)
+    val resumenIndividualState: StateFlow<UiState<ResumenIndividual>> = _resumenIndividualState.asStateFlow()
+
+    private val _accionIndividualState = MutableStateFlow<UiState<String>>(UiState.Idle)
+    val accionIndividualState: StateFlow<UiState<String>> = _accionIndividualState.asStateFlow()
+
     fun cargarPagos() {
         viewModelScope.launch {
             _pagosState.value = UiState.Loading
@@ -331,6 +347,129 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
     }
 
     fun resetAdminActionState() { _adminActionState.value = UiState.Idle }
+
+    // ── MÓDULO INDIVIDUAL ─────────────────────────────────────────────────────
+
+    fun cargarMovimientos(tipo: String) {
+        viewModelScope.launch {
+            _movIndividualState.value = UiState.Loading
+            try {
+                val idUsuario = app.sessionDataStore.userId.first() ?: return@launch
+                _movIndividualState.value = UiState.Success(
+                    AlquilerApiClient.service.getMovimientosIndividuales(idUsuario, tipo)
+                )
+            } catch (e: Exception) {
+                _movIndividualState.value = UiState.Error(e.message ?: "Error al cargar movimientos")
+            }
+        }
+    }
+
+    fun cargarMovimientosRealizados(tipo: String) {
+        viewModelScope.launch {
+            _movIndividualRealizadosState.value = UiState.Loading
+            try {
+                val idUsuario = app.sessionDataStore.userId.first() ?: return@launch
+                _movIndividualRealizadosState.value = UiState.Success(
+                    AlquilerApiClient.service.getMovimientosIndividualesRealizados(idUsuario, tipo)
+                )
+            } catch (e: Exception) {
+                _movIndividualRealizadosState.value = UiState.Error(e.message ?: "Error al cargar movimientos")
+            }
+        }
+    }
+
+    fun registrarMovimiento(
+        idConcepto: String, idMovimiento: String?, montoPagado: Double?,
+        metodoPago: String, descripcion: String?, tipo: String
+    ) {
+        viewModelScope.launch {
+            _accionIndividualState.value = UiState.Loading
+            try {
+                val idUsuario = app.sessionDataStore.userId.first() ?: return@launch
+                val resp = AlquilerApiClient.service.registrarMovimiento(
+                    RegistrarMovimientoRequest(idConcepto, idUsuario, idMovimiento, montoPagado, metodoPago, descripcion)
+                )
+                _accionIndividualState.value = UiState.Success(resp.message)
+                cargarMovimientos(tipo)
+            } catch (e: Exception) {
+                _accionIndividualState.value = UiState.Error(e.message ?: "Error al registrar")
+            }
+        }
+    }
+
+    fun revertirMovimiento(idMovimiento: String, tipo: String) {
+        viewModelScope.launch {
+            _accionIndividualState.value = UiState.Loading
+            try {
+                val resp = AlquilerApiClient.service.revertirMovimiento(idMovimiento)
+                _accionIndividualState.value = UiState.Success(resp.message)
+                cargarMovimientosRealizados(tipo)
+            } catch (e: Exception) {
+                _accionIndividualState.value = UiState.Error(e.message ?: "Error al revertir")
+            }
+        }
+    }
+
+    fun cargarConceptos(tipo: String) {
+        viewModelScope.launch {
+            _conceptosIndividualState.value = UiState.Loading
+            try {
+                val idUsuario = app.sessionDataStore.userId.first() ?: return@launch
+                _conceptosIndividualState.value = UiState.Success(
+                    AlquilerApiClient.service.getConceptosIndividuales(idUsuario, tipo)
+                )
+            } catch (e: Exception) {
+                _conceptosIndividualState.value = UiState.Error(e.message ?: "Error al cargar conceptos")
+            }
+        }
+    }
+
+    fun crearConcepto(tipo: String, nombre: String, descripcion: String?, monto: Double, diaVencimiento: Int) {
+        viewModelScope.launch {
+            _accionIndividualState.value = UiState.Loading
+            try {
+                val idUsuario = app.sessionDataStore.userId.first() ?: return@launch
+                AlquilerApiClient.service.crearConcepto(
+                    CrearConceptoRequest(idUsuario, tipo, nombre, descripcion, monto, diaVencimiento)
+                )
+                _accionIndividualState.value = UiState.Success("Concepto creado")
+                cargarConceptos(tipo)
+                cargarMovimientos(tipo)
+            } catch (e: Exception) {
+                _accionIndividualState.value = UiState.Error(e.message ?: "Error al crear concepto")
+            }
+        }
+    }
+
+    fun eliminarConcepto(idConcepto: String, tipo: String) {
+        viewModelScope.launch {
+            _accionIndividualState.value = UiState.Loading
+            try {
+                AlquilerApiClient.service.eliminarConcepto(idConcepto)
+                _accionIndividualState.value = UiState.Success("Concepto eliminado")
+                cargarConceptos(tipo)
+                cargarMovimientos(tipo)
+            } catch (e: Exception) {
+                _accionIndividualState.value = UiState.Error(e.message ?: "Error al eliminar concepto")
+            }
+        }
+    }
+
+    fun cargarResumenIndividual() {
+        viewModelScope.launch {
+            _resumenIndividualState.value = UiState.Loading
+            try {
+                val idUsuario = app.sessionDataStore.userId.first() ?: return@launch
+                _resumenIndividualState.value = UiState.Success(
+                    AlquilerApiClient.service.getResumenIndividual(idUsuario)
+                )
+            } catch (e: Exception) {
+                _resumenIndividualState.value = UiState.Error(e.message ?: "Error al cargar resumen")
+            }
+        }
+    }
+
+    fun resetAccionIndividualState() { _accionIndividualState.value = UiState.Idle }
 
     private fun PagoBackend.toInquilinoUi(hoy: LocalDate): Inquilino {
         val fechaVenc = LocalDate.of(anio, mes, dia)
