@@ -30,6 +30,9 @@ class SessionDataStore(private val context: Context) {
     val rol: Flow<String?>      = context.dataStore.data.map { it[KEY_ROL]      }
     val idRol: Flow<String?>    = context.dataStore.data.map { it[KEY_ID_ROL]   }
 
+    /** "alarma" o "notificacion" (default). */
+    val tipoAviso: Flow<String> = context.dataStore.data.map { it[KEY_TIPO_AVISO] ?: "notificacion" }
+
     // ── Escritura ─────────────────────────────────────────────────────────────
 
     suspend fun guardarSesion(
@@ -46,6 +49,10 @@ class SessionDataStore(private val context: Context) {
             prefs[KEY_ROL]     = rol
             prefs[KEY_ID_ROL]  = idRol
         }
+    }
+
+    suspend fun guardarTipoAviso(tipo: String) {
+        context.dataStore.edit { prefs -> prefs[KEY_TIPO_AVISO] = tipo }
     }
 
     /** Actualiza solo el JWT sin tocar userId/nombre/rol (usado al cambiar contraseña). */
@@ -65,6 +72,7 @@ class SessionDataStore(private val context: Context) {
         val KEY_USER_ID = stringPreferencesKey("user_id")
         val KEY_NOMBRE  = stringPreferencesKey("nombre")
         val KEY_ROL     = stringPreferencesKey("rol")
-        val KEY_ID_ROL  = stringPreferencesKey("id_rol")
+        val KEY_ID_ROL     = stringPreferencesKey("id_rol")
+        val KEY_TIPO_AVISO = stringPreferencesKey("tipo_aviso")
     }
 }

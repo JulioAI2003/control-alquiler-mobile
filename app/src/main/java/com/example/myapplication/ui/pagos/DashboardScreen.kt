@@ -39,6 +39,7 @@ import com.example.myapplication.data.model.ServicioCasa
 import com.example.myapplication.data.model.UiState
 import com.example.myapplication.data.model.UsuarioAdmin
 import com.example.myapplication.data.model.PagoUsuario
+import com.example.myapplication.data.local.SessionDataStore
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
 
@@ -72,6 +73,7 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val rol by app.sessionDataStore.rol.collectAsStateWithLifecycle(initialValue = null)
+    val nombreUsuario by app.sessionDataStore.nombre.collectAsStateWithLifecycle(initialValue = null)
     val esAdmin = rol == "Administrador"
     var currentScreen by remember { mutableStateOf(if (esAdmin) "admin_usuarios" else "pendientes") }
     LaunchedEffect(esAdmin) { if (esAdmin && currentScreen == "pendientes") currentScreen = "admin_usuarios" }
@@ -120,9 +122,9 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                 Text("Cobros App", Modifier.padding(24.dp), fontWeight = FontWeight.Black, fontSize = 22.sp, color = AzulPrimario)
                 if (!esAdmin) {
                     NavigationDrawerItem(
-                        icon = { Icon(Icons.Default.PendingActions, null) },
-                        label = { Text("Pendientes de Cobro") },
-                        selected = currentScreen == "pendientes",
+                        icon = { Icon(Icons.Default.Home, null) },
+                        label = { Text("Inicio") },
+                        selected = currentScreen in listOf("pendientes", "servicios", "cuartos"),
                         onClick = { currentScreen = "pendientes"; scope.launch { drawerState.close() } },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
@@ -141,24 +143,17 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
                     NavigationDrawerItem(
-                        icon = { Icon(Icons.Default.MeetingRoom, null) },
-                        label = { Text("Cuartos Libres") },
-                        selected = currentScreen == "cuartos",
-                        onClick = { currentScreen = "cuartos"; scope.launch { drawerState.close() } },
-                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                    )
-                    NavigationDrawerItem(
-                        icon = { Icon(Icons.Default.ElectricBolt, null) },
-                        label = { Text("Servicios") },
-                        selected = currentScreen == "servicios",
-                        onClick = { currentScreen = "servicios"; scope.launch { drawerState.close() } },
-                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                    )
-                    NavigationDrawerItem(
                         icon = { Icon(Icons.Default.ReceiptLong, null) },
                         label = { Text("Servicios Pagados") },
                         selected = currentScreen == "servicios_pagados",
                         onClick = { currentScreen = "servicios_pagados"; scope.launch { drawerState.close() } },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.Default.Settings, null) },
+                        label = { Text("Ajustes") },
+                        selected = currentScreen == "ajustes",
+                        onClick = { currentScreen = "ajustes"; scope.launch { drawerState.close() } },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
                 }
@@ -203,19 +198,52 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
             }
         }
     ) {
+        val tabScreens = listOf("pendientes", "servicios", "cuartos")
+        val tabTitles  = listOf("Cobros", "Servicios", "Cuartos Libres")
+        val selectedTab = tabScreens.indexOf(currentScreen).coerceAtLeast(0)
+        val showTabs = !esAdmin && currentScreen in tabScreens
+
+        val screenTitle = when (currentScreen) {
+            "pendientes" -> "Cobros"; "pagados" -> "Pagados"; "servicios" -> "Servicios"
+            "servicios_pagados" -> "Servicios Pagados"; "cuartos" -> "Cuartos Libres"
+            "admin_usuarios" -> "Usuarios"; "admin_pagos" -> "Pagos Pendientes"
+            "admin_pagos_realizados" -> "Pagos Registrados"; "ajustes" -> "Ajustes"
+            else -> "Inquilinos"
+        }
+
         Scaffold(
             topBar = {
-                CenterAlignedTopAppBar(
-                    title = { Text(when(currentScreen) { "pendientes" -> "Cobros"; "pagados" -> "Pagados"; "servicios" -> "Servicios"; "servicios_pagados" -> "Servicios Pagados"; "cuartos" -> "Cuartos Libres"; "admin_usuarios" -> "Usuarios"; "admin_pagos" -> "Pagos Pendientes"; "admin_pagos_realizados" -> "Pagos Registrados"; else -> "Inquilinos" }, fontWeight = FontWeight.ExtraBold) },
-                    navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, "Menú")
-                        }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = Color.White, titleContentColor = AzulPrimario
+                Column {
+                    CenterAlignedTopAppBar(
+                        title = {
+                            val saludo = "Bienvenido, ${nombreUsuario ?: "Usuario"}"
+                            Text(if (showTabs) saludo else screenTitle, fontWeight = FontWeight.ExtraBold, fontSize = if (showTabs) 18.sp else 20.sp)
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                Icon(Icons.Default.Menu, "Menú")
+                            }
+                        },
+                        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                            containerColor = Color.White, titleContentColor = AzulPrimario
+                        )
                     )
-                )
+                    if (showTabs) {
+                        TabRow(
+                            selectedTabIndex = selectedTab,
+                            containerColor = Color.White,
+                            contentColor = AzulPrimario
+                        ) {
+                            tabTitles.forEachIndexed { index, title ->
+                                Tab(
+                                    selected = selectedTab == index,
+                                    onClick  = { currentScreen = tabScreens[index] },
+                                    text     = { Text(title, fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal) }
+                                )
+                            }
+                        }
+                    }
+                }
             }
         ) { padding ->
             Box(Modifier.padding(padding).fillMaxSize().background(Color(0xFFF5F5F5))) {
@@ -232,6 +260,7 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                     "admin_usuarios"         -> SeccionAdminUsuarios(vm)
                     "admin_pagos"            -> SeccionAdminPagos(vm)
                     "admin_pagos_realizados" -> SeccionAdminPagosRealizados(vm)
+                    "ajustes"                -> SeccionAjustes()
                     else                     -> SeccionInquilinos(vm)
                 }
             }
@@ -328,53 +357,65 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ListaPendientes(vm: PagosViewModel, onCardClick: (Inquilino) -> Unit, onPagarClick: (Inquilino) -> Unit) {
     val state by vm.pagosState.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.cargarPagos() }
 
-    when (val s = state) {
-        is UiState.Success -> {
-            LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(s.data, key = { it.idPago }) { inquilino ->
-                    val colores = inquilino.colores()
-                    Card(
-                        modifier = Modifier.fillMaxWidth().clickable { onCardClick(inquilino) },
-                        colors = CardDefaults.cardColors(containerColor = colores.fondo),
-                        border = BorderStroke(1.dp, colores.borde.copy(alpha = 0.5f)),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Box(Modifier.size(44.dp).clip(CircleShape).background(colores.borde), contentAlignment = Alignment.Center) {
-                                    Text(inquilino.nombre.take(1), color = Color.White, fontWeight = FontWeight.Bold)
+    val isRefreshing = state is UiState.Loading
+    val pullState = rememberPullToRefreshState()
+
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh    = { vm.cargarPagos() },
+        state        = pullState,
+        modifier     = Modifier.fillMaxSize(),
+        indicator    = {}
+    ) {
+        when (val s = state) {
+            is UiState.Success -> {
+                LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(s.data, key = { it.idPago }) { inquilino ->
+                        val colores = inquilino.colores()
+                        Card(
+                            modifier = Modifier.fillMaxWidth().clickable { onCardClick(inquilino) },
+                            colors = CardDefaults.cardColors(containerColor = colores.fondo),
+                            border = BorderStroke(1.dp, colores.borde.copy(alpha = 0.5f)),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Box(Modifier.size(44.dp).clip(CircleShape).background(colores.borde), contentAlignment = Alignment.Center) {
+                                        Text(inquilino.nombre.take(1), color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
+                                    if (!inquilino.garantiaPagada && (inquilino.montoGarantia ?: 0.0) > 0) {
+                                        Box(
+                                            Modifier.align(Alignment.TopEnd).size(12.dp).clip(CircleShape).background(Color(0xFFFFC107))
+                                        )
+                                    }
                                 }
-                                if (!inquilino.garantiaPagada && (inquilino.montoGarantia ?: 0.0) > 0) {
-                                    Box(
-                                        Modifier.align(Alignment.TopEnd).size(12.dp).clip(CircleShape).background(Color(0xFFFFC107))
-                                    )
+                                Spacer(Modifier.width(16.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(inquilino.nombre, fontWeight = FontWeight.Bold, color = colores.texto, fontSize = 16.sp)
+                                    Text(inquilino.etiquetaDias, fontSize = 12.sp, color = colores.texto, fontWeight = FontWeight.ExtraBold)
                                 }
-                            }
-                            Spacer(Modifier.width(16.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(inquilino.nombre, fontWeight = FontWeight.Bold, color = colores.texto, fontSize = 16.sp)
-                                Text(inquilino.etiquetaDias, fontSize = 12.sp, color = colores.texto, fontWeight = FontWeight.ExtraBold)
-                            }
-                            Button(
-                                onClick = { onPagarClick(inquilino) },
-                                colors = ButtonDefaults.buttonColors(containerColor = colores.borde),
-                                shape = RoundedCornerShape(10.dp),
-                                contentPadding = PaddingValues(horizontal = 12.dp)
-                            ) {
-                                Text("S/ ${"%.2f".format(inquilino.monto)}", fontWeight = FontWeight.Black)
+                                Button(
+                                    onClick = { onPagarClick(inquilino) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = colores.borde),
+                                    shape = RoundedCornerShape(10.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp)
+                                ) {
+                                    Text("S/ ${"%.2f".format(inquilino.monto)}", fontWeight = FontWeight.Black)
+                                }
                             }
                         }
                     }
                 }
             }
+            is UiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            else -> Unit
         }
-        is UiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-        else -> Unit
     }
 }
 
@@ -498,51 +539,63 @@ fun DetalleBottomSheet(inquilino: Inquilino, vm: PagosViewModel, onDismiss: () -
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun SeccionPagados(vm: PagosViewModel) {
     val state by vm.pagosRecientesState.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.cargarPagosRecientes() }
 
+    val isRefreshing = state is UiState.Loading
+    val pullState = rememberPullToRefreshState()
+
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Pagos realizados recientemente", fontWeight = FontWeight.Bold, color = Color.Gray)
         Spacer(Modifier.height(12.dp))
-        when (val s = state) {
-            is UiState.Success -> {
-                if (s.data.isEmpty()) {
-                    Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                        Text("Sin pagos en los últimos 10 días", color = Color.Gray)
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(s.data) { pago ->
-                            Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White)) {
-                                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Column(Modifier.weight(1f)) {
-                                        Text(pago.nombre, fontWeight = FontWeight.Bold)
-                                        Text(
-                                            "Pagado: S/ ${"%.2f".format(pago.montoOriginal)}",
-                                            color = Color(0xFF388E3C),
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                    TextButton(onClick = { vm.revertirPago(pago.idPago) }) {
-                                        Text("Revertir", color = Color(0xFFE65100))
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh    = { vm.cargarPagosRecientes() },
+            state        = pullState,
+            modifier     = Modifier.weight(1f),
+            indicator    = {}
+        ) {
+            when (val s = state) {
+                is UiState.Success -> {
+                    if (s.data.isEmpty()) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("Sin pagos en los últimos 10 días", color = Color.Gray)
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(s.data) { pago ->
+                                Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+                                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text(pago.nombre, fontWeight = FontWeight.Bold)
+                                            Text(
+                                                "Pagado: S/ ${"%.2f".format(pago.montoOriginal)}",
+                                                color = Color(0xFF388E3C),
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                        TextButton(onClick = { vm.revertirPago(pago.idPago) }) {
+                                            Text("Revertir", color = Color(0xFFE65100))
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
+                is UiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+                is UiState.Error -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(s.message, color = Color.Red)
+                }
+                else -> Unit
             }
-            is UiState.Loading -> Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-            is UiState.Error -> Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                Text(s.message, color = Color.Red)
-            }
-            else -> Unit
         }
     }
 }
@@ -552,6 +605,7 @@ fun SeccionPagados(vm: PagosViewModel) {
 // ──────────────────────────────────────────────────────────────────────────────
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun SeccionInquilinos(vm: PagosViewModel) {
     val state       by vm.inquilinosState.collectAsStateWithLifecycle()
     val retiroState by vm.retiroState.collectAsStateWithLifecycle()
@@ -561,7 +615,9 @@ fun SeccionInquilinos(vm: PagosViewModel) {
     var inquilinoARetirar     by remember { mutableStateOf<InquilinoMobile?>(null) }
     var filtroNombre by remember { mutableStateOf("") }
 
-    // Cierra el bottom sheet y limpia el estado cuando la acción de retiro termina
+    val isRefreshing = state is UiState.Loading
+    val pullState = rememberPullToRefreshState()
+
     LaunchedEffect(retiroState) {
         if (retiroState is UiState.Success) {
             inquilinoSeleccionado = null
@@ -595,59 +651,67 @@ fun SeccionInquilinos(vm: PagosViewModel) {
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(12.dp))
-        when (val s = state) {
-            is UiState.Success -> {
-                val filtrados = if (filtroNombre.isBlank()) s.data
-                else s.data.filter {
-                    "${it.nombre} ${it.apellidos}".contains(filtroNombre, ignoreCase = true)
-                }
-                if (filtrados.isEmpty()) {
-                    Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                        Text(
-                            if (s.data.isEmpty()) "No hay inquilinos activos"
-                            else "Sin resultados para \"$filtroNombre\"",
-                            color = Color.Gray
-                        )
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh    = { vm.cargarInquilinos() },
+            state        = pullState,
+            modifier     = Modifier.weight(1f),
+            indicator    = {}
+        ) {
+            when (val s = state) {
+                is UiState.Success -> {
+                    val filtrados = if (filtroNombre.isBlank()) s.data
+                    else s.data.filter {
+                        "${it.nombre} ${it.apellidos}".contains(filtroNombre, ignoreCase = true)
                     }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(filtrados, key = { it.idInquilino }) { inq ->
-                            val esPendiente = inq.estado == "pendiente_retiro"
-                            val bgColor     = if (esPendiente) Color(0xFFFFCDD2) else Color(0xFFC8E6C9)
-                            val borderColor = if (esPendiente) Color(0xFFD32F2F) else Color(0xFF388E3C)
-                            val textColor   = if (esPendiente) Color(0xFFB71C1C) else Color(0xFF1B5E20)
-                            Card(
-                                modifier = Modifier.fillMaxWidth().clickable { inquilinoSeleccionado = inq },
-                                colors = CardDefaults.cardColors(containerColor = bgColor),
-                                border = BorderStroke(1.dp, borderColor.copy(alpha = 0.5f)),
-                                shape = RoundedCornerShape(16.dp)
-                            ) {
-                                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Box(
-                                            Modifier.size(44.dp).clip(CircleShape).background(borderColor),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(inq.nombre.take(1), color = Color.White, fontWeight = FontWeight.Bold)
-                                        }
-                                        if (inq.fechaGarantia == null && (inq.montoGarantia?.toDoubleOrNull() ?: 0.0) > 0) {
+                    if (filtrados.isEmpty()) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(
+                                if (s.data.isEmpty()) "No hay inquilinos activos"
+                                else "Sin resultados para \"$filtroNombre\"",
+                                color = Color.Gray
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(filtrados, key = { it.idInquilino }) { inq ->
+                                val esPendiente = inq.estado == "pendiente_retiro"
+                                val bgColor     = if (esPendiente) Color(0xFFFFCDD2) else Color(0xFFC8E6C9)
+                                val borderColor = if (esPendiente) Color(0xFFD32F2F) else Color(0xFF388E3C)
+                                val textColor   = if (esPendiente) Color(0xFFB71C1C) else Color(0xFF1B5E20)
+                                Card(
+                                    modifier = Modifier.fillMaxWidth().clickable { inquilinoSeleccionado = inq },
+                                    colors = CardDefaults.cardColors(containerColor = bgColor),
+                                    border = BorderStroke(1.dp, borderColor.copy(alpha = 0.5f)),
+                                    shape = RoundedCornerShape(16.dp)
+                                ) {
+                                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Box(contentAlignment = Alignment.Center) {
                                             Box(
-                                                Modifier.align(Alignment.TopEnd).size(12.dp).clip(CircleShape).background(Color(0xFFFFC107))
-                                            )
+                                                Modifier.size(44.dp).clip(CircleShape).background(borderColor),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(inq.nombre.take(1), color = Color.White, fontWeight = FontWeight.Bold)
+                                            }
+                                            if (inq.fechaGarantia == null && (inq.montoGarantia?.toDoubleOrNull() ?: 0.0) > 0) {
+                                                Box(
+                                                    Modifier.align(Alignment.TopEnd).size(12.dp).clip(CircleShape).background(Color(0xFFFFC107))
+                                                )
+                                            }
                                         }
-                                    }
-                                    Spacer(Modifier.width(16.dp))
-                                    Column(Modifier.weight(1f)) {
-                                        Text("${inq.nombre} ${inq.apellidos}", fontWeight = FontWeight.Bold, color = textColor, fontSize = 16.sp)
-                                        Text("${inq.casa} · Cuarto ${inq.nroCuarto}", fontSize = 12.sp, color = Color.DarkGray)
-                                        if (esPendiente) {
-                                            Text(
-                                                "Retiro en ${inq.diasParaRetiro ?: 0} día(s)",
-                                                fontSize = 11.sp, color = textColor, fontWeight = FontWeight.ExtraBold
-                                            )
+                                        Spacer(Modifier.width(16.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Text("${inq.nombre} ${inq.apellidos}", fontWeight = FontWeight.Bold, color = textColor, fontSize = 16.sp)
+                                            Text("${inq.casa} · Cuarto ${inq.nroCuarto}", fontSize = 12.sp, color = Color.DarkGray)
+                                            if (esPendiente) {
+                                                Text(
+                                                    "Retiro en ${inq.diasParaRetiro ?: 0} día(s)",
+                                                    fontSize = 11.sp, color = textColor, fontWeight = FontWeight.ExtraBold
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -655,10 +719,10 @@ fun SeccionInquilinos(vm: PagosViewModel) {
                         }
                     }
                 }
+                is UiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                is UiState.Error   -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(s.message, color = Color.Red) }
+                else -> Unit
             }
-            is UiState.Loading -> Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-            is UiState.Error   -> Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { Text(s.message, color = Color.Red) }
-            else -> Unit
         }
     }
 
@@ -708,77 +772,88 @@ fun SeccionCuartosLibres(vm: PagosViewModel) {
 
     var cuartoSeleccionado by remember { mutableStateOf<CuartoLibre?>(null) }
 
+    val isRefreshing = state is UiState.Loading
+    val pullState = rememberPullToRefreshState()
+
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Cuartos disponibles", fontWeight = FontWeight.Bold, color = Color.Gray)
         Spacer(Modifier.height(12.dp))
-        when (val s = state) {
-            is UiState.Success -> {
-                if (s.data.isEmpty()) {
-                    Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                tint = Color(0xFF4CAF50),
-                                modifier = Modifier.size(64.dp)
-                            )
-                            Spacer(Modifier.height(12.dp))
-                            Text(
-                                "No hay cuartos libres",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp,
-                                color = Color(0xFF388E3C)
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                "¡Todos los cuartos están ocupados!",
-                                fontSize = 14.sp,
-                                color = Color.Gray
-                            )
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh    = { vm.cargarCuartosLibres() },
+            state        = pullState,
+            modifier     = Modifier.weight(1f),
+            indicator    = {}
+        ) {
+            when (val s = state) {
+                is UiState.Success -> {
+                    if (s.data.isEmpty()) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = Color(0xFF4CAF50),
+                                    modifier = Modifier.size(64.dp)
+                                )
+                                Spacer(Modifier.height(12.dp))
+                                Text(
+                                    "No hay cuartos libres",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 18.sp,
+                                    color = Color(0xFF388E3C)
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    "¡Todos los cuartos están ocupados!",
+                                    fontSize = 14.sp,
+                                    color = Color.Gray
+                                )
+                            }
                         }
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(s.data, key = { it.idCuarto }) { cuarto ->
-                            Card(
-                                modifier = Modifier.fillMaxWidth().clickable { cuartoSeleccionado = cuarto },
-                                colors = CardDefaults.cardColors(containerColor = coloresCuartoLibre.fondo),
-                                border = BorderStroke(1.dp, coloresCuartoLibre.borde.copy(alpha = 0.5f)),
-                                shape = RoundedCornerShape(16.dp)
-                            ) {
-                                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        Modifier.size(44.dp).clip(CircleShape).background(coloresCuartoLibre.borde),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(Icons.Default.MeetingRoom, null, tint = Color.White, modifier = Modifier.size(22.dp))
-                                    }
-                                    Spacer(Modifier.width(16.dp))
-                                    Column(Modifier.weight(1f)) {
-                                        Text("Cuarto ${cuarto.nroCuarto}", fontWeight = FontWeight.Bold, color = coloresCuartoLibre.texto, fontSize = 16.sp)
-                                        Text("${cuarto.casa} · ${cuarto.piso}", fontSize = 12.sp, color = Color.DarkGray)
-                                    }
-                                    val precio = cuarto.precio?.toDoubleOrNull()
-                                    if (precio != null) {
-                                        Text(
-                                            "S/ ${"%.2f".format(precio)}",
-                                            fontWeight = FontWeight.Black,
-                                            color = coloresCuartoLibre.borde,
-                                            fontSize = 14.sp
-                                        )
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(s.data, key = { it.idCuarto }) { cuarto ->
+                                Card(
+                                    modifier = Modifier.fillMaxWidth().clickable { cuartoSeleccionado = cuarto },
+                                    colors = CardDefaults.cardColors(containerColor = coloresCuartoLibre.fondo),
+                                    border = BorderStroke(1.dp, coloresCuartoLibre.borde.copy(alpha = 0.5f)),
+                                    shape = RoundedCornerShape(16.dp)
+                                ) {
+                                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            Modifier.size(44.dp).clip(CircleShape).background(coloresCuartoLibre.borde),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(Icons.Default.MeetingRoom, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                                        }
+                                        Spacer(Modifier.width(16.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Text("Cuarto ${cuarto.nroCuarto}", fontWeight = FontWeight.Bold, color = coloresCuartoLibre.texto, fontSize = 16.sp)
+                                            Text("${cuarto.casa} · ${cuarto.piso}", fontSize = 12.sp, color = Color.DarkGray)
+                                        }
+                                        val precio = cuarto.precio?.toDoubleOrNull()
+                                        if (precio != null) {
+                                            Text(
+                                                "S/ ${"%.2f".format(precio)}",
+                                                fontWeight = FontWeight.Black,
+                                                color = coloresCuartoLibre.borde,
+                                                fontSize = 14.sp
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
+                is UiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                is UiState.Error   -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(s.message, color = Color.Red) }
+                else -> Unit
             }
-            is UiState.Loading -> Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-            is UiState.Error   -> Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { Text(s.message, color = Color.Red) }
-            else -> Unit
         }
     }
 
@@ -880,7 +955,8 @@ fun SeccionServicios(vm: PagosViewModel, onPagarClick: (ServicioCasa) -> Unit) {
             isRefreshing = isRefreshing,
             onRefresh    = { vm.cargarServicios() },
             state        = pullState,
-            modifier     = Modifier.weight(1f)
+            modifier     = Modifier.weight(1f),
+            indicator    = {}
         ) {
             when (val s = state) {
                 is UiState.Success -> {
@@ -934,6 +1010,7 @@ fun SeccionServicios(vm: PagosViewModel, onPagarClick: (ServicioCasa) -> Unit) {
                         }
                     }
                 }
+                is UiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
                 is UiState.Error -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(s.message, color = Color.Red) }
                 else -> Unit
             }
@@ -982,7 +1059,8 @@ fun SeccionServiciosPagados(vm: PagosViewModel) {
             isRefreshing = isRefreshing,
             onRefresh    = { vm.cargarServiciosRealizados() },
             state        = pullState,
-            modifier     = Modifier.weight(1f)
+            modifier     = Modifier.weight(1f),
+            indicator    = {}
         ) {
             when (val s = state) {
                 is UiState.Success -> {
@@ -1226,7 +1304,8 @@ fun SeccionAdminUsuarios(vm: PagosViewModel) {
             isRefreshing = isRefreshing,
             onRefresh    = { vm.cargarUsuarios() },
             state        = pullState,
-            modifier     = Modifier.weight(1f)
+            modifier     = Modifier.weight(1f),
+            indicator    = {}
         ) {
             when (val s = state) {
                 is UiState.Success -> {
@@ -1431,7 +1510,8 @@ fun SeccionAdminPagos(vm: PagosViewModel) {
             isRefreshing = isRefreshing,
             onRefresh    = { vm.cargarPagosUsuarios() },
             state        = pullState,
-            modifier     = Modifier.weight(1f)
+            modifier     = Modifier.weight(1f),
+            indicator    = {}
         ) {
             when (val s = state) {
                 is UiState.Success -> {
@@ -1533,7 +1613,8 @@ fun SeccionAdminPagosRealizados(vm: PagosViewModel) {
             isRefreshing = isRefreshing,
             onRefresh    = { vm.cargarPagosRealizados() },
             state        = pullState,
-            modifier     = Modifier.weight(1f)
+            modifier     = Modifier.weight(1f),
+            indicator    = {}
         ) {
             when (val s = state) {
                 is UiState.Success -> {
@@ -1598,5 +1679,93 @@ fun SeccionAdminPagosRealizados(vm: PagosViewModel) {
             title = { Text("Revertir Pago") },
             text = { Text("¿Deseas revertir el pago de S/ ${pago.monto ?: "0"} de ${pago.nombres ?: "usuario"}?") }
         )
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  SECCIÓN AJUSTES
+// ═══════════════════════════════════════════════════════════════════════════════
+
+@Composable
+fun SeccionAjustes() {
+    val context = LocalContext.current
+    val dataStore = remember { SessionDataStore(context) }
+    val tipoAviso by dataStore.tipoAviso.collectAsStateWithLifecycle(initialValue = "notificacion")
+    val scope = rememberCoroutineScope()
+
+    Column(
+        Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        Text("Tipo de Aviso", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = AzulPrimario)
+
+        Text(
+            "Elige cómo deseas recibir los avisos cuando tengas cobros o servicios vencidos.",
+            fontSize = 14.sp, color = Color.Gray
+        )
+
+        Card(
+            modifier = Modifier.fillMaxWidth().clickable {
+                scope.launch { dataStore.guardarTipoAviso("notificacion") }
+            },
+            colors = CardDefaults.cardColors(
+                containerColor = if (tipoAviso == "notificacion") Color(0xFFE3F2FD) else Color.White
+            ),
+            border = BorderStroke(
+                2.dp,
+                if (tipoAviso == "notificacion") AzulPrimario else Color(0xFFE0E0E0)
+            ),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Notifications, null,
+                    modifier = Modifier.size(40.dp),
+                    tint = if (tipoAviso == "notificacion") AzulPrimario else Color.Gray
+                )
+                Spacer(Modifier.width(16.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Notificación", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text("Recibes una notificación silenciosa en la barra superior.", fontSize = 13.sp, color = Color.Gray)
+                }
+                RadioButton(
+                    selected = tipoAviso == "notificacion",
+                    onClick  = { scope.launch { dataStore.guardarTipoAviso("notificacion") } },
+                    colors   = RadioButtonDefaults.colors(selectedColor = AzulPrimario)
+                )
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth().clickable {
+                scope.launch { dataStore.guardarTipoAviso("alarma") }
+            },
+            colors = CardDefaults.cardColors(
+                containerColor = if (tipoAviso == "alarma") Color(0xFFFFF3E0) else Color.White
+            ),
+            border = BorderStroke(
+                2.dp,
+                if (tipoAviso == "alarma") Color(0xFFE65100) else Color(0xFFE0E0E0)
+            ),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Alarm, null,
+                    modifier = Modifier.size(40.dp),
+                    tint = if (tipoAviso == "alarma") Color(0xFFE65100) else Color.Gray
+                )
+                Spacer(Modifier.width(16.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Alarma", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text("Suena una alarma con sonido fuerte y pantalla completa.", fontSize = 13.sp, color = Color.Gray)
+                }
+                RadioButton(
+                    selected = tipoAviso == "alarma",
+                    onClick  = { scope.launch { dataStore.guardarTipoAviso("alarma") } },
+                    colors   = RadioButtonDefaults.colors(selectedColor = Color(0xFFE65100))
+                )
+            }
+        }
     }
 }
