@@ -224,7 +224,9 @@ data class MovimientoIndividual(
     val conciliado:                                             Boolean = false,
     @SerialName("metodo_pago")            val metodoPago:       String? = null,
     @SerialName("fecha_registro")         val fechaRegistro:    String? = null,
-    @SerialName("dias_restantes")         val diasRestantes:    Int = 0
+    @SerialName("dias_restantes")         val diasRestantes:    Int = 0,
+    @SerialName("precio_fijo")            val precioFijo:       Boolean = true,
+    val celular:                                                String? = null
 ) {
     val esIngreso: Boolean get() = tipo == "ingreso"
 
@@ -254,6 +256,8 @@ data class ConceptoIndividual(
     val descripcion:                                   String? = null,
     val monto:                                         String,
     @SerialName("dia_vencimiento") val diaVencimiento: Int,
+    @SerialName("precio_fijo")     val precioFijo:     Boolean = true,
+    val celular:                                       String? = null,
     val activo:                                        Boolean = true
 )
 
@@ -264,7 +268,8 @@ data class RegistrarMovimientoRequest(
     @SerialName("id_movimiento") val idMovimiento: String? = null,
     @SerialName("monto_pagado")  val montoPagado:  Double? = null,
     @SerialName("metodo_pago")   val metodoPago:   String? = null,
-    val descripcion:                               String? = null
+    val descripcion:                               String? = null,
+    val celular:                                   String? = null
 )
 
 @Serializable
@@ -274,7 +279,9 @@ data class CrearConceptoRequest(
     val nombre:                                        String,
     val descripcion:                                   String? = null,
     val monto:                                         Double,
-    @SerialName("dia_vencimiento") val diaVencimiento: Int
+    @SerialName("dia_vencimiento") val diaVencimiento: Int,
+    @SerialName("precio_fijo")     val precioFijo:     Boolean = true,
+    val celular:                                       String? = null
 )
 
 @Serializable

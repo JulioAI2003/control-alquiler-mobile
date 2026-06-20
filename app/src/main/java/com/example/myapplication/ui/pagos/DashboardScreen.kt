@@ -161,24 +161,17 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                 }
                 if (esIndividual) {
                     NavigationDrawerItem(
-                        icon = { Icon(Icons.Default.Payment, null) },
-                        label = { Text("Ingresos") },
-                        selected = currentScreen == "individual_ingresos",
+                        icon = { Icon(Icons.Default.Home, null) },
+                        label = { Text("Inicio") },
+                        selected = currentScreen in listOf("individual_ingresos", "individual_gastos", "individual_resumen"),
                         onClick = { currentScreen = "individual_ingresos"; scope.launch { drawerState.close() } },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
                     NavigationDrawerItem(
-                        icon = { Icon(Icons.Default.ReceiptLong, null) },
-                        label = { Text("Gastos") },
-                        selected = currentScreen == "individual_gastos",
-                        onClick = { currentScreen = "individual_gastos"; scope.launch { drawerState.close() } },
-                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                    )
-                    NavigationDrawerItem(
-                        icon = { Icon(Icons.Default.Home, null) },
-                        label = { Text("Resumen") },
-                        selected = currentScreen == "individual_resumen",
-                        onClick = { currentScreen = "individual_resumen"; scope.launch { drawerState.close() } },
+                        icon = { Icon(Icons.Default.Settings, null) },
+                        label = { Text("Ajustes") },
+                        selected = currentScreen == "ajustes",
+                        onClick = { currentScreen = "ajustes"; scope.launch { drawerState.close() } },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
                 }

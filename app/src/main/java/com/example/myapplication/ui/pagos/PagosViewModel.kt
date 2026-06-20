@@ -380,14 +380,14 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
 
     fun registrarMovimiento(
         idConcepto: String, idMovimiento: String?, montoPagado: Double?,
-        metodoPago: String, descripcion: String?, tipo: String
+        metodoPago: String, descripcion: String?, tipo: String, celular: String? = null
     ) {
         viewModelScope.launch {
             _accionIndividualState.value = UiState.Loading
             try {
                 val idUsuario = app.sessionDataStore.userId.first() ?: return@launch
                 val resp = AlquilerApiClient.service.registrarMovimiento(
-                    RegistrarMovimientoRequest(idConcepto, idUsuario, idMovimiento, montoPagado, metodoPago, descripcion)
+                    RegistrarMovimientoRequest(idConcepto, idUsuario, idMovimiento, montoPagado, metodoPago, descripcion, celular)
                 )
                 _accionIndividualState.value = UiState.Success(resp.message)
                 cargarMovimientos(tipo)
@@ -424,13 +424,16 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
         }
     }
 
-    fun crearConcepto(tipo: String, nombre: String, descripcion: String?, monto: Double, diaVencimiento: Int) {
+    fun crearConcepto(
+        tipo: String, nombre: String, descripcion: String?, monto: Double,
+        diaVencimiento: Int, precioFijo: Boolean = true, celular: String? = null
+    ) {
         viewModelScope.launch {
             _accionIndividualState.value = UiState.Loading
             try {
                 val idUsuario = app.sessionDataStore.userId.first() ?: return@launch
                 AlquilerApiClient.service.crearConcepto(
-                    CrearConceptoRequest(idUsuario, tipo, nombre, descripcion, monto, diaVencimiento)
+                    CrearConceptoRequest(idUsuario, tipo, nombre, descripcion, monto, diaVencimiento, precioFijo, celular)
                 )
                 _accionIndividualState.value = UiState.Success("Concepto creado")
                 cargarConceptos(tipo)
