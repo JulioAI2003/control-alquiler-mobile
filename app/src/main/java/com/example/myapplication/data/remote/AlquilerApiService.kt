@@ -71,8 +71,10 @@ interface AlquilerApiService {
 
     // --- ADMIN: PAGOS DE SUSCRIPCIÓN ---
 
+    // Sin id_usuario → todas las suscripciones pendientes (vista admin = por cobrar).
+    // Con id_usuario  → solo las del usuario indicado (su suscripción por pagar).
     @GET("pagos-usuarios")
-    suspend fun getPagosUsuarios(): List<PagoUsuario>
+    suspend fun getPagosUsuarios(@Query("id_usuario") idUsuario: String? = null): List<PagoUsuario>
 
     @GET("pagos-usuarios/realizados")
     suspend fun getPagosUsuariosRealizados(): List<PagoUsuario>
@@ -82,6 +84,14 @@ interface AlquilerApiService {
 
     @PUT("pagos-usuarios/revertir")
     suspend fun revertirPagoUsuario(@Body body: RevertirPagoUsuarioRequest): PagoRegistradoResponse
+
+    // --- RECORDATORIOS POSPUESTOS (aplazar avisos por recibo) ---
+
+    @GET("recordatorios/pospuestos")
+    suspend fun getRecordatoriosPospuestos(@Query("id_usuario") idUsuario: String): List<RecordatorioPospuesto>
+
+    @POST("recordatorios/posponer")
+    suspend fun posponerRecordatorio(@Body body: PosponerRequest): PagoRegistradoResponse
 
     // --- CAMBIO DE CONTRASEÑA ---
 

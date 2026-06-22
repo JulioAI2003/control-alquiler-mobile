@@ -130,7 +130,7 @@ private fun PantallaAlarmaActiva(titulo: String, descripcion: String, onApagar: 
                         text       = descripcion,
                         fontSize   = 20.sp,
                         fontWeight = FontWeight.SemiBold,
-                        textAlign  = TextAlign.Center,
+                        textAlign  = TextAlign.Start,
                         color      = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier   = Modifier.padding(horizontal = 28.dp, vertical = 22.dp)
                     )

@@ -356,6 +356,25 @@ data class PagoUsuario(
     val estado:                                              String? = null
 )
 
+// ═════════════════════════════════════════════════════════════════════════════
+//  RECORDATORIOS POSPUESTOS (aplazar el aviso de un recibo unos días)
+// ═════════════════════════════════════════════════════════════════════════════
+
+/** Recibo cuyo recordatorio fue pospuesto hasta una fecha ("YYYY-MM-DD"). */
+@Serializable
+data class RecordatorioPospuesto(
+    val clave:                            String,
+    @SerialName("pospuesto_hasta")        val pospuestoHasta: String
+)
+
+/** Body para posponer el recordatorio de un recibo. */
+@Serializable
+data class PosponerRequest(
+    @SerialName("id_usuario")      val idUsuario:      String,
+    val clave:                                         String,
+    @SerialName("pospuesto_hasta") val pospuestoHasta: String
+)
+
 @Serializable
 data class ConfirmarPagoUsuarioRequest(
     @SerialName("id_pagousuario") val idPagoUsuario: String,

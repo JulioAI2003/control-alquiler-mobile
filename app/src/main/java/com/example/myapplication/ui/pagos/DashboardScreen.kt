@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.myapplication.R
@@ -464,6 +465,14 @@ fun ListaPendientes(vm: PagosViewModel, onCardClick: (Inquilino) -> Unit, onPaga
 fun DetalleBottomSheet(inquilino: Inquilino, vm: PagosViewModel, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val retiroState by vm.retiroState.collectAsStateWithLifecycle()
+    var posponerOpen by remember { mutableStateOf(false) }
+    if (posponerOpen) {
+        PosponerRecordatorioDialog(
+            clave = "pago:${inquilino.idPago}",
+            titulo = inquilino.nombre,
+            onDismiss = { posponerOpen = false }
+        )
+    }
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color.White) {
         Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding()) {
             Text("Detalle del Inquilino", fontWeight = FontWeight.Black, fontSize = 22.sp, color = AzulPrimario)
@@ -573,6 +582,16 @@ fun DetalleBottomSheet(inquilino: Inquilino, vm: PagosViewModel, onDismiss: () -
             }
 
             Spacer(Modifier.height(24.dp))
+            Button(
+                onClick = { posponerOpen = true },
+                Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White)
+            ) {
+                Icon(Icons.Default.Schedule, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Posponer recordatorio")
+            }
+            Spacer(Modifier.height(8.dp))
             Button(onClick = onDismiss, Modifier.fillMaxWidth()) { Text("Cerrar") }
         }
     }
@@ -987,6 +1006,15 @@ fun SeccionServicios(vm: PagosViewModel, onPagarClick: (ServicioCasa) -> Unit) {
     LaunchedEffect(Unit) { vm.cargarServicios() }
 
     var servicioARevertir by remember { mutableStateOf<ServicioCasa?>(null) }
+    var servicioAPosponer by remember { mutableStateOf<ServicioCasa?>(null) }
+
+    servicioAPosponer?.let { srv ->
+        PosponerRecordatorioDialog(
+            clave = "servicio:${srv.idServicio}:${srv.anio}-${srv.mes}",
+            titulo = srv.nombre,
+            onDismiss = { servicioAPosponer = null }
+        )
+    }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Servicios pendientes", fontWeight = FontWeight.Bold, color = Color.Gray)
@@ -1035,13 +1063,23 @@ fun SeccionServicios(vm: PagosViewModel, onPagarClick: (ServicioCasa) -> Unit) {
                                                 Text("Revertir", color = Color(0xFFE65100), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                             }
                                         } else {
-                                            Button(
-                                                onClick = { onPagarClick(srv) },
-                                                colors = ButtonDefaults.buttonColors(containerColor = colores.borde),
-                                                shape = RoundedCornerShape(10.dp),
-                                                contentPadding = PaddingValues(horizontal = 12.dp)
-                                            ) {
-                                                Text("S/ ${"%.2f".format(srv.montoReferencial.toDoubleOrNull() ?: 0.0)}", fontWeight = FontWeight.Black)
+                                            Column(horizontalAlignment = Alignment.End) {
+                                                Button(
+                                                    onClick = { onPagarClick(srv) },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = colores.borde),
+                                                    shape = RoundedCornerShape(10.dp),
+                                                    contentPadding = PaddingValues(horizontal = 12.dp)
+                                                ) {
+                                                    Text("S/ ${"%.2f".format(srv.montoReferencial.toDoubleOrNull() ?: 0.0)}", fontWeight = FontWeight.Black)
+                                                }
+                                                Button(
+                                                    onClick = { servicioAPosponer = srv },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White),
+                                                    shape = RoundedCornerShape(10.dp),
+                                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                                ) {
+                                                    Text("Posponer", fontSize = 11.sp)
+                                                }
                                             }
                                         }
                                     }
@@ -1663,11 +1701,19 @@ fun SeccionAdminPagosRealizados(vm: PagosViewModel) {
                             Text("No hay pagos registrados.\nDesliza hacia abajo para actualizar.", color = Color.Gray)
                         }
                     } else {
+                        // Solo se puede revertir el ÚLTIMO pago registrado de cada usuario
+                        // (para corregir errores de registro sin romper la secuencia mensual).
+                        val idsUltimoPorUsuario = s.data
+                            .sortedByDescending { it.fechaRegistro ?: "" }
+                            .distinctBy { it.idUsuario }
+                            .map { it.idPagoUsuario }
+                            .toSet()
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             items(s.data, key = { it.idPagoUsuario }) { pago ->
+                                val esUltimo = pago.idPagoUsuario in idsUltimoPorUsuario
                                 Card(
                                     modifier = Modifier.fillMaxWidth(),
                                     colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
@@ -1690,8 +1736,17 @@ fun SeccionAdminPagosRealizados(vm: PagosViewModel) {
                                                 Text("Pagado: ${pago.fechaRegistro.take(10)}", fontSize = 11.sp, color = Color.DarkGray)
                                             }
                                         }
-                                        TextButton(onClick = { pagoARevertir = pago }) {
-                                            Text("Revertir", color = Color(0xFFE65100), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        if (esUltimo) {
+                                            TextButton(onClick = { pagoARevertir = pago }) {
+                                                Text("Revertir", color = Color(0xFFE65100), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                            }
+                                        } else {
+                                            Text(
+                                                "Solo se revierte\nel último",
+                                                fontSize = 10.sp,
+                                                color = Color.Gray,
+                                                textAlign = TextAlign.End
+                                            )
                                         }
                                     }
                                 }

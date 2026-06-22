@@ -35,6 +35,14 @@ private val IndAzul  = Color(0xFF1A237E)
 private val IndVerde = Color(0xFF2E7D32)
 private val IndRojo  = Color(0xFFC62828)
 
+// Semáforo por proximidad al vencimiento (igual que cobros/servicios): rojo, amarillo, verde.
+private data class SemColores(val fondo: Color, val borde: Color, val texto: Color)
+private fun coloresPorVencimiento(diasRestantes: Int): SemColores = when {
+    diasRestantes < 0  -> SemColores(Color(0xFFFFCDD2), Color(0xFFD32F2F), Color(0xFFB71C1C)) // vencido
+    diasRestantes <= 5 -> SemColores(Color(0xFFFFF9C4), Color(0xFFF57F17), Color(0xFFE65100)) // por vencer
+    else               -> SemColores(Color(0xFFC8E6C9), Color(0xFF388E3C), Color(0xFF1B5E20)) // al día
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 //  SECCIÓN INDIVIDUAL (ingresos o gastos según `tipo`)
 // ═════════════════════════════════════════════════════════════════════════════
@@ -54,6 +62,7 @@ fun SeccionIndividual(vm: PagosViewModel, tipo: String) {
 
     var movARegistrar by remember { mutableStateOf<MovimientoIndividual?>(null) }
     var movARevertir  by remember { mutableStateOf<MovimientoIndividual?>(null) }
+    var movAPosponer  by remember { mutableStateOf<MovimientoIndividual?>(null) }
     var movDetalle    by remember { mutableStateOf<MovimientoIndividual?>(null) }
     var cptAEliminar  by remember { mutableStateOf<ConceptoIndividual?>(null) }
     var nuevoConcepto by remember { mutableStateOf(false) }
@@ -88,7 +97,7 @@ fun SeccionIndividual(vm: PagosViewModel, tipo: String) {
         }
         Box(Modifier.weight(1f).fillMaxWidth().background(Color(0xFFF5F5F5))) {
             when (subtab) {
-                0 -> ListaMovimientosPendientes(pendState, acento, verbo, onRegistrar = { movARegistrar = it }, onDetalle = onDetalle)
+                0 -> ListaMovimientosPendientes(pendState, acento, verbo, onRegistrar = { movARegistrar = it }, onPosponer = { movAPosponer = it }, onDetalle = onDetalle)
                 1 -> ListaMovimientosRealizados(realState, onRevertir = { movARevertir = it }, onDetalle = onDetalle)
                 else -> ListaConceptos(cptState, esIngreso, acento, { nuevoConcepto = true }) { cptAEliminar = it }
             }
@@ -108,6 +117,15 @@ fun SeccionIndividual(vm: PagosViewModel, tipo: String) {
     // Detalle del ingreso (llamada / WhatsApp)
     movDetalle?.let { mov ->
         DialogoDetalleIngreso(mov) { movDetalle = null }
+    }
+
+    // Posponer recordatorio de este movimiento
+    movAPosponer?.let { mov ->
+        PosponerRecordatorioDialog(
+            clave = "movimiento:${mov.idConcepto}:${mov.anio}-${mov.mes}",
+            titulo = mov.nombre,
+            onDismiss = { movAPosponer = null }
+        )
     }
 
     // Registrar (cobrar / pagar)
@@ -171,6 +189,7 @@ private fun ListaMovimientosPendientes(
     state: UiState<List<MovimientoIndividual>>,
     acento: Color, verbo: String,
     onRegistrar: (MovimientoIndividual) -> Unit,
+    onPosponer: (MovimientoIndividual) -> Unit,
     onDetalle: ((MovimientoIndividual) -> Unit)? = null
 ) {
     when (val s = state) {
@@ -183,29 +202,38 @@ private fun ListaMovimientosPendientes(
                 LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(s.data, key = { "${it.idConcepto}-${it.mes}-${it.anio}" }) { mov ->
                         val clickMod = onDetalle?.let { cb -> Modifier.clickable { cb(mov) } } ?: Modifier
+                        val col = coloresPorVencimiento(mov.diasRestantes)
                         Card(
                             Modifier.fillMaxWidth().then(clickMod),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            border = BorderStroke(1.dp, acento.copy(alpha = 0.4f)),
+                            colors = CardDefaults.cardColors(containerColor = col.fondo),
+                            border = BorderStroke(1.dp, col.borde.copy(alpha = 0.5f)),
                             shape = RoundedCornerShape(16.dp)
                         ) {
                             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Box(Modifier.size(44.dp).clip(CircleShape).background(acento), contentAlignment = Alignment.Center) {
+                                Box(Modifier.size(44.dp).clip(CircleShape).background(col.borde), contentAlignment = Alignment.Center) {
                                     Text(mov.nombre.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
                                 }
                                 Spacer(Modifier.width(16.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(mov.nombre, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                    Text(mov.etiquetaDias, fontSize = 12.sp, color = acento, fontWeight = FontWeight.ExtraBold)
+                                    Text(mov.etiquetaDias, fontSize = 12.sp, color = col.texto, fontWeight = FontWeight.ExtraBold)
                                     Text("${mov.nombreMes} ${mov.anio} · Día ${mov.dia}", fontSize = 11.sp, color = Color.DarkGray)
                                     if (onDetalle != null) Text("Toca para ver detalle / contactar", fontSize = 10.sp, color = IndAzul)
                                 }
-                                Button(
-                                    onClick = { onRegistrar(mov) },
-                                    colors = ButtonDefaults.buttonColors(containerColor = acento),
-                                    shape = RoundedCornerShape(10.dp),
-                                    contentPadding = PaddingValues(horizontal = 12.dp)
-                                ) { Text("$verbo S/ ${"%.2f".format(mov.montoMostrar)}", fontWeight = FontWeight.Black, fontSize = 12.sp) }
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Button(
+                                        onClick = { onRegistrar(mov) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = col.borde),
+                                        shape = RoundedCornerShape(10.dp),
+                                        contentPadding = PaddingValues(horizontal = 12.dp)
+                                    ) { Text("$verbo S/ ${"%.2f".format(mov.montoMostrar)}", fontWeight = FontWeight.Black, fontSize = 12.sp) }
+                                    Button(
+                                        onClick = { onPosponer(mov) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White),
+                                        shape = RoundedCornerShape(10.dp),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                    ) { Text("Posponer", fontSize = 11.sp) }
+                                }
                             }
                         }
                     }
