@@ -1,6 +1,7 @@
 // ─── data/remote/AlquilerApiClient.kt ────────────────────────────────────────
 package com.example.myapplication.data.remote
 
+import android.content.Context
 import com.example.myapplication.BuildConfig
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlinx.serialization.json.Json
@@ -26,8 +27,13 @@ object AlquilerApiClient {
      * [tokenProvider] es una lambda que devuelve el JWT en memoria;
      * esto permite que el interceptor siempre lea el token actualizado.
      */
-    fun init(tokenProvider: () -> String?, onUnauthorized: () -> Unit = {}) {
+    fun init(
+        context: Context,
+        tokenProvider: () -> String?,
+        onUnauthorized: () -> Unit = {}
+    ) {
         if (_service != null) return   // idempotente
+        val appContext = context.applicationContext
 
         // JSON permisivo: ignora campos desconocidos del backend.
         // encodeDefaults = true es CRÍTICO: sin esto, Kotlinx Serialization omite
@@ -48,11 +54,14 @@ object AlquilerApiClient {
         }
 
         val okHttp = OkHttpClient.Builder()
+            // 1º: corta si no hay red y reintenta GET ante cold start (5xx/timeout).
+            //     Va primero para que el reintento vuelva a pasar por auth y logging.
+            .addInterceptor(ConnectivityRetryInterceptor(appContext))
             .addInterceptor(AuthInterceptor(tokenProvider, onUnauthorized))
             .addInterceptor(logging)
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(25, TimeUnit.SECONDS)
+            .writeTimeout(25, TimeUnit.SECONDS)
             .build()
 
         _service = Retrofit.Builder()

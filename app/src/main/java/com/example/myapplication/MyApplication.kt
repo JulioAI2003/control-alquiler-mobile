@@ -39,6 +39,7 @@ class MyApplication : Application() {
         }
 
         AlquilerApiClient.init(
+            context        = this,
             tokenProvider  = { cachedToken },
             onUnauthorized = {
                 // Llamado desde el hilo de OkHttp cuando el servidor responde 401.

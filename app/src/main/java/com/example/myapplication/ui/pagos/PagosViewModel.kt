@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.myapplication.MyApplication
 import com.example.myapplication.data.model.*
 import com.example.myapplication.data.remote.AlquilerApiClient
+import com.example.myapplication.data.remote.NetworkError
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -77,7 +78,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                     .sortedWith(compareByDescending<Inquilino> { it.estadoPago.ordinal }.thenBy { it.diasRestantes })
                 _pagosState.value = UiState.Success(inquilinos)
             } catch (e: Exception) {
-                _pagosState.value = UiState.Error(e.message ?: "Error al cargar pagos")
+                _pagosState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al cargar pagos"))
             }
         }
     }
@@ -92,7 +93,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                 val inquilinos = pagosBackend.map { it.toInquilinoUi(hoy) }
                 _pagosRecientesState.value = UiState.Success(inquilinos)
             } catch (e: Exception) {
-                _pagosRecientesState.value = UiState.Error(e.message ?: "Error al cargar historial")
+                _pagosRecientesState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al cargar historial"))
             }
         }
     }
@@ -111,7 +112,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                 _pagoRapidoState.value = UiState.Success("Pago de ${inquilino.nombre} registrado con éxito.")
                 cargarPagos()
             } catch (e: Exception) {
-                _pagoRapidoState.value = UiState.Error(e.message ?: "Error al registrar pago")
+                _pagoRapidoState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al registrar pago"))
             }
         }
     }
@@ -125,7 +126,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                 cargarPagosRecientes()
                 cargarPagos()
             } catch (e: Exception) {
-                _pagoRapidoState.value = UiState.Error(e.message ?: "Error al revertir pago")
+                _pagoRapidoState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al revertir pago"))
             }
         }
     }
@@ -142,7 +143,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                 val lista = AlquilerApiClient.service.getInquilinos(idUsuario)
                 _inquilinosState.value = UiState.Success(lista)
             } catch (e: Exception) {
-                _inquilinosState.value = UiState.Error(e.message ?: "Error al cargar inquilinos")
+                _inquilinosState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al cargar inquilinos"))
             }
         }
     }
@@ -155,7 +156,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                 _retiroState.value = UiState.Success("Retiro iniciado")
                 cargarInquilinos()
             } catch (e: Exception) {
-                _retiroState.value = UiState.Error(e.message ?: "Error al iniciar retiro")
+                _retiroState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al iniciar retiro"))
             }
         }
     }
@@ -169,7 +170,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                 cargarInquilinos()
                 cargarPagos()
             } catch (e: Exception) {
-                _retiroState.value = UiState.Error(e.message ?: "Error al registrar garantía")
+                _retiroState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al registrar garantía"))
             }
         }
     }
@@ -182,7 +183,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                 _retiroState.value = UiState.Success("Retiro cancelado")
                 cargarInquilinos()
             } catch (e: Exception) {
-                _retiroState.value = UiState.Error(e.message ?: "Error al cancelar retiro")
+                _retiroState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al cancelar retiro"))
             }
         }
     }
@@ -199,7 +200,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                 val lista = AlquilerApiClient.service.getCuartosLibres(idUsuario)
                 _cuartosLibresState.value = UiState.Success(lista)
             } catch (e: Exception) {
-                _cuartosLibresState.value = UiState.Error(e.message ?: "Error al cargar cuartos libres")
+                _cuartosLibresState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al cargar cuartos libres"))
             }
         }
     }
@@ -211,7 +212,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                 val idUsuario = app.sessionDataStore.userId.first() ?: return@launch
                 _serviciosState.value = UiState.Success(AlquilerApiClient.service.getServicios(idUsuario))
             } catch (e: Exception) {
-                _serviciosState.value = UiState.Error(e.message ?: "Error al cargar servicios")
+                _serviciosState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al cargar servicios"))
             }
         }
     }
@@ -223,7 +224,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                 val idUsuario = app.sessionDataStore.userId.first() ?: return@launch
                 _serviciosRealizadosState.value = UiState.Success(AlquilerApiClient.service.getServiciosRealizados(idUsuario))
             } catch (e: Exception) {
-                _serviciosRealizadosState.value = UiState.Error(e.message ?: "Error al cargar servicios pagados")
+                _serviciosRealizadosState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al cargar servicios pagados"))
             }
         }
     }
@@ -239,7 +240,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                 _pagarServicioState.value = UiState.Success(resp.message)
                 cargarServicios()
             } catch (e: Exception) {
-                _pagarServicioState.value = UiState.Error(e.message ?: "Error al pagar servicio")
+                _pagarServicioState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al pagar servicio"))
             }
         }
     }
@@ -253,7 +254,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                 cargarServicios()
                 cargarServiciosRealizados()
             } catch (e: Exception) {
-                _pagarServicioState.value = UiState.Error(e.message ?: "Error al revertir pago")
+                _pagarServicioState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al revertir pago"))
             }
         }
     }
@@ -270,7 +271,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                 val resp = AlquilerApiClient.service.getUsuarios(idRol)
                 _usuariosState.value = UiState.Success(resp.data)
             } catch (e: Exception) {
-                _usuariosState.value = UiState.Error(e.message ?: "Error al cargar usuarios")
+                _usuariosState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al cargar usuarios"))
             }
         }
     }
@@ -282,7 +283,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                 val lista = AlquilerApiClient.service.getPagosUsuarios()
                 _pagosUsuariosState.value = UiState.Success(lista)
             } catch (e: Exception) {
-                _pagosUsuariosState.value = UiState.Error(e.message ?: "Error al cargar pagos")
+                _pagosUsuariosState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al cargar pagos"))
             }
         }
     }
@@ -300,7 +301,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                 val lista = AlquilerApiClient.service.getPagosUsuariosRealizados()
                 _pagosRealizadosState.value = UiState.Success(lista)
             } catch (e: Exception) {
-                _pagosRealizadosState.value = UiState.Error(e.message ?: "Error al cargar pagos realizados")
+                _pagosRealizadosState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al cargar pagos realizados"))
             }
         }
     }
@@ -314,7 +315,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                 _adminActionState.value = UiState.Success("Usuario ${if (nuevoEstado == "activo") "activado" else "inactivado"}")
                 cargarUsuarios()
             } catch (e: Exception) {
-                _adminActionState.value = UiState.Error(e.message ?: "Error al cambiar estado")
+                _adminActionState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al cambiar estado"))
             }
         }
     }
@@ -327,7 +328,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                 _adminActionState.value = UiState.Success("Pago confirmado")
                 cargarPagosUsuarios()
             } catch (e: Exception) {
-                _adminActionState.value = UiState.Error(e.message ?: "Error al confirmar pago")
+                _adminActionState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al confirmar pago"))
             }
         }
     }
@@ -341,7 +342,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                 cargarPagosRealizados()
                 cargarPagosUsuarios()
             } catch (e: Exception) {
-                _adminActionState.value = UiState.Error(e.message ?: "Error al revertir pago")
+                _adminActionState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al revertir pago"))
             }
         }
     }
@@ -359,7 +360,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                     AlquilerApiClient.service.getMovimientosIndividuales(idUsuario, tipo)
                 )
             } catch (e: Exception) {
-                _movIndividualState.value = UiState.Error(e.message ?: "Error al cargar movimientos")
+                _movIndividualState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al cargar movimientos"))
             }
         }
     }
@@ -373,7 +374,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                     AlquilerApiClient.service.getMovimientosIndividualesRealizados(idUsuario, tipo)
                 )
             } catch (e: Exception) {
-                _movIndividualRealizadosState.value = UiState.Error(e.message ?: "Error al cargar movimientos")
+                _movIndividualRealizadosState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al cargar movimientos"))
             }
         }
     }
@@ -392,7 +393,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                 _accionIndividualState.value = UiState.Success(resp.message)
                 cargarMovimientos(tipo)
             } catch (e: Exception) {
-                _accionIndividualState.value = UiState.Error(e.message ?: "Error al registrar")
+                _accionIndividualState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al registrar"))
             }
         }
     }
@@ -405,7 +406,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                 _accionIndividualState.value = UiState.Success(resp.message)
                 cargarMovimientosRealizados(tipo)
             } catch (e: Exception) {
-                _accionIndividualState.value = UiState.Error(e.message ?: "Error al revertir")
+                _accionIndividualState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al revertir"))
             }
         }
     }
@@ -419,7 +420,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                     AlquilerApiClient.service.getConceptosIndividuales(idUsuario, tipo)
                 )
             } catch (e: Exception) {
-                _conceptosIndividualState.value = UiState.Error(e.message ?: "Error al cargar conceptos")
+                _conceptosIndividualState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al cargar conceptos"))
             }
         }
     }
@@ -439,7 +440,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                 cargarConceptos(tipo)
                 cargarMovimientos(tipo)
             } catch (e: Exception) {
-                _accionIndividualState.value = UiState.Error(e.message ?: "Error al crear concepto")
+                _accionIndividualState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al crear concepto"))
             }
         }
     }
@@ -453,7 +454,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                 cargarConceptos(tipo)
                 cargarMovimientos(tipo)
             } catch (e: Exception) {
-                _accionIndividualState.value = UiState.Error(e.message ?: "Error al eliminar concepto")
+                _accionIndividualState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al eliminar concepto"))
             }
         }
     }
@@ -467,7 +468,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                     AlquilerApiClient.service.getResumenIndividual(idUsuario)
                 )
             } catch (e: Exception) {
-                _resumenIndividualState.value = UiState.Error(e.message ?: "Error al cargar resumen")
+                _resumenIndividualState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al cargar resumen"))
             }
         }
     }

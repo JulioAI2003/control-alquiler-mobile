@@ -31,6 +31,7 @@ import com.example.myapplication.data.model.LoginRequest
 import com.example.myapplication.data.model.LoginResponse
 import com.example.myapplication.data.model.UiState
 import com.example.myapplication.data.remote.AlquilerApiClient
+import com.example.myapplication.data.remote.NetworkError
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
@@ -88,7 +89,7 @@ class LoginViewModel(private val app: MyApplication) : ViewModel() {
                 )
             } catch (e: Exception) {
                 _state.value = UiState.Error(
-                    e.message ?: "Sin conexión. Verifica que el servidor esté activo."
+                    NetworkError.toUserMessage(e, "Sin conexión. Verifica que el servidor esté activo.")
                 )
             }
         }
