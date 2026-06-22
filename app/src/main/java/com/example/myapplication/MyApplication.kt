@@ -6,7 +6,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import com.example.myapplication.data.local.SessionDataStore
 import com.example.myapplication.data.remote.AlquilerApiClient
-import com.example.myapplication.worker.CobroCheckWorker
+import com.example.myapplication.worker.NotificadorPendientes
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -55,7 +55,7 @@ class MyApplication : Application() {
 
     private fun crearCanalNotificaciones() {
         val canal = NotificationChannel(
-            CobroCheckWorker.CHANNEL_ID,
+            NotificadorPendientes.CHANNEL_ID,
             "Cobros y Servicios",
             NotificationManager.IMPORTANCE_HIGH
         ).apply {

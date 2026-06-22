@@ -1,5 +1,6 @@
 package com.example.myapplication.ui.pagos
 
+import android.app.TimePickerDialog
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
@@ -40,6 +41,7 @@ import com.example.myapplication.data.model.UiState
 import com.example.myapplication.data.model.UsuarioAdmin
 import com.example.myapplication.data.model.PagoUsuario
 import com.example.myapplication.data.local.SessionDataStore
+import com.example.myapplication.worker.RecordatorioScheduler
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
 
@@ -63,6 +65,20 @@ private fun ServicioCasa.colores(): EstadoColores = when {
 }
 
 private val AzulPrimario = Color(0xFF1A237E)
+
+/** Convierte una hora guardada en "HH:mm" (24h) a formato 12 horas con AM/PM (ej. "8:00 a. m."). */
+private fun horaEn12h(hm: String): String {
+    val partes = hm.split(":")
+    val h = partes.getOrNull(0)?.toIntOrNull()?.coerceIn(0, 23) ?: 8
+    val m = partes.getOrNull(1)?.toIntOrNull()?.coerceIn(0, 59) ?: 0
+    val sufijo = if (h < 12) "a. m." else "p. m."
+    val h12 = when {
+        h == 0  -> 12
+        h > 12  -> h - 12
+        else    -> h
+    }
+    return "%d:%02d %s".format(h12, m, sufijo)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1715,6 +1731,7 @@ fun SeccionAjustes() {
     val context = LocalContext.current
     val dataStore = remember { SessionDataStore(context) }
     val tipoAviso by dataStore.tipoAviso.collectAsStateWithLifecycle(initialValue = "notificacion")
+    val horaNotif by dataStore.horaNotificacion.collectAsStateWithLifecycle(initialValue = "08:00")
     val scope = rememberCoroutineScope()
 
     Column(
@@ -1788,6 +1805,56 @@ fun SeccionAjustes() {
                     selected = tipoAviso == "alarma",
                     onClick  = { scope.launch { dataStore.guardarTipoAviso("alarma") } },
                     colors   = RadioButtonDefaults.colors(selectedColor = Color(0xFFE65100))
+                )
+            }
+        }
+
+        // ── Hora del aviso diario ──────────────────────────────────────────────
+        HorizontalDivider(Modifier.padding(top = 8.dp))
+
+        Text("Hora del Aviso Diario", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = AzulPrimario)
+        Text(
+            "Elige a qué hora (hora local de tu país) quieres recibir el aviso diario de cobros y servicios pendientes.",
+            fontSize = 14.sp, color = Color.Gray
+        )
+
+        Card(
+            modifier = Modifier.fillMaxWidth().clickable {
+                val partes = horaNotif.split(":")
+                val h = partes.getOrNull(0)?.toIntOrNull() ?: 8
+                val m = partes.getOrNull(1)?.toIntOrNull() ?: 0
+                TimePickerDialog(
+                    context,
+                    { _, hora, minuto ->
+                        // Se guarda en 24h ("HH:mm") internamente; el selector entrega 0-23.
+                        val nuevaHora = "%02d:%02d".format(hora, minuto)
+                        scope.launch { dataStore.guardarHoraNotificacion(nuevaHora) }
+                        // Reprograma la alarma exacta para la próxima ocurrencia de la nueva hora.
+                        RecordatorioScheduler.programar(context, nuevaHora)
+                    },
+                    h, m, false // false = selector en formato 12 horas (AM/PM)
+                ).show()
+            },
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F8E9)),
+            border = BorderStroke(2.dp, Color(0xFF558B2F)),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Schedule, null,
+                    modifier = Modifier.size(40.dp),
+                    tint = Color(0xFF558B2F)
+                )
+                Spacer(Modifier.width(16.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Hora del aviso", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text("Toca para cambiar la hora local del aviso diario.", fontSize = 13.sp, color = Color.Gray)
+                }
+                Text(
+                    horaEn12h(horaNotif),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 22.sp,
+                    color = Color(0xFF33691E)
                 )
             }
         }

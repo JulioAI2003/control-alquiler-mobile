@@ -33,6 +33,9 @@ class SessionDataStore(private val context: Context) {
     /** "alarma" o "notificacion" (default). */
     val tipoAviso: Flow<String> = context.dataStore.data.map { it[KEY_TIPO_AVISO] ?: "notificacion" }
 
+    /** Hora local (del dispositivo, p. ej. Perú) del aviso diario, formato "HH:mm". Default "08:00". */
+    val horaNotificacion: Flow<String> = context.dataStore.data.map { it[KEY_HORA_NOTIF] ?: "08:00" }
+
     // ── Escritura ─────────────────────────────────────────────────────────────
 
     suspend fun guardarSesion(
@@ -55,6 +58,11 @@ class SessionDataStore(private val context: Context) {
         context.dataStore.edit { prefs -> prefs[KEY_TIPO_AVISO] = tipo }
     }
 
+    /** Guarda la hora del aviso diario en formato "HH:mm" (hora local del dispositivo). */
+    suspend fun guardarHoraNotificacion(hora: String) {
+        context.dataStore.edit { prefs -> prefs[KEY_HORA_NOTIF] = hora }
+    }
+
     /** Actualiza solo el JWT sin tocar userId/nombre/rol (usado al cambiar contraseña). */
     suspend fun actualizarToken(token: String) {
         context.dataStore.edit { prefs -> prefs[KEY_TOKEN] = token }
@@ -74,5 +82,6 @@ class SessionDataStore(private val context: Context) {
         val KEY_ROL     = stringPreferencesKey("rol")
         val KEY_ID_ROL     = stringPreferencesKey("id_rol")
         val KEY_TIPO_AVISO = stringPreferencesKey("tipo_aviso")
+        val KEY_HORA_NOTIF = stringPreferencesKey("hora_notificacion")
     }
 }

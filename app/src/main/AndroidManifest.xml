@@ -44,12 +44,25 @@
             </intent-filter>
         </activity>
 
-        <!-- Receptor de alarmas -->
+        <!-- Receptor de alarmas (reproduce el sonido de la alarma) -->
         <receiver
             android:name=".worker.AlarmReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Receptor del aviso diario exacto + reprogramación tras reinicio o cambio de hora -->
+        <receiver
+            android:name=".worker.RecordatorioReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
 

@@ -20,17 +20,14 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.work.Constraints
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.NetworkType
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
 import com.example.myapplication.ui.auth.CambiarPasswordScreen
 import com.example.myapplication.ui.auth.LoginScreen
 import com.example.myapplication.ui.pagos.DashboardScreen
 import com.example.myapplication.ui.theme.MyApplicationTheme
-import com.example.myapplication.worker.CobroCheckWorker
-import java.util.concurrent.TimeUnit
+import com.example.myapplication.worker.RecordatorioScheduler
+import androidx.work.WorkManager
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 
 /**
  * Único Activity de la app.
@@ -43,19 +40,14 @@ import java.util.concurrent.TimeUnit
  */
 class MainActivity : ComponentActivity() {
 
-    private fun agendarWorkerDiario() {
-        val request = PeriodicWorkRequestBuilder<CobroCheckWorker>(1, TimeUnit.DAYS)
-            .setConstraints(
-                Constraints.Builder()
-                    .setRequiredNetworkType(NetworkType.CONNECTED)
-                    .build()
-            )
-            .build()
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            CobroCheckWorker.WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
-            request
-        )
+    private fun agendarRecordatorioDiario() {
+        // Limpia el trabajo periódico de versiones anteriores (migración a alarma exacta).
+        WorkManager.getInstance(this).cancelUniqueWork("cobro_diario")
+        // Agenda la alarma exacta a la hora local elegida por el usuario (Configuración).
+        val hora = runBlocking {
+            (application as MyApplication).sessionDataStore.horaNotificacion.first()
+        }
+        RecordatorioScheduler.programar(this, hora)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -74,8 +66,8 @@ class MainActivity : ComponentActivity() {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 0)
         }
 
-        // Agenda el worker diario solo si hay sesión activa
-        if (!app.cachedToken.isNullOrBlank()) agendarWorkerDiario()
+        // Agenda el recordatorio diario solo si hay sesión activa
+        if (!app.cachedToken.isNullOrBlank()) agendarRecordatorioDiario()
 
         // Decide la pantalla inicial en función del token persistido
         val startDestination = if (!app.cachedToken.isNullOrBlank()) "dashboard" else "login"

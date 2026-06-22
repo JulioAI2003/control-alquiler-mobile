@@ -9,7 +9,6 @@ import android.media.RingtoneManager
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
-import com.example.myapplication.MainActivity
 
 class AlarmSoundService : Service() {
 
@@ -41,19 +40,14 @@ class AlarmSoundService : Service() {
             Intent(this, AlarmSoundService::class.java).apply { action = ACTION_STOP },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        // Tocar la notificación (o el aviso a pantalla completa) abre la pantalla de la alarma
+        // para poder detenerla — NO entra a la app.
         val fullScreenPi = PendingIntent.getActivity(
             this, notifId + 10_000,
             Intent(this, AlarmFullScreenActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 putExtra(EXTRA_DESCRIPCION, descripcion)
                 putExtra(EXTRA_TITULO, titulo)
-            },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        val tapPi = PendingIntent.getActivity(
-            this, notifId,
-            Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -68,7 +62,7 @@ class AlarmSoundService : Service() {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setAutoCancel(false)
-            .setContentIntent(tapPi)
+            .setContentIntent(fullScreenPi)
             .setFullScreenIntent(fullScreenPi, true)
             .addAction(android.R.drawable.ic_media_pause, "Detener alarma", stopPi)
             .build()
