@@ -1,9 +1,6 @@
 // ─── MainActivity.kt ─────────────────────────────────────────────────────────
 package com.example.myapplication
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -12,16 +9,19 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.myapplication.ui.auth.CambiarPasswordScreen
 import com.example.myapplication.ui.auth.LoginScreen
+import com.example.myapplication.ui.auth.PermisosDialog
+import com.example.myapplication.ui.auth.faltanPermisos
 import com.example.myapplication.ui.pagos.DashboardScreen
 import com.example.myapplication.ui.theme.MyApplicationTheme
 import com.example.myapplication.worker.RecordatorioScheduler
@@ -58,14 +58,6 @@ class MainActivity : ComponentActivity() {
 
         val app = application as MyApplication
 
-        // Solicitar permiso de notificaciones en Android 13+
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-                != PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 0)
-        }
-
         // Agenda el recordatorio diario solo si hay sesión activa
         if (!app.cachedToken.isNullOrBlank()) agendarRecordatorioDiario()
 
@@ -79,6 +71,17 @@ class MainActivity : ComponentActivity() {
                     color    = MaterialTheme.colorScheme.background
                 ) {
                     val navController = rememberNavController()
+
+                    // Al primer arranque (o si faltan), pedir los permisos que la app necesita.
+                    var mostrarPermisos by remember { mutableStateOf(faltanPermisos(this@MainActivity)) }
+                    if (mostrarPermisos) {
+                        PermisosDialog(onDismiss = {
+                            mostrarPermisos = false
+                            // Reprograma con los permisos recién concedidos (ej. alarmas exactas),
+                            // así se aplican sin reiniciar la app.
+                            if (!app.cachedToken.isNullOrBlank()) agendarRecordatorioDiario()
+                        })
+                    }
 
                     // Navega a Login cuando el servidor invalida el token (contraseña cambiada).
                     LaunchedEffect(Unit) {
