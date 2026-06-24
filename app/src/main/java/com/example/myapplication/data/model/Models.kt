@@ -158,6 +158,46 @@ data class CuartoLibre(
     val casa:                                  String
 )
 
+// ── Registro de inquilino (alquilar un cuarto) ────────────────────────────────
+// Mismo contrato que el formulario web (POST /api/inquilino).
+@Serializable
+data class RegistrarInquilinoRequest(
+    @SerialName("id_usuario")              val idUsuario:            String,
+    @SerialName("id_cuarto")               val idCuarto:             String,
+    val nombre:                                                      String,
+    val apellidos:                                                  String,
+    val dni:                                                        String,
+    val celular:                                                    String,
+    val email:                                                      String? = null,
+    @SerialName("fecha_pago")              val fechaPago:            Int,
+    @SerialName("dia_limpieza")            val diaLimpieza:          String,
+    val descripcion:                                                String? = null,
+    // esnuevo=true → primera deuda en el mes actual; false → mes siguiente.
+    val esnuevo:                                                    Boolean,
+    @SerialName("garantia_pagada")         val garantiaPagada:       Boolean,
+    @SerialName("fecha_esperada_garantia") val fechaEsperadaGarantia: String? = null
+)
+
+@Serializable
+data class InquilinoCreado(@SerialName("id_inquilino") val idInquilino: String)
+
+@Serializable
+data class RegistroInquilinoResponse(
+    val message:    String? = null,
+    val inquilino:  InquilinoCreado? = null
+)
+
+// Servicio adicional a registrar tras crear el inquilino (POST /api/inquilino/servicio).
+@Serializable
+data class AgregarServicioInquilinoRequest(
+    @SerialName("id_inquilino") val idInquilino: String,
+    val nombre:                                  String,
+    val monto:                                   Double
+)
+
+/** Holder en memoria para los servicios que el usuario agrega en el wizard (no se serializa). */
+data class ServicioNuevo(val nombre: String, val monto: Double)
+
 // ═════════════════════════════════════════════════════════════════════════════
 //  SERVICIOS DE CASA (LUZ, AGUA, GAS, ETC.)
 // ═════════════════════════════════════════════════════════════════════════════

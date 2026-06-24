@@ -42,6 +42,9 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
     private val _cuartosLibresState = MutableStateFlow<UiState<List<CuartoLibre>>>(UiState.Idle)
     val cuartosLibresState: StateFlow<UiState<List<CuartoLibre>>> = _cuartosLibresState.asStateFlow()
 
+    private val _registrarInquilinoState = MutableStateFlow<UiState<String>>(UiState.Idle)
+    val registrarInquilinoState: StateFlow<UiState<String>> = _registrarInquilinoState.asStateFlow()
+
     private val _pagarServicioState = MutableStateFlow<UiState<String>>(UiState.Idle)
     val pagarServicioState: StateFlow<UiState<String>> = _pagarServicioState.asStateFlow()
 
@@ -204,6 +207,49 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
             }
         }
     }
+
+    /**
+     * Registra un inquilino en un cuarto (réplica del flujo web): primero crea el
+     * inquilino con POST /inquilino y luego, si hay servicios adicionales, los agrega
+     * uno a uno con POST /inquilino/servicio (cada uno actualiza el recibo pendiente).
+     */
+    fun registrarInquilino(
+        idCuarto: String,
+        nombre: String, apellidos: String, dni: String, celular: String, email: String?,
+        fechaPago: Int, diaLimpieza: String, descripcion: String?,
+        esnuevo: Boolean, garantiaPagada: Boolean, fechaEsperadaGarantia: String?,
+        servicios: List<ServicioNuevo>
+    ) {
+        viewModelScope.launch {
+            _registrarInquilinoState.value = UiState.Loading
+            try {
+                val idUsuario = app.sessionDataStore.userId.first() ?: return@launch
+                val resp = AlquilerApiClient.service.registrarInquilino(
+                    RegistrarInquilinoRequest(
+                        idUsuario = idUsuario, idCuarto = idCuarto,
+                        nombre = nombre, apellidos = apellidos, dni = dni, celular = celular,
+                        email = email, fechaPago = fechaPago, diaLimpieza = diaLimpieza,
+                        descripcion = descripcion, esnuevo = esnuevo,
+                        garantiaPagada = garantiaPagada, fechaEsperadaGarantia = fechaEsperadaGarantia
+                    )
+                )
+                val idInquilino = resp.inquilino?.idInquilino
+                if (idInquilino != null) {
+                    for (s in servicios) {
+                        AlquilerApiClient.service.agregarServicioInquilino(
+                            AgregarServicioInquilinoRequest(idInquilino, s.nombre, s.monto)
+                        ).close()
+                    }
+                }
+                _registrarInquilinoState.value = UiState.Success(resp.message ?: "Inquilino registrado correctamente")
+                cargarCuartosLibres()
+            } catch (e: Exception) {
+                _registrarInquilinoState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al registrar inquilino"))
+            }
+        }
+    }
+
+    fun resetRegistrarInquilinoState() { _registrarInquilinoState.value = UiState.Idle }
 
     fun cargarServicios() {
         viewModelScope.launch {

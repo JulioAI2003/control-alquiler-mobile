@@ -39,6 +39,14 @@ interface AlquilerApiService {
     @GET("mobile/cuartos-libres")
     suspend fun getCuartosLibres(@Query("id_usuario") idUsuario: String): List<CuartoLibre>
 
+    // Registrar un inquilino en un cuarto (mismo endpoint que la web).
+    @POST("inquilino")
+    suspend fun registrarInquilino(@Body body: RegistrarInquilinoRequest): RegistroInquilinoResponse
+
+    // Agregar un servicio adicional al inquilino recién creado (actualiza el recibo).
+    @POST("inquilino/servicio")
+    suspend fun agregarServicioInquilino(@Body body: AgregarServicioInquilinoRequest): okhttp3.ResponseBody
+
     // --- SECCIÓN SERVICIOS ---
 
     @GET("mobile/servicios")

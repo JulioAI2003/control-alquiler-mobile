@@ -830,6 +830,8 @@ fun SeccionCuartosLibres(vm: PagosViewModel) {
     LaunchedEffect(Unit) { vm.cargarCuartosLibres() }
 
     var cuartoSeleccionado by remember { mutableStateOf<CuartoLibre?>(null) }
+    var cuartoAAlquilar by remember { mutableStateOf<CuartoLibre?>(null) }
+    var mensajeExito by remember { mutableStateOf<String?>(null) }
 
     val isRefreshing = state is UiState.Loading
     val pullState = rememberPullToRefreshState()
@@ -917,13 +919,39 @@ fun SeccionCuartosLibres(vm: PagosViewModel) {
     }
 
     if (cuartoSeleccionado != null) {
-        CuartoBottomSheet(cuarto = cuartoSeleccionado!!, onDismiss = { cuartoSeleccionado = null })
+        CuartoBottomSheet(
+            cuarto = cuartoSeleccionado!!,
+            onDismiss = { cuartoSeleccionado = null },
+            onAlquilar = { c -> cuartoSeleccionado = null; cuartoAAlquilar = c }
+        )
+    }
+
+    cuartoAAlquilar?.let { c ->
+        RegistrarInquilinoWizard(
+            vm = vm,
+            cuarto = c,
+            onDismiss = { cuartoAAlquilar = null },
+            onSuccess = { msg ->
+                cuartoAAlquilar = null
+                vm.resetRegistrarInquilinoState()
+                mensajeExito = msg
+            }
+        )
+    }
+
+    mensajeExito?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { mensajeExito = null },
+            confirmButton = { TextButton(onClick = { mensajeExito = null }) { Text("OK") } },
+            title = { Text("Listo") },
+            text = { Text(msg) }
+        )
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CuartoBottomSheet(cuarto: CuartoLibre, onDismiss: () -> Unit) {
+fun CuartoBottomSheet(cuarto: CuartoLibre, onDismiss: () -> Unit, onAlquilar: (CuartoLibre) -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color.White) {
         Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding()) {
             Text("Detalle del Cuarto", fontWeight = FontWeight.Black, fontSize = 22.sp, color = AzulPrimario)
@@ -988,7 +1016,17 @@ fun CuartoBottomSheet(cuarto: CuartoLibre, onDismiss: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(24.dp))
-            Button(onClick = onDismiss, Modifier.fillMaxWidth()) { Text("Cerrar") }
+            Button(
+                onClick = { onAlquilar(cuarto) },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
+            ) {
+                Icon(Icons.Default.PersonAdd, null)
+                Spacer(Modifier.width(8.dp))
+                Text("Alquilar", fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = onDismiss, Modifier.fillMaxWidth()) { Text("Cerrar") }
         }
     }
 }
