@@ -162,6 +162,13 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
                     NavigationDrawerItem(
+                        icon = { Icon(Icons.Default.MeetingRoom, null) },
+                        label = { Text("Cuartos") },
+                        selected = currentScreen == "cuartos_todos",
+                        onClick = { currentScreen = "cuartos_todos"; scope.launch { drawerState.close() } },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
+                    NavigationDrawerItem(
                         icon = { Icon(Icons.Default.ReceiptLong, null) },
                         label = { Text("Servicios Pagados") },
                         selected = currentScreen == "servicios_pagados",
@@ -242,7 +249,7 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
 
         val screenTitle = when (currentScreen) {
             "pendientes" -> "Cobros"; "pagados" -> "Pagados"; "servicios" -> "Servicios"
-            "servicios_pagados" -> "Servicios Pagados"; "cuartos" -> "Cuartos Libres"
+            "servicios_pagados" -> "Servicios Pagados"; "cuartos" -> "Cuartos Libres"; "cuartos_todos" -> "Cuartos"
             "admin_usuarios" -> "Usuarios"; "admin_pagos" -> "Pagos Pendientes"
             "admin_pagos_realizados" -> "Pagos Registrados"; "ajustes" -> "Ajustes"
             "individual_ingresos" -> "Ingresos"; "individual_gastos" -> "Gastos"; "individual_resumen" -> "Resumen"
@@ -293,6 +300,7 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                     )
                     "pagados"        -> SeccionPagados(vm)
                     "cuartos"        -> SeccionCuartosLibres(vm)
+                    "cuartos_todos"  -> SeccionCuartos(vm)
                     "servicios"          -> SeccionServicios(vm, onPagarClick = { servicioAConfirmar = it })
                     "servicios_pagados"  -> SeccionServiciosPagados(vm)
                     "admin_usuarios"         -> SeccionAdminUsuarios(vm)

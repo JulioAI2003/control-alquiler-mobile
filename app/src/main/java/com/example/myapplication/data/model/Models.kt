@@ -198,6 +198,32 @@ data class AgregarServicioInquilinoRequest(
 /** Holder en memoria para los servicios que el usuario agrega en el wizard (no se serializa). */
 data class ServicioNuevo(val nombre: String, val monto: Double)
 
+// ── Sección "Cuartos" (listar todos + editar) ─────────────────────────────────
+@Serializable
+data class CuartoDetalle(
+    @SerialName("id_cuarto")  val idCuarto:    String,
+    @SerialName("nro_cuarto") val nroCuarto:   String,
+    val precio:                                String? = null,
+    val garantia:                              String? = null,
+    val descripcion:                           String? = null,
+    val estado:                                String? = null,
+    @SerialName("id_piso")    val idPiso:      String,
+    val piso:                                  String? = null,
+    val casa:                                  String? = null
+)
+
+@Serializable
+data class EditarCuartoRequest(
+    @SerialName("nro_cuarto") val nroCuarto:   String,
+    val precio:                                Double,
+    val garantia:                              Double,
+    @SerialName("id_piso")    val idPiso:      String,
+    val descripcion:                           String? = null,
+    // estemes=true → aplicar el nuevo precio también al último recibo ya generado
+    // del inquilino activo; false → solo afecta a partir del siguiente recibo.
+    val estemes:                               Boolean = false
+)
+
 // ═════════════════════════════════════════════════════════════════════════════
 //  SERVICIOS DE CASA (LUZ, AGUA, GAS, ETC.)
 // ═════════════════════════════════════════════════════════════════════════════

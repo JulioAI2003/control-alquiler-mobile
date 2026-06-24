@@ -47,6 +47,16 @@ interface AlquilerApiService {
     @POST("inquilino/servicio")
     suspend fun agregarServicioInquilino(@Body body: AgregarServicioInquilinoRequest): okhttp3.ResponseBody
 
+    // Sección Cuartos: listar todos los cuartos del usuario y editar uno.
+    @GET("mobile/cuartos")
+    suspend fun getCuartos(@Query("id_usuario") idUsuario: String): List<CuartoDetalle>
+
+    @PUT("cuarto")
+    suspend fun editarCuarto(
+        @Query("id_cuarto") idCuarto: String,
+        @Body body: EditarCuartoRequest
+    ): okhttp3.ResponseBody
+
     // --- SECCIÓN SERVICIOS ---
 
     @GET("mobile/servicios")

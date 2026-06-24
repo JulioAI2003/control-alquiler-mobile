@@ -45,6 +45,12 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
     private val _registrarInquilinoState = MutableStateFlow<UiState<String>>(UiState.Idle)
     val registrarInquilinoState: StateFlow<UiState<String>> = _registrarInquilinoState.asStateFlow()
 
+    private val _cuartosState = MutableStateFlow<UiState<List<CuartoDetalle>>>(UiState.Idle)
+    val cuartosState: StateFlow<UiState<List<CuartoDetalle>>> = _cuartosState.asStateFlow()
+
+    private val _editarCuartoState = MutableStateFlow<UiState<String>>(UiState.Idle)
+    val editarCuartoState: StateFlow<UiState<String>> = _editarCuartoState.asStateFlow()
+
     private val _pagarServicioState = MutableStateFlow<UiState<String>>(UiState.Idle)
     val pagarServicioState: StateFlow<UiState<String>> = _pagarServicioState.asStateFlow()
 
@@ -250,6 +256,44 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
     }
 
     fun resetRegistrarInquilinoState() { _registrarInquilinoState.value = UiState.Idle }
+
+    fun cargarCuartos() {
+        viewModelScope.launch {
+            _cuartosState.value = UiState.Loading
+            try {
+                val idUsuario = app.sessionDataStore.userId.first() ?: return@launch
+                _cuartosState.value = UiState.Success(AlquilerApiClient.service.getCuartos(idUsuario))
+            } catch (e: Exception) {
+                _cuartosState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al cargar los cuartos"))
+            }
+        }
+    }
+
+    /**
+     * Edita un cuarto (nro, precio, garantía, descripción). [estemes] solo aplica
+     * cuando el cuarto está alquilado y cambió el precio: true = afecta el recibo
+     * ya generado del mes; false = solo el siguiente.
+     */
+    fun editarCuarto(
+        idCuarto: String, nroCuarto: String, precio: Double, garantia: Double,
+        idPiso: String, descripcion: String?, estemes: Boolean
+    ) {
+        viewModelScope.launch {
+            _editarCuartoState.value = UiState.Loading
+            try {
+                AlquilerApiClient.service.editarCuarto(
+                    idCuarto,
+                    EditarCuartoRequest(nroCuarto, precio, garantia, idPiso, descripcion, estemes)
+                ).close()
+                _editarCuartoState.value = UiState.Success("Cuarto actualizado correctamente")
+                cargarCuartos()
+            } catch (e: Exception) {
+                _editarCuartoState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al actualizar el cuarto"))
+            }
+        }
+    }
+
+    fun resetEditarCuartoState() { _editarCuartoState.value = UiState.Idle }
 
     fun cargarServicios() {
         viewModelScope.launch {
