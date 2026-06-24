@@ -138,9 +138,9 @@ fun SeccionIndividual(vm: PagosViewModel, tipo: String) {
     // Registrar (cobrar / pagar) — confirmación simple
     movARegistrar?.let { mov ->
         DialogoRegistrar(mov, acento,
-            onConfirm = { monto, celular ->
-                // Sin selector de método (se asume "Efectivo") ni descripción para el usuario individual.
-                vm.registrarMovimiento(mov.idConcepto, mov.idMovimiento, monto, "Efectivo", null, tipo, celular)
+            onConfirm = { monto ->
+                // Sin método, sin descripción y sin celular: solo confirma el cobro/pago.
+                vm.registrarMovimiento(mov.idConcepto, mov.idMovimiento, monto, "Efectivo", null, tipo, null)
                 movARegistrar = null
             },
             onDismiss = { movARegistrar = null }
@@ -502,12 +502,11 @@ private fun DialogoDetalleIngreso(mov: MovimientoIndividual, onDismiss: () -> Un
 @Composable
 private fun DialogoRegistrar(
     mov: MovimientoIndividual, acento: Color,
-    onConfirm: (monto: Double?, celular: String?) -> Unit,
+    onConfirm: (monto: Double?) -> Unit,
     onDismiss: () -> Unit
 ) {
     val accion = if (mov.esIngreso) "cobro" else "pago"
     var monto by remember { mutableStateOf("%.2f".format(mov.montoMostrar)) }
-    var celular by remember { mutableStateOf(mov.celular ?: "") }
     val montoEditable = !mov.precioFijo
     val montoValido = monto.toDoubleOrNull() != null
 
@@ -515,7 +514,7 @@ private fun DialogoRegistrar(
         onDismissRequest = onDismiss,
         confirmButton = {
             Button(
-                onClick = { onConfirm(monto.toDoubleOrNull(), celular.ifBlank { null }) },
+                onClick = { onConfirm(monto.toDoubleOrNull()) },
                 enabled = montoValido,
                 colors = ButtonDefaults.buttonColors(containerColor = acento)
             ) { Text("Sí, registrar") }
@@ -529,20 +528,13 @@ private fun DialogoRegistrar(
                     fontSize = 14.sp
                 )
                 Text("${mov.nombreMes} ${mov.anio}", fontSize = 12.sp, color = Color.Gray)
+                // Único input posible: el monto, y solo si el concepto es de precio variable.
                 if (montoEditable) {
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
                         value = monto, onValueChange = { monto = it },
                         label = { Text("Monto (S/)") }, singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-                    )
-                }
-                if (mov.esIngreso) {
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = celular, onValueChange = { celular = it },
-                        label = { Text("Celular del cliente (opcional)") }, singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
                     )
                 }
             }
