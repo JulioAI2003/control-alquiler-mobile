@@ -445,16 +445,49 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
         }
     }
 
+    fun editarConcepto(
+        idConcepto: String, tipo: String, nombre: String, descripcion: String?, monto: Double,
+        diaVencimiento: Int, precioFijo: Boolean = true, celular: String? = null
+    ) {
+        viewModelScope.launch {
+            _accionIndividualState.value = UiState.Loading
+            try {
+                AlquilerApiClient.service.editarConcepto(
+                    EditarConceptoRequest(idConcepto, nombre, descripcion, monto, diaVencimiento, precioFijo, celular)
+                )
+                _accionIndividualState.value = UiState.Success("Concepto actualizado")
+                cargarConceptos(tipo)
+                cargarMovimientos(tipo)
+            } catch (e: Exception) {
+                _accionIndividualState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al actualizar concepto"))
+            }
+        }
+    }
+
     fun eliminarConcepto(idConcepto: String, tipo: String) {
         viewModelScope.launch {
             _accionIndividualState.value = UiState.Loading
             try {
                 AlquilerApiClient.service.eliminarConcepto(idConcepto)
-                _accionIndividualState.value = UiState.Success("Concepto eliminado")
+                _accionIndividualState.value = UiState.Success("Concepto eliminado. Puedes deshacerlo en 24 h.")
                 cargarConceptos(tipo)
                 cargarMovimientos(tipo)
             } catch (e: Exception) {
                 _accionIndividualState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al eliminar concepto"))
+            }
+        }
+    }
+
+    fun restaurarConcepto(idConcepto: String, tipo: String) {
+        viewModelScope.launch {
+            _accionIndividualState.value = UiState.Loading
+            try {
+                AlquilerApiClient.service.restaurarConcepto(idConcepto)
+                _accionIndividualState.value = UiState.Success("Eliminación deshecha")
+                cargarConceptos(tipo)
+                cargarMovimientos(tipo)
+            } catch (e: Exception) {
+                _accionIndividualState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al deshacer la eliminación"))
             }
         }
     }

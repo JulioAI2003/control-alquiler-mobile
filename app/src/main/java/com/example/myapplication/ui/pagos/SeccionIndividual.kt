@@ -65,6 +65,7 @@ fun SeccionIndividual(vm: PagosViewModel, tipo: String) {
     var movAPosponer  by remember { mutableStateOf<MovimientoIndividual?>(null) }
     var movDetalle    by remember { mutableStateOf<MovimientoIndividual?>(null) }
     var cptAEliminar  by remember { mutableStateOf<ConceptoIndividual?>(null) }
+    var cptAEditar    by remember { mutableStateOf<ConceptoIndividual?>(null) }
     var nuevoConcepto by remember { mutableStateOf(false) }
     var mensaje       by remember { mutableStateOf<String?>(null) }
 
@@ -99,7 +100,13 @@ fun SeccionIndividual(vm: PagosViewModel, tipo: String) {
             when (subtab) {
                 0 -> ListaMovimientosPendientes(pendState, acento, verbo, onRegistrar = { movARegistrar = it }, onPosponer = { movAPosponer = it }, onDetalle = onDetalle)
                 1 -> ListaMovimientosRealizados(realState, onRevertir = { movARevertir = it }, onDetalle = onDetalle)
-                else -> ListaConceptos(cptState, esIngreso, acento, { nuevoConcepto = true }) { cptAEliminar = it }
+                else -> ListaConceptos(
+                    cptState, esIngreso, acento,
+                    onNuevo     = { nuevoConcepto = true },
+                    onEditar    = { cptAEditar = it },
+                    onEliminar  = { cptAEliminar = it },
+                    onRestaurar = { vm.restaurarConcepto(it.idConcepto, tipo) }
+                )
             }
         }
     }
@@ -128,11 +135,12 @@ fun SeccionIndividual(vm: PagosViewModel, tipo: String) {
         )
     }
 
-    // Registrar (cobrar / pagar)
+    // Registrar (cobrar / pagar) — confirmación simple
     movARegistrar?.let { mov ->
-        DialogoRegistrar(mov, verbo, acento,
-            onConfirm = { monto, metodo, desc, celular ->
-                vm.registrarMovimiento(mov.idConcepto, mov.idMovimiento, monto, metodo, desc, tipo, celular)
+        DialogoRegistrar(mov, acento,
+            onConfirm = { monto, celular ->
+                // Sin selector de método (se asume "Efectivo") ni descripción para el usuario individual.
+                vm.registrarMovimiento(mov.idConcepto, mov.idMovimiento, monto, "Efectivo", null, tipo, celular)
                 movARegistrar = null
             },
             onDismiss = { movARegistrar = null }
@@ -173,12 +181,23 @@ fun SeccionIndividual(vm: PagosViewModel, tipo: String) {
 
     // Nuevo concepto
     if (nuevoConcepto) {
-        DialogoNuevoConcepto(esIngreso, acento,
+        DialogoConcepto(esIngreso, acento, conceptoExistente = null,
             onConfirm = { nombre, desc, monto, dia, precioFijo, celular ->
                 vm.crearConcepto(tipo, nombre, desc, monto, dia, precioFijo, celular)
                 nuevoConcepto = false
             },
             onDismiss = { nuevoConcepto = false }
+        )
+    }
+
+    // Editar concepto
+    cptAEditar?.let { cpt ->
+        DialogoConcepto(esIngreso, acento, conceptoExistente = cpt,
+            onConfirm = { nombre, desc, monto, dia, precioFijo, celular ->
+                vm.editarConcepto(cpt.idConcepto, tipo, nombre, desc, monto, dia, precioFijo, celular)
+                cptAEditar = null
+            },
+            onDismiss = { cptAEditar = null }
         )
     }
 }
@@ -295,7 +314,9 @@ private fun ListaConceptos(
     state: UiState<List<ConceptoIndividual>>,
     esIngreso: Boolean, acento: Color,
     onNuevo: () -> Unit,
-    onEliminar: (ConceptoIndividual) -> Unit
+    onEditar: (ConceptoIndividual) -> Unit,
+    onEliminar: (ConceptoIndividual) -> Unit,
+    onRestaurar: (ConceptoIndividual) -> Unit
 ) {
     Column(Modifier.fillMaxSize()) {
         Button(
@@ -313,25 +334,8 @@ private fun ListaConceptos(
                 } else {
                     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(s.data, key = { it.idConcepto }) { cpt ->
-                            Card(
-                                Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = Color.White),
-                                shape = RoundedCornerShape(16.dp)
-                            ) {
-                                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Column(Modifier.weight(1f)) {
-                                        Text(cpt.nombre, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                        if (!cpt.descripcion.isNullOrBlank()) Text(cpt.descripcion, fontSize = 11.sp, color = Color.DarkGray)
-                                        Text("S/ ${cpt.monto} · Día ${cpt.diaVencimiento}", fontSize = 12.sp, color = acento, fontWeight = FontWeight.Bold)
-                                        val notas = buildList {
-                                            if (!cpt.precioFijo) add("Precio variable")
-                                            if (esIngreso && !cpt.celular.isNullOrBlank()) add("📞 ${cpt.celular}")
-                                        }
-                                        if (notas.isNotEmpty()) Text(notas.joinToString(" · "), fontSize = 11.sp, color = Color.Gray)
-                                    }
-                                    TextButton(onClick = { onEliminar(cpt) }) { Text("Eliminar", color = IndRojo, fontSize = 12.sp) }
-                                }
-                            }
+                            if (cpt.eliminado) ConceptoEliminadoCard(cpt, onRestaurar)
+                            else ConceptoCard(cpt, esIngreso, acento, onEditar, onEliminar)
                         }
                     }
                 }
@@ -340,6 +344,78 @@ private fun ListaConceptos(
             is UiState.Error -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(s.message, color = Color.Red) }
             else -> Unit
         }
+    }
+}
+
+// Tarjeta de concepto activo (editar / eliminar)
+@Composable
+private fun ConceptoCard(
+    cpt: ConceptoIndividual, esIngreso: Boolean, acento: Color,
+    onEditar: (ConceptoIndividual) -> Unit, onEliminar: (ConceptoIndividual) -> Unit
+) {
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(cpt.nombre, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                if (!cpt.descripcion.isNullOrBlank()) Text(cpt.descripcion, fontSize = 11.sp, color = Color.DarkGray)
+                Text("S/ ${cpt.monto} · Día ${cpt.diaVencimiento}", fontSize = 12.sp, color = acento, fontWeight = FontWeight.Bold)
+                val notas = buildList {
+                    if (!cpt.precioFijo) add("Precio variable")
+                    if (esIngreso && !cpt.celular.isNullOrBlank()) add("📞 ${cpt.celular}")
+                }
+                if (notas.isNotEmpty()) Text(notas.joinToString(" · "), fontSize = 11.sp, color = Color.Gray)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { onEditar(cpt) }) {
+                    Icon(Icons.Default.Edit, "Editar", tint = IndAzul, modifier = Modifier.size(20.dp))
+                }
+                TextButton(onClick = { onEliminar(cpt) }) { Text("Eliminar", color = IndRojo, fontSize = 12.sp) }
+            }
+        }
+    }
+}
+
+// Tarjeta de concepto en papelera (atenuada, con deshacer + cuenta regresiva)
+@Composable
+private fun ConceptoEliminadoCard(cpt: ConceptoIndividual, onRestaurar: (ConceptoIndividual) -> Unit) {
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFEEEEEE)),
+        border = BorderStroke(1.dp, Color(0xFFBDBDBD)),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(cpt.nombre, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.Gray)
+                Text("Eliminado · ${textoCuentaRegresiva(cpt.minutosParaBorrado ?: 0)}", fontSize = 11.sp, color = IndRojo)
+            }
+            Button(
+                onClick = { onRestaurar(cpt) },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100)),
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp)
+            ) { Text("Deshacer", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+        }
+    }
+}
+
+// Cuenta regresiva (minutos) que baja sola cada minuto desde el valor del servidor.
+@Composable
+private fun textoCuentaRegresiva(minIniciales: Int): String {
+    var restante by remember(minIniciales) { mutableStateOf(minIniciales) }
+    LaunchedEffect(minIniciales) {
+        while (restante > 0) { kotlinx.coroutines.delay(60_000); restante -= 1 }
+    }
+    val h = restante / 60
+    val m = restante % 60
+    return when {
+        restante <= 0 -> "se eliminará en breve"
+        h > 0         -> "se borra en ${h}h ${m}m"
+        else          -> "se borra en ${m}m"
     }
 }
 
@@ -420,16 +496,17 @@ private fun DialogoDetalleIngreso(mov: MovimientoIndividual, onDismiss: () -> Un
     }
 }
 
-// ── Diálogo: registrar movimiento ─────────────────────────────────────────────
+// ── Diálogo: registrar movimiento (confirmación simple) ───────────────────────
+// Solo confirma cobro/pago. Oculta método de pago y descripción. Pide monto solo
+// si el concepto es de precio variable; en ingresos permite editar/agregar celular.
 @Composable
 private fun DialogoRegistrar(
-    mov: MovimientoIndividual, verbo: String, acento: Color,
-    onConfirm: (monto: Double?, metodo: String, desc: String?, celular: String?) -> Unit,
+    mov: MovimientoIndividual, acento: Color,
+    onConfirm: (monto: Double?, celular: String?) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val accion = if (mov.esIngreso) "cobro" else "pago"
     var monto by remember { mutableStateOf("%.2f".format(mov.montoMostrar)) }
-    var metodo by remember { mutableStateOf("efectivo") }
-    var desc by remember { mutableStateOf("") }
     var celular by remember { mutableStateOf(mov.celular ?: "") }
     val montoEditable = !mov.precioFijo
     val montoValido = monto.toDoubleOrNull() != null
@@ -438,53 +515,57 @@ private fun DialogoRegistrar(
         onDismissRequest = onDismiss,
         confirmButton = {
             Button(
-                onClick = { onConfirm(monto.toDoubleOrNull(), metodo, desc.ifBlank { null }, celular.ifBlank { null }) },
+                onClick = { onConfirm(monto.toDoubleOrNull(), celular.ifBlank { null }) },
                 enabled = montoValido,
                 colors = ButtonDefaults.buttonColors(containerColor = acento)
-            ) { Text("Registrar") }
+            ) { Text("Sí, registrar") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
-        title = { Text("$verbo: ${mov.nombre}") },
+        title = { Text("Registrar $accion") },
         text = {
             Column {
-                Text("${mov.nombreMes} ${mov.anio}", fontSize = 12.sp, color = Color.Gray)
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = monto, onValueChange = { if (montoEditable) monto = it },
-                    label = { Text("Monto (S/)") }, singleLine = true, enabled = montoEditable,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    supportingText = if (!montoEditable) ({ Text("Precio fijo") }) else null
+                Text(
+                    "¿Registrar el $accion de \"${mov.nombre}\" por S/ ${"%.2f".format(mov.montoMostrar)}?",
+                    fontSize = 14.sp
                 )
+                Text("${mov.nombreMes} ${mov.anio}", fontSize = 12.sp, color = Color.Gray)
+                if (montoEditable) {
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = monto, onValueChange = { monto = it },
+                        label = { Text("Monto (S/)") }, singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    )
+                }
                 if (mov.esIngreso) {
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
                         value = celular, onValueChange = { celular = it },
-                        label = { Text("Celular del cliente") }, singleLine = true,
+                        label = { Text("Celular del cliente (opcional)") }, singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
                     )
                 }
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(value = metodo, onValueChange = { metodo = it }, label = { Text("Método") }, singleLine = true)
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(value = desc, onValueChange = { desc = it }, label = { Text("Descripción (opcional)") })
             }
         }
     )
 }
 
-// ── Diálogo: nuevo concepto ───────────────────────────────────────────────────
+// ── Diálogo: crear o editar concepto ──────────────────────────────────────────
+// Si [conceptoExistente] != null, precarga los valores y actúa como edición.
 @Composable
-private fun DialogoNuevoConcepto(
+private fun DialogoConcepto(
     esIngreso: Boolean, acento: Color,
+    conceptoExistente: ConceptoIndividual?,
     onConfirm: (nombre: String, desc: String?, monto: Double, dia: Int, precioFijo: Boolean, celular: String?) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var nombre by remember { mutableStateOf("") }
-    var desc by remember { mutableStateOf("") }
-    var monto by remember { mutableStateOf("") }
-    var dia by remember { mutableStateOf("") }
-    var celular by remember { mutableStateOf("") }
-    var esFijo by remember { mutableStateOf(true) }
+    val esEdicion = conceptoExistente != null
+    var nombre by remember { mutableStateOf(conceptoExistente?.nombre ?: "") }
+    var desc by remember { mutableStateOf(conceptoExistente?.descripcion ?: "") }
+    var monto by remember { mutableStateOf(conceptoExistente?.monto ?: "") }
+    var dia by remember { mutableStateOf(conceptoExistente?.diaVencimiento?.toString() ?: "") }
+    var celular by remember { mutableStateOf(conceptoExistente?.celular ?: "") }
+    var esFijo by remember { mutableStateOf(conceptoExistente?.precioFijo ?: true) }
     val valido = nombre.isNotBlank() && monto.toDoubleOrNull() != null && (dia.toIntOrNull() ?: 0) in 1..31
 
     AlertDialog(
@@ -494,10 +575,10 @@ private fun DialogoNuevoConcepto(
                 onClick = { onConfirm(nombre, desc.ifBlank { null }, monto.toDouble(), dia.toInt(), esFijo, celular.ifBlank { null }) },
                 enabled = valido,
                 colors = ButtonDefaults.buttonColors(containerColor = acento)
-            ) { Text("Guardar") }
+            ) { Text(if (esEdicion) "Actualizar" else "Guardar") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
-        title = { Text("Nuevo ${if (esIngreso) "ingreso" else "gasto"}") },
+        title = { Text(if (esEdicion) "Editar ${if (esIngreso) "ingreso" else "gasto"}" else "Nuevo ${if (esIngreso) "ingreso" else "gasto"}") },
         text = {
             Column {
                 OutlinedTextField(value = nombre, onValueChange = { nombre = it },

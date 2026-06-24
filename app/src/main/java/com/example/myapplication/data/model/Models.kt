@@ -258,7 +258,22 @@ data class ConceptoIndividual(
     @SerialName("dia_vencimiento") val diaVencimiento: Int,
     @SerialName("precio_fijo")     val precioFijo:     Boolean = true,
     val celular:                                       String? = null,
-    val activo:                                        Boolean = true
+    val activo:                                        Boolean = true,
+    // Borrado diferido: si está en papelera (eliminado=true) puede deshacerse
+    // mientras queden minutos_para_borrado (< 24h desde la eliminación).
+    val eliminado:                                     Boolean = false,
+    @SerialName("minutos_para_borrado") val minutosParaBorrado: Int? = null
+)
+
+@Serializable
+data class EditarConceptoRequest(
+    @SerialName("id_concepto")     val idConcepto:     String,
+    val nombre:                                        String,
+    val descripcion:                                   String? = null,
+    val monto:                                         Double,
+    @SerialName("dia_vencimiento") val diaVencimiento: Int,
+    @SerialName("precio_fijo")     val precioFijo:     Boolean = true,
+    val celular:                                       String? = null
 )
 
 @Serializable

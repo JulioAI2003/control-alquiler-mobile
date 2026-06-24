@@ -127,8 +127,14 @@ interface AlquilerApiService {
     @POST("individual/concepto")
     suspend fun crearConcepto(@Body body: CrearConceptoRequest): ConceptoIndividual
 
+    @PUT("individual/concepto")
+    suspend fun editarConcepto(@Body body: EditarConceptoRequest): ConceptoIndividual
+
     @DELETE("individual/concepto")
     suspend fun eliminarConcepto(@Query("id_concepto") idConcepto: String): PagoRegistradoResponse
+
+    @POST("individual/concepto/restaurar")
+    suspend fun restaurarConcepto(@Query("id_concepto") idConcepto: String): PagoRegistradoResponse
 
     @GET("individual/resumen")
     suspend fun getResumenIndividual(@Query("id_usuario") idUsuario: String): ResumenIndividual
