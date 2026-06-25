@@ -1,6 +1,7 @@
 // ─── ui/auth/LoginScreen.kt ──────────────────────────────────────────────────
 package com.example.myapplication.ui.auth
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,10 +13,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
@@ -27,6 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.myapplication.MyApplication
+import com.example.myapplication.R
 import com.example.myapplication.data.model.LoginRequest
 import com.example.myapplication.data.model.LoginResponse
 import com.example.myapplication.data.model.UiState
@@ -133,7 +138,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    listOf(Color(0xFF1565C0), Color(0xFF003C8F))
+                    listOf(Color(0xFFCBA85A), Color(0xFF8A6A12), Color(0xFF4A3A0C))
                 )
             ),
         contentAlignment = Alignment.Center
@@ -151,19 +156,21 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
 
-                // ── Ícono e Introducción ───────────────────────────────────────
-                Icon(
-                    imageVector        = Icons.Default.Home,
-                    contentDescription = null,
-                    tint               = Color(0xFF1565C0),
-                    modifier           = Modifier.size(60.dp)
+                // ── Logo oficial e Introducción ────────────────────────────────
+                Image(
+                    painter            = painterResource(R.drawable.logo),
+                    contentDescription = "Gestia",
+                    contentScale       = ContentScale.Fit,
+                    modifier           = Modifier
+                        .size(108.dp)
+                        .clip(RoundedCornerShape(26.dp))
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(12.dp))
                 Text(
                     text       = "Control de Alquileres",
                     fontSize   = 22.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color      = Color(0xFF1A237E)
+                    color      = Color(0xFF8A6A12)
                 )
                 Text(
                     text     = "Inicia sesión para continuar",
@@ -257,28 +264,47 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                         .height(52.dp),
                     shape   = RoundedCornerShape(14.dp),
                     enabled = state !is UiState.Loading,
+                    contentPadding = PaddingValues(),
                     colors  = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF1565C0),
-                        disabledContainerColor = Color(0xFF1565C0).copy(alpha = 0.6f)
-                    )
+                        containerColor = Color.Transparent,
+                        disabledContainerColor = Color.Transparent
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
                 ) {
-                    if (state is UiState.Loading) {
-                        CircularProgressIndicator(
-                            modifier    = Modifier.size(22.dp),
-                            color       = Color.White,
-                            strokeWidth = 2.5.dp
-                        )
-                    } else {
-                        Icon(
-                            Icons.Default.Login, null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            "Ingresar",
-                            fontWeight = FontWeight.Bold,
-                            fontSize   = 16.sp
-                        )
+                    // Degradado dorado metalizado con texto oscuro (look premium).
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(Color(0xFFE6CF8B), Color(0xFFC8A24B), Color(0xFF8A6A12))
+                                ),
+                                RoundedCornerShape(14.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (state is UiState.Loading) {
+                            CircularProgressIndicator(
+                                modifier    = Modifier.size(22.dp),
+                                color       = Color(0xFF15151A),
+                                strokeWidth = 2.5.dp
+                            )
+                        } else {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.Login, null,
+                                    tint = Color(0xFF15151A),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    "Ingresar",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize   = 16.sp,
+                                    color      = Color(0xFF15151A)
+                                )
+                            }
+                        }
                     }
                 }
             }

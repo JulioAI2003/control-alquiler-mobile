@@ -65,7 +65,7 @@ private fun ServicioCasa.colores(): EstadoColores = when {
     else               -> coloresAlDia
 }
 
-private val AzulPrimario = Color(0xFF1A237E)
+private val AzulPrimario = Color(0xFF8A6A12)
 
 /** Convierte una hora guardada en "HH:mm" (24h) a formato 12 horas con AM/PM (ej. "8:00 a. m."). */
 private fun horaEn12h(hm: String): String {
@@ -829,7 +829,7 @@ fun SeccionInquilinos(vm: PagosViewModel) {
 //  SECCIÓN CUARTOS LIBRES
 // ──────────────────────────────────────────────────────────────────────────────
 
-private val coloresCuartoLibre = EstadoColores(Color(0xFFBBDEFB), Color(0xFF1565C0), Color(0xFF0D47A1))
+private val coloresCuartoLibre = EstadoColores(Color(0xFFEFE2BC), Color(0xFF8A6A12), Color(0xFF6E5410))
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1851,7 +1851,7 @@ fun SeccionAjustes() {
                 scope.launch { dataStore.guardarTipoAviso("notificacion") }
             },
             colors = CardDefaults.cardColors(
-                containerColor = if (tipoAviso == "notificacion") Color(0xFFE3F2FD) else Color.White
+                containerColor = if (tipoAviso == "notificacion") Color(0xFFF7EFD8) else Color.White
             ),
             border = BorderStroke(
                 2.dp,

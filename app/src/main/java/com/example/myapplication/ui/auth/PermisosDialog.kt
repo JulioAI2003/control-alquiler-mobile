@@ -36,7 +36,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 
-private val PermAzul = Color(0xFF1A237E)
+private val PermAzul = Color(0xFF8A6A12)
 private val PermVerde = Color(0xFF2E7D32)
 
 // ── Chequeos de permisos ─────────────────────────────────────────────────────

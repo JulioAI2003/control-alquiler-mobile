@@ -137,7 +137,7 @@ fun CambiarPasswordScreen(onBack: () -> Unit) {
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF1A237E),
+                    containerColor = Color(0xFF8A6A12),
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White
                 )
@@ -219,7 +219,7 @@ fun CambiarPasswordScreen(onBack: () -> Unit) {
                         && passwordNuevo == passwordConfirm
                         && state !is UiState.Loading,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A237E))
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8A6A12))
             ) {
                 if (state is UiState.Loading) {
                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)

@@ -28,7 +28,7 @@ import com.example.myapplication.data.remote.AlquilerApiClient
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
-private val PosponerAzul = Color(0xFF1A237E)
+private val PosponerAzul = Color(0xFF8A6A12)
 
 /**
  * Diálogo para posponer (aplazar) el recordatorio/alarma de un recibo concreto unos días,

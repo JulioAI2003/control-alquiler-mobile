@@ -28,11 +28,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.myapplication.data.model.CuartoDetalle
 import com.example.myapplication.data.model.UiState
 
-private val CtAzul = Color(0xFF1565C0)
+private val CtAzul = Color(0xFF8A6A12)
 
 private fun coloresEstado(estado: String?): Pair<Color, Color> = when (estado) {
     "Disponible" -> Color(0xFFC8E6C9) to Color(0xFF1B5E20)
-    "Alquilado"  -> Color(0xFFBBDEFB) to Color(0xFF0D47A1)
+    "Alquilado"  -> Color(0xFFEFE2BC) to Color(0xFF6E5410)
     else         -> Color(0xFFEEEEEE) to Color(0xFF616161)
 }
 

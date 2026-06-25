@@ -2,8 +2,8 @@
     <!-- Base application theme. -->
     <!-- Tema base: NoActionBar porque Compose maneja su propio TopAppBar -->
     <style name="Base.Theme.MyApplication" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Fondo del Splash Screen nativo (API 31+) -->
-        <item name="android:windowSplashScreenBackground">#1565C0</item>
+        <!-- Fondo del Splash Screen nativo (API 31+) — negro premium -->
+        <item name="android:windowSplashScreenBackground">#15151A</item>
     </style>
 
     <style name="Theme.MyApplication" parent="Base.Theme.MyApplication" />

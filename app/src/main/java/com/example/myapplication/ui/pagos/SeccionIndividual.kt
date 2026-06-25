@@ -31,7 +31,7 @@ import com.example.myapplication.data.model.ConceptoIndividual
 import com.example.myapplication.data.model.MovimientoIndividual
 import com.example.myapplication.data.model.UiState
 
-private val IndAzul  = Color(0xFF1A237E)
+private val IndAzul  = Color(0xFF8A6A12)
 private val IndVerde = Color(0xFF2E7D32)
 private val IndRojo  = Color(0xFFC62828)
 

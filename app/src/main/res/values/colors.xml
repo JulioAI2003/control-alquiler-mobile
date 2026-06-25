@@ -2,6 +2,10 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="blue">#206FB6</color>
-    <color name="blue_menu">#3F93EB</color>
+    <!-- Se conservan los nombres por compatibilidad; el valor ahora es dorado premium. -->
+    <color name="blue">#8A6A12</color>
+    <color name="blue_menu">#9A7B2E</color>
+    <color name="gold">#C8A24B</color>
+    <color name="gold_dark">#8A6A12</color>
+    <color name="ink">#15151A</color>
 </resources>

@@ -30,7 +30,7 @@ import com.example.myapplication.data.model.UiState
 import java.time.Instant
 import java.time.ZoneOffset
 
-private val WzAzul  = Color(0xFF1565C0)
+private val WzAzul  = Color(0xFF8A6A12)
 private val WzVerde = Color(0xFF2E7D32)
 private val WzNaranja = Color(0xFFED6C02)
 
@@ -218,7 +218,7 @@ fun RegistrarInquilinoWizard(
 private fun CuartoResumen(cuarto: CuartoLibre) {
     Card(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF7EFD8)),
         shape = RoundedCornerShape(12.dp)
     ) {
         Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceAround) {

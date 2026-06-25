@@ -7,11 +7,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 private val AppColorScheme = lightColorScheme(
-    primary          = Color(0xFF1565C0),
-    onPrimary        = Color.White,
-    primaryContainer = Color(0xFFD6E4FF),
-    secondary        = Color(0xFF37474F),
-    onSecondary      = Color.White,
+    primary            = Color(0xFF8A6A12),  // dorado profundo (acentos/botones)
+    onPrimary          = Color.White,
+    primaryContainer   = Color(0xFFF7EFD8),  // dorado muy claro
+    onPrimaryContainer = Color(0xFF4A3A0C),  // texto sobre dorado claro
+    secondary          = Color(0xFFC8A24B),  // champagne (acento secundario)
+    onSecondary        = Color(0xFF15151A),
     background       = Color(0xFFF5F5F5),
     surface          = Color.White,
     onSurface        = Color(0xFF212121),
