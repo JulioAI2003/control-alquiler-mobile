@@ -9,6 +9,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import com.example.myapplication.ui.theme.appear
+import com.example.myapplication.ui.theme.bounceClick
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -425,10 +428,10 @@ fun ListaPendientes(vm: PagosViewModel, onCardClick: (Inquilino) -> Unit, onPaga
         when (val s = state) {
             is UiState.Success -> {
                 LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(s.data, key = { it.idPago }) { inquilino ->
+                    itemsIndexed(s.data, key = { _, it -> it.idPago }) { index, inquilino ->
                         val colores = inquilino.colores()
                         Card(
-                            modifier = Modifier.fillMaxWidth().clickable { onCardClick(inquilino) },
+                            modifier = Modifier.fillMaxWidth().appear(index).bounceClick { onCardClick(inquilino) },
                             colors = CardDefaults.cardColors(containerColor = colores.fondo),
                             border = BorderStroke(1.dp, colores.borde.copy(alpha = 0.5f)),
                             shape = RoundedCornerShape(16.dp)
@@ -635,8 +638,8 @@ fun SeccionPagados(vm: PagosViewModel) {
                             modifier = Modifier.fillMaxSize(),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            items(s.data) { pago ->
-                                Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+                            itemsIndexed(s.data) { index, pago ->
+                                Card(Modifier.fillMaxWidth().appear(index), colors = CardDefaults.cardColors(containerColor = Color.White)) {
                                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Column(Modifier.weight(1f)) {
                                             Text(pago.nombre, fontWeight = FontWeight.Bold)
@@ -885,9 +888,9 @@ fun SeccionCuartosLibres(vm: PagosViewModel) {
                             modifier = Modifier.fillMaxSize(),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            items(s.data, key = { it.idCuarto }) { cuarto ->
+                            itemsIndexed(s.data, key = { _, it -> it.idCuarto }) { index, cuarto ->
                                 Card(
-                                    modifier = Modifier.fillMaxWidth().clickable { cuartoSeleccionado = cuarto },
+                                    modifier = Modifier.fillMaxWidth().appear(index).bounceClick { cuartoSeleccionado = cuarto },
                                     colors = CardDefaults.cardColors(containerColor = coloresCuartoLibre.fondo),
                                     border = BorderStroke(1.dp, coloresCuartoLibre.borde.copy(alpha = 0.5f)),
                                     shape = RoundedCornerShape(16.dp)
@@ -1083,10 +1086,10 @@ fun SeccionServicios(vm: PagosViewModel, onPagarClick: (ServicioCasa) -> Unit) {
                             modifier = Modifier.fillMaxSize(),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            items(s.data, key = { "${it.idServicio}-${it.mes}-${it.anio}" }) { srv ->
+                            itemsIndexed(s.data, key = { _, it -> "${it.idServicio}-${it.mes}-${it.anio}" }) { index, srv ->
                                 val colores = srv.colores()
                                 Card(
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier.fillMaxWidth().appear(index),
                                     colors = CardDefaults.cardColors(containerColor = colores.fondo),
                                     border = BorderStroke(1.dp, colores.borde.copy(alpha = 0.5f)),
                                     shape = RoundedCornerShape(16.dp)
@@ -1847,7 +1850,7 @@ fun SeccionAjustes() {
         )
 
         Card(
-            modifier = Modifier.fillMaxWidth().clickable {
+            modifier = Modifier.fillMaxWidth().bounceClick {
                 scope.launch { dataStore.guardarTipoAviso("notificacion") }
             },
             colors = CardDefaults.cardColors(
@@ -1879,7 +1882,7 @@ fun SeccionAjustes() {
         }
 
         Card(
-            modifier = Modifier.fillMaxWidth().clickable {
+            modifier = Modifier.fillMaxWidth().bounceClick {
                 scope.launch { dataStore.guardarTipoAviso("alarma") }
             },
             colors = CardDefaults.cardColors(

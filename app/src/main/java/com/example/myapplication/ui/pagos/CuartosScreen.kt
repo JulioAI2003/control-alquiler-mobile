@@ -8,7 +8,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import com.example.myapplication.ui.theme.appear
+import com.example.myapplication.ui.theme.bounceClick
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -73,8 +75,8 @@ fun SeccionCuartos(vm: PagosViewModel) {
                     }
                 } else {
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(s.data, key = { it.idCuarto }) { cuarto ->
-                            CuartoCard(cuarto, onClick = { detalle = cuarto })
+                        itemsIndexed(s.data, key = { _, it -> it.idCuarto }) { index, cuarto ->
+                            CuartoCard(cuarto, index = index, onClick = { detalle = cuarto })
                         }
                     }
                 }
@@ -140,10 +142,10 @@ fun SeccionCuartos(vm: PagosViewModel) {
 }
 
 @Composable
-private fun CuartoCard(cuarto: CuartoDetalle, onClick: () -> Unit) {
+private fun CuartoCard(cuarto: CuartoDetalle, index: Int = 0, onClick: () -> Unit) {
     val (fondoEstado, textoEstado) = coloresEstado(cuarto.estado)
     Card(
-        modifier = Modifier.fillMaxWidth().clickable { onClick() },
+        modifier = Modifier.fillMaxWidth().appear(index).bounceClick { onClick() },
         colors = CardDefaults.cardColors(containerColor = Color.White),
         border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
         shape = RoundedCornerShape(16.dp)

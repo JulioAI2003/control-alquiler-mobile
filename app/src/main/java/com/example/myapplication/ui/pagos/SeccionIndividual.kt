@@ -7,7 +7,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import com.example.myapplication.ui.theme.appear
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -219,11 +220,11 @@ private fun ListaMovimientosPendientes(
                 }
             } else {
                 LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(s.data, key = { "${it.idConcepto}-${it.mes}-${it.anio}" }) { mov ->
+                    itemsIndexed(s.data, key = { _, it -> "${it.idConcepto}-${it.mes}-${it.anio}" }) { index, mov ->
                         val clickMod = onDetalle?.let { cb -> Modifier.clickable { cb(mov) } } ?: Modifier
                         val col = coloresPorVencimiento(mov.diasRestantes)
                         Card(
-                            Modifier.fillMaxWidth().then(clickMod),
+                            Modifier.fillMaxWidth().appear(index).then(clickMod),
                             colors = CardDefaults.cardColors(containerColor = col.fondo),
                             border = BorderStroke(1.dp, col.borde.copy(alpha = 0.5f)),
                             shape = RoundedCornerShape(16.dp)
@@ -278,10 +279,10 @@ private fun ListaMovimientosRealizados(
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Sin registros.", color = Color.Gray) }
             } else {
                 LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(s.data, key = { it.idMovimiento ?: "${it.idConcepto}-${it.mes}-${it.anio}" }) { mov ->
+                    itemsIndexed(s.data, key = { _, it -> it.idMovimiento ?: "${it.idConcepto}-${it.mes}-${it.anio}" }) { index, mov ->
                         val clickMod = onDetalle?.let { cb -> Modifier.clickable { cb(mov) } } ?: Modifier
                         Card(
-                            Modifier.fillMaxWidth().then(clickMod),
+                            Modifier.fillMaxWidth().appear(index).then(clickMod),
                             colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
                             border = BorderStroke(1.dp, IndVerde.copy(alpha = 0.4f)),
                             shape = RoundedCornerShape(16.dp)
@@ -333,9 +334,11 @@ private fun ListaConceptos(
                     }
                 } else {
                     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(s.data, key = { it.idConcepto }) { cpt ->
-                            if (cpt.eliminado) ConceptoEliminadoCard(cpt, onRestaurar)
-                            else ConceptoCard(cpt, esIngreso, acento, onEditar, onEliminar)
+                        itemsIndexed(s.data, key = { _, it -> it.idConcepto }) { index, cpt ->
+                            Box(Modifier.appear(index)) {
+                                if (cpt.eliminado) ConceptoEliminadoCard(cpt, onRestaurar)
+                                else ConceptoCard(cpt, esIngreso, acento, onEditar, onEliminar)
+                            }
                         }
                     }
                 }
