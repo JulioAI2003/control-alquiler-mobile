@@ -12,6 +12,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import com.example.myapplication.ui.theme.appear
 import com.example.myapplication.ui.theme.bounceClick
+import com.example.myapplication.ui.onboarding.CoachStep
+import com.example.myapplication.ui.onboarding.CoachmarkOverlay
+import com.example.myapplication.ui.onboarding.coachAnchor
+import com.example.myapplication.ui.onboarding.rememberCoachmarkState
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -94,11 +100,36 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
     val scope = rememberCoroutineScope()
     val rol by app.sessionDataStore.rol.collectAsStateWithLifecycle(initialValue = null)
     val nombreUsuario by app.sessionDataStore.nombre.collectAsStateWithLifecycle(initialValue = null)
+    val userId by app.sessionDataStore.userId.collectAsStateWithLifecycle(initialValue = null)
     val esAdmin = rol == "Administrador"
     val esIndividual = rol == "Individual"
+
+    // Indicaciones de ayuda (coach-marks). El efecto que las dispara está más abajo,
+    // tras declarar `currentScreen` (cada vista tiene su propio tutorial).
+    val coach = rememberCoachmarkState()
     var currentScreen by remember { mutableStateOf(if (esAdmin) "admin_usuarios" else "pendientes") }
     LaunchedEffect(esAdmin) { if (esAdmin && currentScreen == "pendientes") currentScreen = "admin_usuarios" }
     LaunchedEffect(esIndividual) { if (esIndividual && currentScreen == "pendientes") currentScreen = "individual_ingresos" }
+
+    // Cada vista tiene su propio tutorial, mostrado una sola vez por usuario. La vista
+    // principal usa el flag de onboarding; las demás secciones, su propio flag.
+    LaunchedEffect(currentScreen, userId, rol) {
+        val uid = userId ?: return@LaunchedEffect
+        val r = rol ?: return@LaunchedEffect
+        if (currentScreen in SECCIONES_CON_TUTORIAL) {
+            if (!app.sessionDataStore.haVistoTutorial(uid, currentScreen).first()) {
+                delay(500)
+                coach.start(pasosDeAyuda(currentScreen, r))
+                app.sessionDataStore.marcarTutorialVisto(uid, currentScreen)
+            }
+        } else {
+            if (!app.sessionDataStore.haVistoOnboarding(uid).first()) {
+                delay(800) // deja que se midan las posiciones de los botones
+                coach.start(pasosDeAyuda(currentScreen, r))
+                app.sessionDataStore.marcarOnboardingVisto(uid)
+            }
+        }
+    }
 
     // Estados para Modales
     var inquilinoDetalle by remember { mutableStateOf<Inquilino?>(null) }
@@ -268,8 +299,20 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                             Text(if (showTabs) saludo else screenTitle, fontWeight = FontWeight.ExtraBold, fontSize = if (showTabs) 18.sp else 20.sp)
                         },
                         navigationIcon = {
-                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            IconButton(
+                                onClick = { scope.launch { drawerState.open() } },
+                                modifier = Modifier.coachAnchor(coach, "menu")
+                            ) {
                                 Icon(Icons.Default.Menu, "Menú")
+                            }
+                        },
+                        actions = {
+                            // Botón para volver a ver las indicaciones (junto al saludo).
+                            IconButton(
+                                onClick = { coach.start(pasosDeAyuda(currentScreen, rol ?: "")) },
+                                modifier = Modifier.coachAnchor(coach, "help")
+                            ) {
+                                Icon(Icons.Default.HelpOutline, "Ver indicaciones", tint = AzulPrimario)
                             }
                         },
                         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -286,6 +329,7 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                                 Tab(
                                     selected = selectedTab == index,
                                     onClick  = { currentScreen = tabScreens[index] },
+                                    modifier = Modifier.coachAnchor(coach, "tab_$index"),
                                     text     = { Text(title, fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal) }
                                 )
                             }
@@ -405,6 +449,80 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
             icon = { Icon(Icons.Default.CheckCircle, null, Modifier.size(64.dp), Color(0xFF4CAF50)) },
             title = { Text(if (mensajeExito!!.contains("revertido", ignoreCase = true)) "¡Pago Revertido!" else "¡Pago Registrado!") },
             text = { Text(mensajeExito!!, fontSize = 16.sp) }
+        )
+    }
+
+    // Overlay de indicaciones (encima de todo). Se activa solo o con el botón de ayuda.
+    CoachmarkOverlay(coach) { }
+}
+
+// Secciones (abiertas desde el menú) que tienen su propio tutorial, distinto del
+// de la vista principal.
+private val SECCIONES_CON_TUTORIAL = setOf(
+    "pagados", "inquilinos", "cuartos_todos", "servicios_pagados", "ajustes",
+    "admin_pagos", "admin_pagos_realizados"
+)
+
+// Devuelve el tutorial correspondiente a la VISTA actual. Las vistas principales
+// (pestañas / panel admin) usan la guía por rol; cada sección tiene la suya.
+private fun pasosDeAyuda(screen: String, rol: String): List<CoachStep> {
+    val repasar = CoachStep("help", "Repasar cuando quieras", "¿Necesitas volver a ver esto? Toca este botón en cualquier momento.")
+
+    // Tutorial propio de cada sección (explica para qué sirve la vista).
+    val seccion: List<CoachStep>? = when (screen) {
+        "pagados" -> listOf(
+            CoachStep(null, "Inquilinos Pagados", "Aquí ves los pagos que tus inquilinos realizaron en los últimos 10 días. Si registraste uno por error, usa \"Revertir\" para deshacerlo."),
+            repasar
+        )
+        "inquilinos" -> listOf(
+            CoachStep(null, "Inquilinos", "Lista de tus inquilinos activos. Toca una tarjeta para ver su detalle, contactarlo por llamada/WhatsApp o iniciar su retiro."),
+            repasar
+        )
+        "cuartos_todos" -> listOf(
+            CoachStep(null, "Cuartos", "Todos tus cuartos en un solo lugar. Toca uno para ver su detalle y editar su número, precio, garantía o descripción."),
+            repasar
+        )
+        "servicios_pagados" -> listOf(
+            CoachStep(null, "Servicios Pagados", "Historial de los servicios de la casa que ya pagaste (luz, agua, etc.). Puedes revertir un pago si te equivocaste."),
+            repasar
+        )
+        "ajustes" -> listOf(
+            CoachStep(null, "Ajustes", "Elige cómo recibir los avisos: notificación silenciosa o alarma con sonido. También defines a qué hora del día llega el recordatorio diario de cobros y servicios pendientes."),
+            repasar
+        )
+        "admin_pagos" -> listOf(
+            CoachStep(null, "Pagos Pendientes", "Suscripciones de los usuarios por confirmar. Revisa cada pago y confírmalo para activar el plan del usuario."),
+            repasar
+        )
+        "admin_pagos_realizados" -> listOf(
+            CoachStep(null, "Pagos Registrados", "Historial de las suscripciones ya confirmadas. Si confirmaste un pago por error, puedes revertirlo desde aquí."),
+            repasar
+        )
+        else -> null
+    }
+    if (seccion != null) return seccion
+
+    // Vista principal: guía por rol (menú + pestañas).
+    return when (rol) {
+        "Individual" -> listOf(
+            CoachStep("menu", "Menú", "Desde aquí entras a Ingresos, Gastos, Resumen y Ajustes."),
+            CoachStep("tab_0", "Ingresos", "Lo que cobras cada mes: alquileres, sueldos, mensualidades, etc."),
+            CoachStep("tab_1", "Gastos", "Lo que pagas cada mes: cuotas del préstamo al banco, servicios (luz, agua, internet) y suscripciones."),
+            CoachStep("tab_2", "Resumen", "El balance del mes: cuánto entró, cuánto salió y tu resultado."),
+            CoachStep(null, "Las 3 sub-pestañas", "Dentro de Ingresos y de Gastos verás: \"Pendientes\" (lo que falta cobrar o pagar), \"Realizados\" (lo ya registrado, que puedes Revertir si te equivocas) y \"Conceptos\" (crea, edita o elimina tus ingresos y gastos fijos; tienes 24 h para deshacer un borrado)."),
+            CoachStep(null, "Registrar y recordar", "En \"Pendientes\" toca Cobrar o Pagar y confirma; si aún no toca, usa \"Posponer\". La app te recordará cada pago e ingreso para que nunca se te olvide una cuota."),
+            repasar
+        )
+        "Administrador" -> listOf(
+            CoachStep("menu", "Menú de administración", "Aquí gestionas Usuarios, Pagos Pendientes y Pagos Registrados."),
+            repasar
+        )
+        else -> listOf(
+            CoachStep("menu", "Menú", "Aquí abres el menú: Inquilinos, Cuartos, Inquilinos Pagados, Servicios Pagados y Ajustes."),
+            CoachStep("tab_0", "Cobros", "Cobros pendientes de tus inquilinos. Toca el monto para registrar el pago; toca la tarjeta para ver el detalle."),
+            CoachStep("tab_1", "Servicios", "Servicios de la casa (luz, agua, etc.). Regístralos cuando los pagues."),
+            CoachStep("tab_2", "Cuartos Libres", "Cuartos disponibles. Toca uno para ver su detalle y usa \"Alquilar\" para registrar un inquilino."),
+            repasar
         )
     }
 }
