@@ -1596,7 +1596,9 @@ private fun ServicioConceptoCard(
             IconButton(onClick = { onEditar(cpt) }) {
                 Icon(Icons.Default.Edit, "Editar", tint = AzulPrimario, modifier = Modifier.size(20.dp))
             }
-            TextButton(onClick = { onEliminar(cpt) }) { Text("Eliminar", color = Color(0xFFC62828), fontSize = 12.sp) }
+            IconButton(onClick = { onEliminar(cpt) }) {
+                Icon(Icons.Default.Delete, "Eliminar", tint = Color(0xFFC62828), modifier = Modifier.size(20.dp))
+            }
         }
     }
 }
