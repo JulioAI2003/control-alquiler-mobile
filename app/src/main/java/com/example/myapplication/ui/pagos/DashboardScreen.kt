@@ -268,7 +268,11 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                     icon = { Icon(Icons.Default.Logout, null, tint = Color.Red) },
                     label = { Text("Cerrar Sesión", color = Color.Red) },
                     selected = false,
-                    onClick = { onLogout() },
+                    onClick = {
+                        app.cerrarSesion()   // borra token (memoria) + sesión persistida
+                        scope.launch { drawerState.close() }
+                        onLogout()
+                    },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
             }
@@ -545,7 +549,11 @@ fun ListaPendientes(vm: PagosViewModel, onCardClick: (Inquilino) -> Unit, onPaga
     ) {
         when (val s = state) {
             is UiState.Success -> {
-                LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (s.data.isEmpty()) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("¡No tienes cobros pendientes! 🎉", color = Color.Gray)
+                    }
+                } else LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     itemsIndexed(s.data, key = { _, it -> it.idPago }) { index, inquilino ->
                         val colores = inquilino.colores()
                         Card(
@@ -584,6 +592,9 @@ fun ListaPendientes(vm: PagosViewModel, onCardClick: (Inquilino) -> Unit, onPaga
                 }
             }
             is UiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            is UiState.Error -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(s.message, color = Color.Red, modifier = Modifier.padding(24.dp))
+            }
             else -> Unit
         }
     }

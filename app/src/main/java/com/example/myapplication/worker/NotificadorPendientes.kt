@@ -95,7 +95,7 @@ object NotificadorPendientes {
                 pagos.forEach { pago ->
                     val clave = "pago:${pago.idPago}"
                     if (estaPospuesto(clave, pospuestos, hoy)) return@forEach
-                    val fechaVenc = LocalDate.of(pago.anio, pago.mes, pago.dia)
+                    val fechaVenc = com.example.myapplication.util.fechaSegura(pago.anio, pago.mes, pago.dia)
                     val dias = ChronoUnit.DAYS.between(hoy, fechaVenc)
                     if (dias <= 0L) {
                         val etiqueta = if (dias == 0L) "vence HOY" else "vencido hace ${-dias}d"

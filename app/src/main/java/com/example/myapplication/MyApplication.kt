@@ -7,10 +7,14 @@ import android.app.NotificationManager
 import com.example.myapplication.data.local.SessionDataStore
 import com.example.myapplication.data.remote.AlquilerApiClient
 import com.example.myapplication.worker.NotificadorPendientes
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 class MyApplication : Application() {
@@ -25,6 +29,10 @@ class MyApplication : Application() {
     // MainActivity lo observa para navegar a Login automáticamente.
     private val _sessionExpired = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val sessionExpired: SharedFlow<Unit> = _sessionExpired.asSharedFlow()
+
+    // Scope de aplicación (no atado a ninguna pantalla) para tareas que deben
+    // terminar aunque la UI se destruya, como limpiar la sesión al cerrar sesión.
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
         super.onCreate()
@@ -66,5 +74,15 @@ class MyApplication : Application() {
 
     fun updateToken(token: String?) {
         cachedToken = token
+    }
+
+    /**
+     * Cierra sesión por completo: borra el token en memoria (inmediato, para que el
+     * arranque ya no entre al dashboard) y limpia la sesión persistida en DataStore
+     * en un scope de aplicación que sobrevive a la navegación.
+     */
+    fun cerrarSesion() {
+        cachedToken = null
+        appScope.launch { sessionDataStore.limpiarSesion() }
     }
 }

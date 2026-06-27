@@ -599,7 +599,8 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
     fun resetAccionIndividualState() { _accionIndividualState.value = UiState.Idle }
 
     private fun PagoBackend.toInquilinoUi(hoy: LocalDate): Inquilino {
-        val fechaVenc = LocalDate.of(anio, mes, dia)
+        // fechaSegura evita el crash si el día de pago no existe en el mes (ej. 31 en abril).
+        val fechaVenc = com.example.myapplication.util.fechaSegura(anio, mes, dia)
         val dias = ChronoUnit.DAYS.between(hoy, fechaVenc)
         val estadoPago = when {
             dias < 0 -> EstadoPago.VENCIDO
