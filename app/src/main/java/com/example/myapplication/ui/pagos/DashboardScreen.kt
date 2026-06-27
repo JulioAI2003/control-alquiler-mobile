@@ -137,6 +137,8 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
     var servicioAConfirmar by remember { mutableStateOf<ServicioCasa?>(null) }
     var montoIngresadoServicio by remember { mutableStateOf("") }
     var mensajeExito by remember { mutableStateOf<String?>(null) }
+    // Mensaje de error de acción (registrar pago/servicio/retiro): antes era silencioso.
+    var mensajeError by remember { mutableStateOf<String?>(null) }
 
     // Reset monto al abrir/cerrar el diálogo de servicio
     LaunchedEffect(servicioAConfirmar) { montoIngresadoServicio = "" }
@@ -146,23 +148,29 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
     val retiroStateGlobal by vm.retiroState.collectAsStateWithLifecycle()
 
     LaunchedEffect(pagoRapidoState) {
-        if (pagoRapidoState is UiState.Success) {
-            mensajeExito = (pagoRapidoState as UiState.Success<String>).data
-            vm.resetPagoRapidoState()
+        when (val s = pagoRapidoState) {
+            is UiState.Success -> { mensajeExito = s.data; vm.resetPagoRapidoState() }
+            is UiState.Error -> { mensajeError = s.message; vm.resetPagoRapidoState() }
+            else -> Unit
         }
     }
 
     LaunchedEffect(pagarServicioState) {
-        if (pagarServicioState is UiState.Success) {
-            mensajeExito = (pagarServicioState as UiState.Success<String>).data
-            vm.resetPagarServicioState()
+        when (val s = pagarServicioState) {
+            is UiState.Success -> { mensajeExito = s.data; vm.resetPagarServicioState() }
+            is UiState.Error -> { mensajeError = s.message; vm.resetPagarServicioState() }
+            else -> Unit
         }
     }
 
     LaunchedEffect(retiroStateGlobal) {
-        if (retiroStateGlobal is UiState.Success && inquilinoDetalle != null) {
-            mensajeExito = (retiroStateGlobal as UiState.Success<String>).data
+        val s = retiroStateGlobal
+        if (s is UiState.Success && inquilinoDetalle != null) {
+            mensajeExito = s.data
             inquilinoDetalle = null
+            vm.resetRetiroState()
+        } else if (s is UiState.Error) {
+            mensajeError = s.message
             vm.resetRetiroState()
         }
     }
@@ -453,6 +461,17 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
             icon = { Icon(Icons.Default.CheckCircle, null, Modifier.size(64.dp), Color(0xFF4CAF50)) },
             title = { Text(if (mensajeExito!!.contains("revertido", ignoreCase = true)) "¡Pago Revertido!" else "¡Pago Registrado!") },
             text = { Text(mensajeExito!!, fontSize = 16.sp) }
+        )
+    }
+
+    // Error de acción (antes silencioso): el usuario ahora sabe que algo falló.
+    if (mensajeError != null) {
+        AlertDialog(
+            onDismissRequest = { mensajeError = null },
+            confirmButton = { Button(onClick = { mensajeError = null }, Modifier.fillMaxWidth()) { Text("Entendido") } },
+            icon = { Icon(Icons.Default.ErrorOutline, null, Modifier.size(64.dp), Color(0xFFD32F2F)) },
+            title = { Text("No se pudo completar") },
+            text = { Text(mensajeError!!, fontSize = 16.sp) }
         )
     }
 

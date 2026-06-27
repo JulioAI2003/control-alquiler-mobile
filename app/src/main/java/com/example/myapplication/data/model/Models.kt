@@ -32,21 +32,23 @@ data class LoginResponse(
 
 @Serializable
 data class PagoBackend(
-    @SerialName("id_pago")               val idPago:            String,
-    @SerialName("id_inquilino")          val idInquilino:       String,
-    val mes:                                                     Int,
-    val anio:                                                    Int,
-    val dia:                                                     Int,
-    val monto:                                                   String,
-    @SerialName("monto_total")           val montoTotal:        String,
-    @SerialName("monto_original_mensual")val montoOriginal:     String,
-    val nombre:                                                  String,
-    val apellidos:                                               String,
-    @SerialName("nro_cuarto")            val nroCuarto:         Int,
-    val piso:                                                    String,
-    val casa:                                                    String,
-    @SerialName("es_pago_parcial")       val esPagoParcial:     Boolean,
-    @SerialName("mensualidad_pagada")    val mensualidadPagada: Boolean,
+    // Todos los campos tienen default: con coerceInputValues, si el backend manda un
+    // null o falta un campo, cae al default en vez de tumbar TODA la lista de cobros.
+    @SerialName("id_pago")               val idPago:            String = "",
+    @SerialName("id_inquilino")          val idInquilino:       String = "",
+    val mes:                                                     Int = 1,
+    val anio:                                                    Int = 2000,
+    val dia:                                                     Int = 1,
+    val monto:                                                   String = "0",
+    @SerialName("monto_total")           val montoTotal:        String = "0",
+    @SerialName("monto_original_mensual")val montoOriginal:     String = "0",
+    val nombre:                                                  String = "",
+    val apellidos:                                               String = "",
+    @SerialName("nro_cuarto")            val nroCuarto:         Int = 0,
+    val piso:                                                    String = "",
+    val casa:                                                    String = "",
+    @SerialName("es_pago_parcial")       val esPagoParcial:     Boolean = false,
+    @SerialName("mensualidad_pagada")    val mensualidadPagada: Boolean = false,
     val celular:                                                 String? = null,
     val garantia:                                                Double? = null,
     @SerialName("fecha_garantia")          val fechaGarantia:         String? = null,
@@ -124,14 +126,14 @@ data class Inquilino(
 
 @Serializable
 data class InquilinoMobile(
-    @SerialName("id_inquilino")            val idInquilino:           String,
-    val nombre:                                                       String,
-    val apellidos:                                                    String,
+    @SerialName("id_inquilino")            val idInquilino:           String = "",
+    val nombre:                                                       String = "",
+    val apellidos:                                                    String = "",
     val celular:                                                      String? = null,
-    @SerialName("nro_cuarto")              val nroCuarto:             Int,
-    val piso:                                                         String,
-    val casa:                                                         String,
-    val estado:                                                       String,
+    @SerialName("nro_cuarto")              val nroCuarto:             Int = 0,
+    val piso:                                                         String = "",
+    val casa:                                                         String = "",
+    val estado:                                                       String = "",
     @SerialName("dias_para_retiro")        val diasParaRetiro:        Int? = null,
     @SerialName("fecha_garantia")          val fechaGarantia:         String? = null,
     @SerialName("fecha_esperada_garantia") val fechaEsperadaGarantia: String? = null,
@@ -149,13 +151,13 @@ data class IdInquilinoRequest(
 
 @Serializable
 data class CuartoLibre(
-    @SerialName("id_cuarto")  val idCuarto:    String,
-    @SerialName("nro_cuarto") val nroCuarto:   String,
+    @SerialName("id_cuarto")  val idCuarto:    String = "",
+    @SerialName("nro_cuarto") val nroCuarto:   String = "",
     val precio:                                String? = null,
     val descripcion:                           String? = null,
     val garantia:                              String? = null,
-    val piso:                                  String,
-    val casa:                                  String
+    val piso:                                  String = "",
+    val casa:                                  String = ""
 )
 
 // ── Registro de inquilino (alquilar un cuarto) ────────────────────────────────
@@ -201,13 +203,13 @@ data class ServicioNuevo(val nombre: String, val monto: Double)
 // ── Sección "Cuartos" (listar todos + editar) ─────────────────────────────────
 @Serializable
 data class CuartoDetalle(
-    @SerialName("id_cuarto")  val idCuarto:    String,
-    @SerialName("nro_cuarto") val nroCuarto:   String,
+    @SerialName("id_cuarto")  val idCuarto:    String = "",
+    @SerialName("nro_cuarto") val nroCuarto:   String = "",
     val precio:                                String? = null,
     val garantia:                              String? = null,
     val descripcion:                           String? = null,
     val estado:                                String? = null,
-    @SerialName("id_piso")    val idPiso:      String,
+    @SerialName("id_piso")    val idPiso:      String = "",
     val piso:                                  String? = null,
     val casa:                                  String? = null
 )
@@ -233,18 +235,18 @@ data class EditarCuartoRequest(
 @Serializable
 data class ServicioCasa(
     @SerialName("id_pago")                val idPago:          String? = null,
-    @SerialName("id_servicio")            val idServicio:      String,
-    val nombre:                                                String,
-    @SerialName("monto_referencial")      val montoReferencial: String,
+    @SerialName("id_servicio")            val idServicio:      String = "",
+    val nombre:                                                String = "",
+    @SerialName("monto_referencial")      val montoReferencial: String = "0",
     @SerialName("monto_original_mensual") val montoOriginal:   String? = null,
     @SerialName("monto_pagado")          val montoPagado:     String? = null,
-    val dia:                                                   Int,
-    @SerialName("mes_correspondiente")    val mes:             Int,
-    @SerialName("anio_correspondiente")   val anio:            Int,
-    val pagado:                                               Boolean,
+    val dia:                                                   Int = 1,
+    @SerialName("mes_correspondiente")    val mes:             Int = 1,
+    @SerialName("anio_correspondiente")   val anio:            Int = 2000,
+    val pagado:                                               Boolean = false,
     @SerialName("precio_fijo")            val precioFijo:      Boolean = true,
     @SerialName("fecha_pago")             val fechaPago:       String? = null,
-    @SerialName("dias_restantes")         val diasRestantes:   Int
+    @SerialName("dias_restantes")         val diasRestantes:   Int = 0
 ) {
     val nombreMes: String get() = listOf(
         "", "Ene", "Feb", "Mar", "Abr", "May", "Jun",
@@ -276,17 +278,17 @@ data class PagarServicioRequest(
 @Serializable
 data class MovimientoIndividual(
     @SerialName("id_movimiento")          val idMovimiento:     String? = null,
-    @SerialName("id_concepto")            val idConcepto:       String,
-    val nombre:                                                 String,
-    val tipo:                                                   String,
+    @SerialName("id_concepto")            val idConcepto:       String = "",
+    val nombre:                                                 String = "",
+    val tipo:                                                   String = "",
     val descripcion:                                            String? = null,
     @SerialName("monto_referencial")      val montoReferencial: String? = null,
     @SerialName("monto_total")            val montoTotal:       String? = null,
     @SerialName("monto_original_mensual") val montoOriginal:    String? = null,
     @SerialName("monto_pagado")           val montoPagado:      String? = null,
-    val dia:                                                    Int,
-    @SerialName("mes_correspondiente")    val mes:              Int,
-    @SerialName("anio_correspondiente")   val anio:             Int,
+    val dia:                                                    Int = 1,
+    @SerialName("mes_correspondiente")    val mes:              Int = 1,
+    @SerialName("anio_correspondiente")   val anio:             Int = 2000,
     val conciliado:                                             Boolean = false,
     @SerialName("metodo_pago")            val metodoPago:       String? = null,
     @SerialName("fecha_registro")         val fechaRegistro:    String? = null,
@@ -316,12 +318,12 @@ data class MovimientoIndividual(
 /** Plantilla de concepto recurrente (ingreso o gasto). */
 @Serializable
 data class ConceptoIndividual(
-    @SerialName("id_concepto")     val idConcepto:     String,
-    val tipo:                                          String,
-    val nombre:                                        String,
+    @SerialName("id_concepto")     val idConcepto:     String = "",
+    val tipo:                                          String = "",
+    val nombre:                                        String = "",
     val descripcion:                                   String? = null,
-    val monto:                                         String,
-    @SerialName("dia_vencimiento") val diaVencimiento: Int,
+    val monto:                                         String = "0",
+    @SerialName("dia_vencimiento") val diaVencimiento: Int = 1,
     @SerialName("precio_fijo")     val precioFijo:     Boolean = true,
     val celular:                                       String? = null,
     val activo:                                        Boolean = true,
@@ -399,14 +401,14 @@ data class CambiarPasswordResponse(
 
 @Serializable
 data class UsuarioAdmin(
-    val nombre:                                                     String,
+    val nombre:                                                     String = "",
     val apellido:                                                   String? = null,
     val dni:                                                        String? = null,
     val celular:                                                    String? = null,
     val email:                                                      String? = null,
     val estado:                                                     String? = null,
     @SerialName("fecha_registro")       val fechaRegistro:          String? = null,
-    @SerialName("id_usuario")           val idUsuario:              String,
+    @SerialName("id_usuario")           val idUsuario:              String = "",
     val plan:                                                       String? = null,
     @SerialName("plan_capacidad")       val planCapacidad:          Int? = null,
     @SerialName("inquilinos_registrados") val inquilinosRegistrados: Int? = null,
@@ -415,21 +417,21 @@ data class UsuarioAdmin(
 
 @Serializable
 data class UsuariosResponse(
-    val data:  List<UsuarioAdmin>,
-    val total: Int,
-    val page:  Int,
-    val limit: Int
+    val data:  List<UsuarioAdmin> = emptyList(),
+    val total: Int = 0,
+    val page:  Int = 1,
+    val limit: Int = 0
 )
 
 @Serializable
 data class PagoUsuario(
-    @SerialName("id_pagousuario")      val idPagoUsuario:    String,
-    @SerialName("id_usuario")          val idUsuario:        String,
+    @SerialName("id_pagousuario")      val idPagoUsuario:    String = "",
+    @SerialName("id_usuario")          val idUsuario:        String = "",
     val monto:                                               String? = null,
     @SerialName("nombre_plan")         val nombrePlan:       String? = null,
     @SerialName("fecha_facturacion")   val fechaFacturacion: String? = null,
     @SerialName("fecha_registro")      val fechaRegistro:    String? = null,
-    @SerialName("mensualidad_pagada")  val pagada:           Boolean,
+    @SerialName("mensualidad_pagada")  val pagada:           Boolean = false,
     @SerialName("metodo_pago")         val metodoPago:       String? = null,
     val nombres:                                             String? = null,
     val dni:                                                 String? = null,
@@ -444,8 +446,8 @@ data class PagoUsuario(
 /** Recibo cuyo recordatorio fue pospuesto hasta una fecha ("YYYY-MM-DD"). */
 @Serializable
 data class RecordatorioPospuesto(
-    val clave:                            String,
-    @SerialName("pospuesto_hasta")        val pospuestoHasta: String
+    val clave:                            String = "",
+    @SerialName("pospuesto_hasta")        val pospuestoHasta: String = ""
 )
 
 /** Body para posponer el recordatorio de un recibo. */

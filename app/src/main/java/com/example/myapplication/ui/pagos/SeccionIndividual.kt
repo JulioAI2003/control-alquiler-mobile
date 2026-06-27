@@ -69,6 +69,7 @@ fun SeccionIndividual(vm: PagosViewModel, tipo: String) {
     var cptAEditar    by remember { mutableStateOf<ConceptoIndividual?>(null) }
     var nuevoConcepto by remember { mutableStateOf(false) }
     var mensaje       by remember { mutableStateOf<String?>(null) }
+    var errorMsg      by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(subtab, tipo) {
         when (subtab) {
@@ -78,9 +79,10 @@ fun SeccionIndividual(vm: PagosViewModel, tipo: String) {
         }
     }
     LaunchedEffect(accion) {
-        if (accion is UiState.Success) {
-            mensaje = (accion as UiState.Success<String>).data
-            vm.resetAccionIndividualState()
+        when (val a = accion) {
+            is UiState.Success -> { mensaje = a.data; vm.resetAccionIndividualState() }
+            is UiState.Error -> { errorMsg = a.message; vm.resetAccionIndividualState() }
+            else -> Unit
         }
     }
 
@@ -118,6 +120,16 @@ fun SeccionIndividual(vm: PagosViewModel, tipo: String) {
             onDismissRequest = { mensaje = null },
             confirmButton = { TextButton(onClick = { mensaje = null }) { Text("OK") } },
             title = { Text("Listo") },
+            text = { Text(msg) }
+        )
+    }
+
+    // Mensaje de error (antes la acción fallaba en silencio)
+    errorMsg?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { errorMsg = null },
+            confirmButton = { TextButton(onClick = { errorMsg = null }) { Text("Entendido") } },
+            title = { Text("No se pudo completar") },
             text = { Text(msg) }
         )
     }
