@@ -54,6 +54,17 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
     private val _pagarServicioState = MutableStateFlow<UiState<String>>(UiState.Idle)
     val pagarServicioState: StateFlow<UiState<String>> = _pagarServicioState.asStateFlow()
 
+    // Conceptos de servicio (subpestaña "Conceptos" del arrendador)
+    private val _conceptosServicioState = MutableStateFlow<UiState<List<ServicioConcepto>>>(UiState.Idle)
+    val conceptosServicioState: StateFlow<UiState<List<ServicioConcepto>>> = _conceptosServicioState.asStateFlow()
+
+    private val _accionServicioState = MutableStateFlow<UiState<String>>(UiState.Idle)
+    val accionServicioState: StateFlow<UiState<String>> = _accionServicioState.asStateFlow()
+
+    // Abonos / pagos por partes de un recibo de inquilino
+    private val _abonosState = MutableStateFlow<UiState<List<AbonoPago>>>(UiState.Idle)
+    val abonosState: StateFlow<UiState<List<AbonoPago>>> = _abonosState.asStateFlow()
+
     private val _usuariosState = MutableStateFlow<UiState<List<UsuarioAdmin>>>(UiState.Idle)
     val usuariosState: StateFlow<UiState<List<UsuarioAdmin>>> = _usuariosState.asStateFlow()
 
@@ -352,6 +363,133 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
     fun resetPagarServicioState() {
         _pagarServicioState.value = UiState.Idle
     }
+
+    // ── CONCEPTOS DE SERVICIO (CRUD + borrado diferido 24h) ───────────────────
+    fun cargarServiciosConceptos() {
+        viewModelScope.launch {
+            _conceptosServicioState.value = UiState.Loading
+            try {
+                val idUsuario = app.sessionDataStore.userId.first() ?: return@launch
+                _conceptosServicioState.value = UiState.Success(
+                    AlquilerApiClient.service.getServiciosConceptos(idUsuario)
+                )
+            } catch (e: Exception) {
+                _conceptosServicioState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al cargar los servicios"))
+            }
+        }
+    }
+
+    fun crearServicioConcepto(nombre: String, monto: Double, diaVencimiento: Int, precioFijo: Boolean) {
+        viewModelScope.launch {
+            _accionServicioState.value = UiState.Loading
+            try {
+                val idUsuario = app.sessionDataStore.userId.first() ?: return@launch
+                AlquilerApiClient.service.crearServicioConcepto(
+                    CrearServicioConceptoRequest(idUsuario, nombre, monto, diaVencimiento, precioFijo)
+                )
+                _accionServicioState.value = UiState.Success("Servicio creado")
+                cargarServiciosConceptos()
+                cargarServicios()
+            } catch (e: Exception) {
+                _accionServicioState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al crear el servicio"))
+            }
+        }
+    }
+
+    fun editarServicioConcepto(idServicio: String, nombre: String, monto: Double, diaVencimiento: Int, precioFijo: Boolean) {
+        viewModelScope.launch {
+            _accionServicioState.value = UiState.Loading
+            try {
+                AlquilerApiClient.service.editarServicioConcepto(
+                    EditarServicioConceptoRequest(idServicio, nombre, monto, diaVencimiento, precioFijo)
+                )
+                _accionServicioState.value = UiState.Success("Servicio actualizado")
+                cargarServiciosConceptos()
+                cargarServicios()
+            } catch (e: Exception) {
+                _accionServicioState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al actualizar el servicio"))
+            }
+        }
+    }
+
+    fun eliminarServicioConcepto(idServicio: String) {
+        viewModelScope.launch {
+            _accionServicioState.value = UiState.Loading
+            try {
+                AlquilerApiClient.service.eliminarServicioConcepto(idServicio)
+                _accionServicioState.value = UiState.Success("Servicio eliminado. Puedes deshacerlo en 24 h.")
+                cargarServiciosConceptos()
+                cargarServicios()
+            } catch (e: Exception) {
+                _accionServicioState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al eliminar el servicio"))
+            }
+        }
+    }
+
+    fun restaurarServicioConcepto(idServicio: String) {
+        viewModelScope.launch {
+            _accionServicioState.value = UiState.Loading
+            try {
+                AlquilerApiClient.service.restaurarServicioConcepto(idServicio)
+                _accionServicioState.value = UiState.Success("Eliminación deshecha")
+                cargarServiciosConceptos()
+                cargarServicios()
+            } catch (e: Exception) {
+                _accionServicioState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al deshacer la eliminación"))
+            }
+        }
+    }
+
+    fun resetAccionServicioState() { _accionServicioState.value = UiState.Idle }
+
+    // ── PAGO POR PARTES (abonos) de un recibo de inquilino ────────────────────
+    /**
+     * Registra un pago de inquilino. Si [montoPagado] es menor a la deuda, queda como
+     * pago por partes y [fechaCompromiso] ("YYYY-MM-DD") es el plazo del saldo restante.
+     */
+    fun registrarPagoInquilino(inquilino: Inquilino, montoPagado: Double, fechaCompromiso: String?) {
+        viewModelScope.launch {
+            _pagoRapidoState.value = UiState.Loading
+            try {
+                val request = PagoRequest(
+                    montoPagado = montoPagado,
+                    metodoPago = "Yape",
+                    descripcion = "Pago desde App Mobile",
+                    fechaCompromiso = fechaCompromiso
+                )
+                val respuesta = AlquilerApiClient.service.registrarPago(inquilino.idPago, request)
+                _pagoRapidoState.value = UiState.Success(respuesta.message)
+                cargarPagos()
+            } catch (e: Exception) {
+                _pagoRapidoState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al registrar pago"))
+            }
+        }
+    }
+
+    fun cargarAbonos(idPago: String) {
+        viewModelScope.launch {
+            _abonosState.value = UiState.Loading
+            try {
+                _abonosState.value = UiState.Success(AlquilerApiClient.service.getHistorialPago(idPago))
+            } catch (e: Exception) {
+                _abonosState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al cargar los pagos por partes"))
+            }
+        }
+    }
+
+    fun revertirAbono(idAbono: String, idPago: String) {
+        viewModelScope.launch {
+            try {
+                AlquilerApiClient.service.eliminarAbono(idAbono)
+                cargarAbonos(idPago)
+                cargarPagos()
+            } catch (e: Exception) {
+                _abonosState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al revertir el pago por partes"))
+            }
+        }
+    }
+
+    fun resetAbonosState() { _abonosState.value = UiState.Idle }
 
     fun cargarUsuarios() {
         viewModelScope.launch {

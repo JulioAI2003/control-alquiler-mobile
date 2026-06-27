@@ -71,6 +71,29 @@ interface AlquilerApiService {
     @POST("servicios/revertir/{id_pago}")
     suspend fun revertirServicio(@Path("id_pago") idPago: String): PagoRegistradoResponse
 
+    // Conceptos de servicio (subpestaña "Conceptos"): CRUD + borrado diferido 24h
+    @GET("mobile/servicios/conceptos")
+    suspend fun getServiciosConceptos(@Query("id_usuario") idUsuario: String): List<ServicioConcepto>
+
+    @POST("mobile/servicios/concepto")
+    suspend fun crearServicioConcepto(@Body body: CrearServicioConceptoRequest): ServicioConcepto
+
+    @PUT("mobile/servicios/concepto")
+    suspend fun editarServicioConcepto(@Body body: EditarServicioConceptoRequest): ServicioConcepto
+
+    @DELETE("mobile/servicios/concepto")
+    suspend fun eliminarServicioConcepto(@Query("id_servicio") idServicio: String): PagoRegistradoResponse
+
+    @POST("mobile/servicios/concepto/restaurar")
+    suspend fun restaurarServicioConcepto(@Query("id_servicio") idServicio: String): PagoRegistradoResponse
+
+    // Abonos / pagos por partes de un recibo de inquilino
+    @GET("historial-pago")
+    suspend fun getHistorialPago(@Query("id_pago") idPago: String): List<AbonoPago>
+
+    @DELETE("abono/{id_abono}")
+    suspend fun eliminarAbono(@Path("id_abono") idAbono: String): PagoRegistradoResponse
+
     // --- ADMIN: USUARIOS ---
 
     @GET("usuarios")

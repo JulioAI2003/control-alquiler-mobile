@@ -270,6 +270,52 @@ data class PagarServicioRequest(
     @SerialName("monto_pagado")  val montoPagado: Double? = null
 )
 
+// ── Conceptos de servicio (subpestaña "Conceptos" del arrendador) ─────────────
+/** Plantilla de servicio recurrente de la casa (luz, agua, etc.). Borrado diferido 24h. */
+@Serializable
+data class ServicioConcepto(
+    @SerialName("id_servicio")     val idServicio:     String = "",
+    val nombre:                                        String = "",
+    @SerialName("monto_referencial") val montoReferencial: String = "0",
+    @SerialName("dia_vencimiento") val diaVencimiento: Int = 1,
+    @SerialName("precio_fijo")     val precioFijo:     Boolean = true,
+    val activo:                                        Boolean = true,
+    // Papelera: si eliminado=true puede deshacerse mientras queden minutos_para_borrado (<24h).
+    val eliminado:                                     Boolean = false,
+    @SerialName("minutos_para_borrado") val minutosParaBorrado: Int? = null
+)
+
+@Serializable
+data class CrearServicioConceptoRequest(
+    @SerialName("id_usuario")        val idUsuario:        String,
+    val nombre:                                            String,
+    @SerialName("monto_referencial") val montoReferencial: Double,
+    @SerialName("dia_vencimiento")   val diaVencimiento:   Int,
+    @SerialName("precio_fijo")       val precioFijo:       Boolean = true
+)
+
+@Serializable
+data class EditarServicioConceptoRequest(
+    @SerialName("id_servicio")       val idServicio:       String,
+    val nombre:                                            String,
+    @SerialName("monto_referencial") val montoReferencial: Double,
+    @SerialName("dia_vencimiento")   val diaVencimiento:   Int,
+    @SerialName("precio_fijo")       val precioFijo:       Boolean = true
+)
+
+// ── Abonos / pagos por partes de un recibo de inquilino ───────────────────────
+/** Un abono parcial registrado contra un recibo mensual (GET /historial-pago). */
+@Serializable
+data class AbonoPago(
+    @SerialName("id_abono")            val idAbono:        String = "",
+    @SerialName("id_pago_mensual")     val idPagoMensual:  String = "",
+    @SerialName("monto_abonado")       val montoAbonado:   String = "0",
+    @SerialName("metodo_pago")         val metodoPago:     String? = null,
+    @SerialName("descripcion_abono")   val descripcion:    String? = null,
+    @SerialName("fecha_abono")         val fechaAbono:     String? = null,
+    @SerialName("fecha_compromiso_restante") val fechaCompromiso: String? = null
+)
+
 // ═════════════════════════════════════════════════════════════════════════════
 //  MÓDULO INDIVIDUAL (ingresos / gastos recurrentes)
 // ═════════════════════════════════════════════════════════════════════════════

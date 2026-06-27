@@ -47,6 +47,7 @@ import com.example.myapplication.data.model.Inquilino
 import com.example.myapplication.data.model.CuartoLibre
 import com.example.myapplication.data.model.InquilinoMobile
 import com.example.myapplication.data.model.ServicioCasa
+import com.example.myapplication.data.model.ServicioConcepto
 import com.example.myapplication.data.model.UiState
 import com.example.myapplication.data.model.UsuarioAdmin
 import com.example.myapplication.data.model.PagoUsuario
@@ -382,21 +383,15 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
         DetalleBottomSheet(inquilinoDetalle!!, vm = vm, onDismiss = { inquilinoDetalle = null })
     }
 
-    // 2a. Confirmación pago de inquilino
+    // 2a. Confirmación pago de inquilino (con opción de pago por partes)
     if (inquilinoAConfirmar != null) {
-        AlertDialog(
-            onDismissRequest = { inquilinoAConfirmar = null },
-            confirmButton = {
-                Button(onClick = {
-                    vm.registrarPagoRapido(inquilinoAConfirmar!!)
-                    inquilinoAConfirmar = null
-                }, colors = ButtonDefaults.buttonColors(containerColor = AzulPrimario)) {
-                    Text("Sí, registrar pago")
-                }
+        DialogoCobrarInquilino(
+            inquilino = inquilinoAConfirmar!!,
+            onConfirm = { monto, fechaCompromiso ->
+                vm.registrarPagoInquilino(inquilinoAConfirmar!!, monto, fechaCompromiso)
+                inquilinoAConfirmar = null
             },
-            dismissButton = { TextButton(onClick = { inquilinoAConfirmar = null }) { Text("Cancelar") } },
-            title = { Text("Confirmar Pago") },
-            text = { Text("¿Deseas registrar el pago de ${inquilinoAConfirmar?.nombre}?") }
+            onDismiss = { inquilinoAConfirmar = null }
         )
     }
 
@@ -533,7 +528,7 @@ private fun pasosDeAyuda(screen: String, rol: String): List<CoachStep> {
             CoachStep("tab_1", "Gastos", "Lo que pagas cada mes: cuotas del préstamo al banco, servicios (luz, agua, internet) y suscripciones."),
             CoachStep("tab_2", "Resumen", "El balance del mes: cuánto entró, cuánto salió y tu resultado."),
             CoachStep(null, "Las 3 sub-pestañas", "Dentro de Ingresos y de Gastos verás: \"Pendientes\" (lo que falta cobrar o pagar), \"Realizados\" (lo ya registrado, que puedes Revertir si te equivocas) y \"Conceptos\" (crea, edita o elimina tus ingresos y gastos fijos; tienes 24 h para deshacer un borrado)."),
-            CoachStep(null, "Registrar y recordar", "En \"Pendientes\" toca Cobrar o Pagar y confirma; si aún no toca, usa \"Posponer\". La app te recordará cada pago e ingreso para que nunca se te olvide una cuota."),
+            CoachStep(null, "Registrar y recordar", "En \"Pendientes\" toca Cobrar o Pagar y confirma. En Ingresos, si aún no toca cobrar, puedes usar \"Posponer\" para aplazar el aviso. La app te recordará cada pago e ingreso para que nunca se te olvide una cuota."),
             repasar
         )
         "Administrador" -> listOf(
@@ -543,7 +538,9 @@ private fun pasosDeAyuda(screen: String, rol: String): List<CoachStep> {
         else -> listOf(
             CoachStep("menu", "Menú", "Aquí abres el menú: Inquilinos, Cuartos, Inquilinos Pagados, Servicios Pagados y Ajustes."),
             CoachStep("tab_0", "Cobros", "Cobros pendientes de tus inquilinos. Toca el monto para registrar el pago; toca la tarjeta para ver el detalle."),
-            CoachStep("tab_1", "Servicios", "Servicios de la casa (luz, agua, etc.). Regístralos cuando los pagues."),
+            CoachStep(null, "Pago por partes", "Al registrar un cobro puedes escribir un monto menor al total: el inquilino abona una parte y eliges la fecha en que se compromete a pagar el resto. El recibo se marca como \"Pago por partes\" y su deuda se actualiza sola."),
+            CoachStep(null, "Botón \"PP\"", "En el detalle del inquilino, el botón circular \"PP\" (esquina superior derecha) lista los pagos por partes de ese recibo y te deja revertir el último si te equivocaste."),
+            CoachStep("tab_1", "Servicios", "Servicios de la casa (luz, agua, etc.). En \"Pendientes\" los registras al pagarlos; en \"Conceptos\" creas, editas o eliminas cada servicio. Al eliminar uno tienes 24 h para deshacerlo y deja de generar recibos."),
             CoachStep("tab_2", "Cuartos Libres", "Cuartos disponibles. Toca uno para ver su detalle y usa \"Alquilar\" para registrar un inquilino."),
             repasar
         )
@@ -596,6 +593,14 @@ fun ListaPendientes(vm: PagosViewModel, onCardClick: (Inquilino) -> Unit, onPaga
                                 Column(Modifier.weight(1f)) {
                                     Text(inquilino.nombre, fontWeight = FontWeight.Bold, color = colores.texto, fontSize = 16.sp)
                                     Text(inquilino.etiquetaDias, fontSize = 12.sp, color = colores.texto, fontWeight = FontWeight.ExtraBold)
+                                    if (inquilino.esParcial) {
+                                        Box(
+                                            Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp))
+                                                .background(Color(0xFFE65100)).padding(horizontal = 8.dp, vertical = 2.dp)
+                                        ) {
+                                            Text("Pago por partes", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
                                 }
                                 Button(
                                     onClick = { onPagarClick(inquilino) },
@@ -625,6 +630,7 @@ fun DetalleBottomSheet(inquilino: Inquilino, vm: PagosViewModel, onDismiss: () -
     val context = LocalContext.current
     val retiroState by vm.retiroState.collectAsStateWithLifecycle()
     var posponerOpen by remember { mutableStateOf(false) }
+    var ppOpen by remember { mutableStateOf(false) }
     if (posponerOpen) {
         PosponerRecordatorioDialog(
             clave = "pago:${inquilino.idPago}",
@@ -632,9 +638,23 @@ fun DetalleBottomSheet(inquilino: Inquilino, vm: PagosViewModel, onDismiss: () -
             onDismiss = { posponerOpen = false }
         )
     }
+    if (ppOpen) {
+        PagosPorPartesDialog(vm = vm, idPago = inquilino.idPago, onDismiss = { ppOpen = false })
+    }
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color.White) {
         Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding()) {
-            Text("Detalle del Inquilino", fontWeight = FontWeight.Black, fontSize = 22.sp, color = AzulPrimario)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Detalle del Inquilino", fontWeight = FontWeight.Black, fontSize = 22.sp, color = AzulPrimario, modifier = Modifier.weight(1f))
+                // Botón circular "PP": pagos por partes registrados de este recibo.
+                Box(
+                    Modifier.size(44.dp).clip(CircleShape)
+                        .background(if (inquilino.esParcial) Color(0xFFE65100) else AzulPrimario)
+                        .clickable { ppOpen = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("PP", color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp)
+                }
+            }
             Spacer(Modifier.height(16.dp))
             Row(Modifier.padding(vertical = 8.dp)) {
                 Icon(Icons.Default.Person, null, tint = AzulPrimario)
@@ -754,6 +774,139 @@ fun DetalleBottomSheet(inquilino: Inquilino, vm: PagosViewModel, onDismiss: () -
             Button(onClick = onDismiss, Modifier.fillMaxWidth()) { Text("Cerrar") }
         }
     }
+}
+
+// ── Diálogo: registrar cobro de inquilino (admite pago por partes) ────────────
+// Si el monto ingresado es menor al saldo, se registra como pago por partes y se
+// pide la fecha en que el inquilino se compromete a pagar lo restante.
+@Composable
+private fun DialogoCobrarInquilino(
+    inquilino: Inquilino,
+    onConfirm: (monto: Double, fechaCompromiso: String?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val saldo = inquilino.monto
+    var montoTxt by remember { mutableStateOf("%.2f".format(saldo)) }
+    var fechaCompromiso by remember { mutableStateOf<String?>(null) }
+
+    val monto = montoTxt.toDoubleOrNull()
+    val esParcial = monto != null && monto > 0 && monto < saldo
+    val montoValido = monto != null && monto > 0 && monto <= saldo + 0.001
+    val puedeConfirmar = montoValido && (!esParcial || fechaCompromiso != null)
+
+    fun abrirSelectorFecha() {
+        val hoy = java.util.Calendar.getInstance()
+        val picker = android.app.DatePickerDialog(
+            context,
+            { _, y, m, d -> fechaCompromiso = "%04d-%02d-%02d".format(y, m + 1, d) },
+            hoy.get(java.util.Calendar.YEAR), hoy.get(java.util.Calendar.MONTH), hoy.get(java.util.Calendar.DAY_OF_MONTH)
+        )
+        picker.datePicker.minDate = hoy.timeInMillis
+        picker.show()
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(monto!!, if (esParcial) fechaCompromiso else null) },
+                enabled = puedeConfirmar,
+                colors = ButtonDefaults.buttonColors(containerColor = AzulPrimario)
+            ) { Text(if (esParcial) "Registrar pago por partes" else "Sí, registrar pago") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
+        title = { Text("Registrar Pago") },
+        text = {
+            Column {
+                Text(inquilino.nombre, fontWeight = FontWeight.Bold)
+                Text("Saldo pendiente: S/ ${"%.2f".format(saldo)}", fontSize = 13.sp, color = Color.Gray)
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = montoTxt,
+                    onValueChange = { v -> montoTxt = v.filter { it.isDigit() || it == '.' } },
+                    label = { Text("Monto pagado (S/)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (esParcial && monto != null) {
+                    Spacer(Modifier.height(10.dp))
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(Modifier.padding(12.dp)) {
+                            Text(
+                                "Pago por partes · quedará S/ ${"%.2f".format(saldo - monto)} de saldo",
+                                fontSize = 12.sp, color = Color(0xFFBF360C), fontWeight = FontWeight.Bold
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedButton(
+                                onClick = { abrirSelectorFecha() },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = AzulPrimario)
+                            ) {
+                                Icon(Icons.Default.DateRange, null, Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(fechaCompromiso?.let { "Compromiso: $it" } ?: "Fecha de compromiso del saldo")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    )
+}
+
+// ── Diálogo: lista de pagos por partes (abonos) de un recibo, con revertir ─────
+@Composable
+private fun PagosPorPartesDialog(vm: PagosViewModel, idPago: String, onDismiss: () -> Unit) {
+    val state by vm.abonosState.collectAsStateWithLifecycle()
+    LaunchedEffect(idPago) { vm.cargarAbonos(idPago) }
+
+    fun cerrar() { vm.resetAbonosState(); onDismiss() }
+
+    AlertDialog(
+        onDismissRequest = { cerrar() },
+        confirmButton = { TextButton(onClick = { cerrar() }) { Text("Cerrar") } },
+        title = { Text("Pagos por partes") },
+        text = {
+            when (val s = state) {
+                is UiState.Success -> {
+                    // El más reciente primero; el backend solo permite revertir ese.
+                    val abonos = s.data.sortedByDescending { it.fechaAbono ?: "" }
+                    if (abonos.isEmpty()) {
+                        Text("Aún no hay pagos por partes registrados para este recibo.", color = Color.Gray)
+                    } else {
+                        Column {
+                            abonos.forEachIndexed { i, ab ->
+                                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text("S/ ${"%.2f".format(ab.montoAbonado.toDoubleOrNull() ?: 0.0)}", fontWeight = FontWeight.Bold)
+                                        ab.fechaAbono?.take(10)?.let { Text("Abonado: $it", fontSize = 11.sp, color = Color.Gray) }
+                                        if (!ab.fechaCompromiso.isNullOrBlank()) {
+                                            Text("Compromiso saldo: ${ab.fechaCompromiso.take(10)}", fontSize = 11.sp, color = Color(0xFFBF360C))
+                                        }
+                                    }
+                                    if (i == 0) {
+                                        TextButton(onClick = { vm.revertirAbono(ab.idAbono, idPago) }) {
+                                            Text("Revertir", color = Color(0xFFE65100), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                                if (i != abonos.lastIndex) HorizontalDivider()
+                            }
+                        }
+                    }
+                }
+                is UiState.Loading -> Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                is UiState.Error -> Text(s.message, color = Color.Red)
+                else -> Unit
+            }
+        }
+    )
 }
 
 @Composable
@@ -1197,21 +1350,36 @@ fun CuartoBottomSheet(cuarto: CuartoLibre, onDismiss: () -> Unit, onAlquilar: (C
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 fun SeccionServicios(vm: PagosViewModel, onPagarClick: (ServicioCasa) -> Unit) {
+    var subtab by remember { mutableStateOf(0) }
+
+    Column(Modifier.fillMaxSize()) {
+        TabRow(selectedTabIndex = subtab, containerColor = Color.White, contentColor = AzulPrimario) {
+            listOf("Pendientes", "Conceptos").forEachIndexed { i, t ->
+                Tab(
+                    selected = subtab == i,
+                    onClick = { subtab = i },
+                    text = { Text(t, fontWeight = if (subtab == i) FontWeight.Bold else FontWeight.Normal) }
+                )
+            }
+        }
+        Box(Modifier.weight(1f).fillMaxWidth().background(Color(0xFFF5F5F5))) {
+            when (subtab) {
+                0 -> ServiciosPendientesTab(vm, onPagarClick)
+                else -> ServiciosConceptosTab(vm)
+            }
+        }
+    }
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun ServiciosPendientesTab(vm: PagosViewModel, onPagarClick: (ServicioCasa) -> Unit) {
     val state by vm.serviciosState.collectAsStateWithLifecycle()
     val isRefreshing = state is UiState.Loading
     val pullState = rememberPullToRefreshState()
     LaunchedEffect(Unit) { vm.cargarServicios() }
 
     var servicioARevertir by remember { mutableStateOf<ServicioCasa?>(null) }
-    var servicioAPosponer by remember { mutableStateOf<ServicioCasa?>(null) }
-
-    servicioAPosponer?.let { srv ->
-        PosponerRecordatorioDialog(
-            clave = "servicio:${srv.idServicio}:${srv.anio}-${srv.mes}",
-            titulo = srv.nombre,
-            onDismiss = { servicioAPosponer = null }
-        )
-    }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Servicios pendientes", fontWeight = FontWeight.Bold, color = Color.Gray)
@@ -1260,23 +1428,13 @@ fun SeccionServicios(vm: PagosViewModel, onPagarClick: (ServicioCasa) -> Unit) {
                                                 Text("Revertir", color = Color(0xFFE65100), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                             }
                                         } else {
-                                            Column(horizontalAlignment = Alignment.End) {
-                                                Button(
-                                                    onClick = { onPagarClick(srv) },
-                                                    colors = ButtonDefaults.buttonColors(containerColor = colores.borde),
-                                                    shape = RoundedCornerShape(10.dp),
-                                                    contentPadding = PaddingValues(horizontal = 12.dp)
-                                                ) {
-                                                    Text("S/ ${"%.2f".format(srv.montoReferencial.toDoubleOrNull() ?: 0.0)}", fontWeight = FontWeight.Black)
-                                                }
-                                                Button(
-                                                    onClick = { servicioAPosponer = srv },
-                                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White),
-                                                    shape = RoundedCornerShape(10.dp),
-                                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                                                ) {
-                                                    Text("Posponer", fontSize = 11.sp)
-                                                }
+                                            Button(
+                                                onClick = { onPagarClick(srv) },
+                                                colors = ButtonDefaults.buttonColors(containerColor = colores.borde),
+                                                shape = RoundedCornerShape(10.dp),
+                                                contentPadding = PaddingValues(horizontal = 12.dp)
+                                            ) {
+                                                Text("S/ ${"%.2f".format(srv.montoReferencial.toDoubleOrNull() ?: 0.0)}", fontWeight = FontWeight.Black)
                                             }
                                         }
                                     }
@@ -1310,6 +1468,225 @@ fun SeccionServicios(vm: PagosViewModel, onPagarClick: (ServicioCasa) -> Unit) {
             text = { Text("¿Deseas revertir el pago de ${srv.nombre} (${srv.nombreMes} ${srv.anio})?") }
         )
     }
+}
+
+// ── Subpestaña "Conceptos": crea, edita y elimina los servicios de la casa ─────
+@Composable
+private fun ServiciosConceptosTab(vm: PagosViewModel) {
+    val state  by vm.conceptosServicioState.collectAsStateWithLifecycle()
+    val accion by vm.accionServicioState.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { vm.cargarServiciosConceptos() }
+
+    var nuevo       by remember { mutableStateOf(false) }
+    var aEditar     by remember { mutableStateOf<ServicioConcepto?>(null) }
+    var aEliminar   by remember { mutableStateOf<ServicioConcepto?>(null) }
+    var mensaje     by remember { mutableStateOf<String?>(null) }
+    var errorMsg    by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(accion) {
+        when (val a = accion) {
+            is UiState.Success -> { mensaje = a.data; vm.resetAccionServicioState() }
+            is UiState.Error   -> { errorMsg = a.message; vm.resetAccionServicioState() }
+            else -> Unit
+        }
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        Button(
+            onClick = { nuevo = true },
+            colors = ButtonDefaults.buttonColors(containerColor = AzulPrimario),
+            modifier = Modifier.fillMaxWidth().padding(16.dp)
+        ) {
+            Icon(Icons.Default.Add, null, Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Nuevo servicio", fontWeight = FontWeight.Bold)
+        }
+
+        when (val s = state) {
+            is UiState.Success -> {
+                if (s.data.isEmpty()) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("No hay servicios configurados.", color = Color.Gray)
+                    }
+                } else {
+                    LazyColumn(
+                        Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        itemsIndexed(s.data, key = { _, it -> it.idServicio }) { index, cpt ->
+                            Box(Modifier.appear(index)) {
+                                if (cpt.eliminado) ServicioConceptoEliminadoCard(cpt) { vm.restaurarServicioConcepto(it.idServicio) }
+                                else ServicioConceptoCard(cpt, onEditar = { aEditar = it }, onEliminar = { aEliminar = it })
+                            }
+                        }
+                    }
+                }
+            }
+            is UiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            is UiState.Error   -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(s.message, color = Color.Red) }
+            else -> Unit
+        }
+    }
+
+    if (nuevo) {
+        DialogoServicioConcepto(
+            conceptoExistente = null,
+            onConfirm = { nombre, monto, dia, precioFijo -> vm.crearServicioConcepto(nombre, monto, dia, precioFijo); nuevo = false },
+            onDismiss = { nuevo = false }
+        )
+    }
+    aEditar?.let { cpt ->
+        DialogoServicioConcepto(
+            conceptoExistente = cpt,
+            onConfirm = { nombre, monto, dia, precioFijo -> vm.editarServicioConcepto(cpt.idServicio, nombre, monto, dia, precioFijo); aEditar = null },
+            onDismiss = { aEditar = null }
+        )
+    }
+    aEliminar?.let { cpt ->
+        AlertDialog(
+            onDismissRequest = { aEliminar = null },
+            confirmButton = {
+                Button(
+                    onClick = { vm.eliminarServicioConcepto(cpt.idServicio); aEliminar = null },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828))
+                ) { Text("Sí, eliminar") }
+            },
+            dismissButton = { TextButton(onClick = { aEliminar = null }) { Text("Cancelar") } },
+            title = { Text("Eliminar servicio") },
+            text = { Text("¿Eliminar \"${cpt.nombre}\"? Dejará de generar recibos. Tienes 24 h para deshacerlo.") }
+        )
+    }
+    mensaje?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { mensaje = null },
+            confirmButton = { TextButton(onClick = { mensaje = null }) { Text("OK") } },
+            title = { Text("Listo") }, text = { Text(msg) }
+        )
+    }
+    errorMsg?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { errorMsg = null },
+            confirmButton = { TextButton(onClick = { errorMsg = null }) { Text("Entendido") } },
+            title = { Text("No se pudo completar") }, text = { Text(msg) }
+        )
+    }
+}
+
+@Composable
+private fun ServicioConceptoCard(
+    cpt: ServicioConcepto,
+    onEditar: (ServicioConcepto) -> Unit,
+    onEliminar: (ServicioConcepto) -> Unit
+) {
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(44.dp).clip(CircleShape).background(AzulPrimario), contentAlignment = Alignment.Center) {
+                Text(cpt.nombre.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text(cpt.nombre, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text("S/ ${cpt.montoReferencial} · Día ${cpt.diaVencimiento}", fontSize = 12.sp, color = AzulPrimario, fontWeight = FontWeight.Bold)
+                if (!cpt.precioFijo) Text("Precio variable", fontSize = 11.sp, color = Color.Gray)
+            }
+            IconButton(onClick = { onEditar(cpt) }) {
+                Icon(Icons.Default.Edit, "Editar", tint = AzulPrimario, modifier = Modifier.size(20.dp))
+            }
+            TextButton(onClick = { onEliminar(cpt) }) { Text("Eliminar", color = Color(0xFFC62828), fontSize = 12.sp) }
+        }
+    }
+}
+
+@Composable
+private fun ServicioConceptoEliminadoCard(cpt: ServicioConcepto, onRestaurar: (ServicioConcepto) -> Unit) {
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFEEEEEE)),
+        border = BorderStroke(1.dp, Color(0xFFBDBDBD)),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(cpt.nombre, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.Gray)
+                Text("Eliminado · ${textoCuentaRegresivaServicio(cpt.minutosParaBorrado ?: 0)}", fontSize = 11.sp, color = Color(0xFFC62828))
+            }
+            Button(
+                onClick = { onRestaurar(cpt) },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100)),
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp)
+            ) { Text("Deshacer", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+        }
+    }
+}
+
+// Cuenta regresiva (minutos) que baja sola cada minuto desde el valor del servidor.
+@Composable
+private fun textoCuentaRegresivaServicio(minIniciales: Int): String {
+    var restante by remember(minIniciales) { mutableStateOf(minIniciales) }
+    LaunchedEffect(minIniciales) {
+        while (restante > 0) { delay(60_000); restante -= 1 }
+    }
+    val h = restante / 60
+    val m = restante % 60
+    return when {
+        restante <= 0 -> "se eliminará en breve"
+        h > 0         -> "se borra en ${h}h ${m}m"
+        else          -> "se borra en ${m}m"
+    }
+}
+
+@Composable
+private fun DialogoServicioConcepto(
+    conceptoExistente: ServicioConcepto?,
+    onConfirm: (nombre: String, monto: Double, dia: Int, precioFijo: Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val esEdicion = conceptoExistente != null
+    var nombre by remember { mutableStateOf(conceptoExistente?.nombre ?: "") }
+    var monto  by remember { mutableStateOf(conceptoExistente?.montoReferencial ?: "") }
+    var dia    by remember { mutableStateOf(conceptoExistente?.diaVencimiento?.toString() ?: "") }
+    var esFijo by remember { mutableStateOf(conceptoExistente?.precioFijo ?: true) }
+    val valido = nombre.isNotBlank() && monto.toDoubleOrNull() != null && (dia.toIntOrNull() ?: 0) in 1..31
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(nombre, monto.toDouble(), dia.toInt(), esFijo) },
+                enabled = valido,
+                colors = ButtonDefaults.buttonColors(containerColor = AzulPrimario)
+            ) { Text(if (esEdicion) "Actualizar" else "Guardar") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
+        title = { Text(if (esEdicion) "Editar servicio" else "Nuevo servicio") },
+        text = {
+            Column {
+                OutlinedTextField(value = nombre, onValueChange = { nombre = it },
+                    label = { Text("Nombre (Ej. Luz, Agua)") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(value = monto, onValueChange = { monto = it.filter { c -> c.isDigit() || c == '.' } },
+                    label = { Text("Monto mensual (S/)") }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(value = dia, onValueChange = { dia = it.filter { c -> c.isDigit() } },
+                    label = { Text("Día de vencimiento (1-31)") }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = esFijo, onCheckedChange = { esFijo = it })
+                    Text("El precio es fijo")
+                }
+                if (!esFijo) {
+                    Text("Al pagar podrás ingresar el monto real de cada mes.", fontSize = 11.sp, color = Color.Gray)
+                }
+            }
+        }
+    )
 }
 
 // ═════════════════════════════════════════════════════════════════════════════

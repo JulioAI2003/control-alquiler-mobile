@@ -101,7 +101,7 @@ fun SeccionIndividual(vm: PagosViewModel, tipo: String) {
         }
         Box(Modifier.weight(1f).fillMaxWidth().background(Color(0xFFF5F5F5))) {
             when (subtab) {
-                0 -> ListaMovimientosPendientes(pendState, acento, verbo, onRegistrar = { movARegistrar = it }, onPosponer = { movAPosponer = it }, onDetalle = onDetalle)
+                0 -> ListaMovimientosPendientes(pendState, acento, verbo, mostrarPosponer = esIngreso, onRegistrar = { movARegistrar = it }, onPosponer = { movAPosponer = it }, onDetalle = onDetalle)
                 1 -> ListaMovimientosRealizados(realState, onRevertir = { movARevertir = it }, onDetalle = onDetalle)
                 else -> ListaConceptos(
                     cptState, esIngreso, acento,
@@ -220,6 +220,7 @@ fun SeccionIndividual(vm: PagosViewModel, tipo: String) {
 private fun ListaMovimientosPendientes(
     state: UiState<List<MovimientoIndividual>>,
     acento: Color, verbo: String,
+    mostrarPosponer: Boolean,
     onRegistrar: (MovimientoIndividual) -> Unit,
     onPosponer: (MovimientoIndividual) -> Unit,
     onDetalle: ((MovimientoIndividual) -> Unit)? = null
@@ -259,12 +260,14 @@ private fun ListaMovimientosPendientes(
                                         shape = RoundedCornerShape(10.dp),
                                         contentPadding = PaddingValues(horizontal = 12.dp)
                                     ) { Text("$verbo S/ ${"%.2f".format(mov.montoMostrar)}", fontWeight = FontWeight.Black, fontSize = 12.sp) }
-                                    Button(
-                                        onClick = { onPosponer(mov) },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White),
-                                        shape = RoundedCornerShape(10.dp),
-                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                                    ) { Text("Posponer", fontSize = 11.sp) }
+                                    if (mostrarPosponer) {
+                                        Button(
+                                            onClick = { onPosponer(mov) },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White),
+                                            shape = RoundedCornerShape(10.dp),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                        ) { Text("Posponer", fontSize = 11.sp) }
+                                    }
                                 }
                             }
                         }

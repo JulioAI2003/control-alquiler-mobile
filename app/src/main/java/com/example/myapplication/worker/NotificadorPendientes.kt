@@ -102,7 +102,9 @@ object NotificadorPendientes {
                         avisos += Aviso(
                             clave.hashCode(), "Cobro pendiente",
                             "${pago.nombre} ${pago.apellidos} · S/ ${pago.montoTotal} ($etiqueta)",
-                            esCobro = true, monto = pago.montoTotal.toDoubleOrNull() ?: 0.0
+                            esCobro = true, monto = pago.montoTotal.toDoubleOrNull() ?: 0.0,
+                            nombre = "${pago.nombre} ${pago.apellidos}".trim(),
+                            esParcial = pago.esPagoParcial
                         )
                     }
                 }
@@ -158,7 +160,9 @@ object NotificadorPendientes {
         val titulo: String,
         val texto: String,
         val esCobro: Boolean,
-        val monto: Double
+        val monto: Double,
+        val nombre: String = "",
+        val esParcial: Boolean = false
     )
 
     /** Suscripción propia (propietario/individual) que el usuario debe pagar a la plataforma. */
@@ -195,6 +199,12 @@ object NotificadorPendientes {
         if (pagos.isNotEmpty()) {
             lineas += "Por pagar:"
             lineas += "${pagos.size} (S/ ${"%.2f".format(pagos.sumOf { it.monto })})"
+        }
+        // Recibos que vienen como pago por partes (saldo pendiente) — se listan por nombre.
+        val parciales = avisos.filter { it.esParcial && it.nombre.isNotBlank() }
+        if (parciales.isNotEmpty()) {
+            lineas += "Pagos por partes:"
+            parciales.forEach { lineas += "- ${it.nombre}" }
         }
         return "Tienes pendientes hoy" to lineas.joinToString("\n")
     }
