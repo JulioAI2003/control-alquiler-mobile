@@ -477,7 +477,7 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
 // Secciones (abiertas desde el menú) que tienen su propio tutorial, distinto del
 // de la vista principal.
 private val SECCIONES_CON_TUTORIAL = setOf(
-    "pagados", "inquilinos", "cuartos_todos", "servicios_pagados", "ajustes",
+    "pagados", "inquilinos", "cuartos_todos", "servicios", "servicios_pagados", "ajustes",
     "admin_pagos", "admin_pagos_realizados"
 )
 
@@ -498,6 +498,12 @@ private fun pasosDeAyuda(screen: String, rol: String): List<CoachStep> {
         )
         "cuartos_todos" -> listOf(
             CoachStep(null, "Cuartos", "Todos tus cuartos en un solo lugar. Toca uno para ver su detalle y editar su número, precio, garantía o descripción."),
+            repasar
+        )
+        "servicios" -> listOf(
+            CoachStep("tab_1", "Servicios de la casa", "Aquí gestionas los servicios de tu propiedad (luz, agua, gas, internet…). Tiene dos sub-pestañas: \"Pendientes\" y \"Conceptos\"."),
+            CoachStep(null, "Pendientes", "Los recibos del mes por pagar. Toca el monto para registrar el pago cuando lo realices; el color (rojo/amarillo/verde) indica qué tan cerca está el vencimiento."),
+            CoachStep(null, "Conceptos", "El catálogo de tus servicios fijos. Crea uno nuevo, edita su monto o su día de vencimiento (el cambio aplica desde el recibo en curso) o elimínalo. Al eliminar tienes 24 h para deshacerlo y deja de generar recibos."),
             repasar
         )
         "servicios_pagados" -> listOf(
@@ -540,7 +546,7 @@ private fun pasosDeAyuda(screen: String, rol: String): List<CoachStep> {
             CoachStep("tab_0", "Cobros", "Cobros pendientes de tus inquilinos. Toca el monto para registrar el pago; toca la tarjeta para ver el detalle."),
             CoachStep(null, "Pago por partes", "Al registrar un cobro puedes escribir un monto menor al total: el inquilino abona una parte y eliges la fecha en que se compromete a pagar el resto. El recibo se marca como \"Pago por partes\" y su deuda se actualiza sola."),
             CoachStep(null, "Botón \"PP\"", "En el detalle del inquilino, el botón circular \"PP\" (esquina superior derecha) lista los pagos por partes de ese recibo y te deja revertir el último si te equivocaste."),
-            CoachStep("tab_1", "Servicios", "Servicios de la casa (luz, agua, etc.). En \"Pendientes\" los registras al pagarlos; en \"Conceptos\" creas, editas o eliminas cada servicio. Al eliminar uno tienes 24 h para deshacerlo y deja de generar recibos."),
+            CoachStep("tab_1", "Servicios", "Servicios de la casa (luz, agua, etc.). Tiene dos sub-pestañas: \"Pendientes\" y \"Conceptos\"; al abrir Servicios te explico cada una."),
             CoachStep("tab_2", "Cuartos Libres", "Cuartos disponibles. Toca uno para ver su detalle y usa \"Alquilar\" para registrar un inquilino."),
             repasar
         )
