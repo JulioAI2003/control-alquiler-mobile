@@ -6,6 +6,8 @@ import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -2372,7 +2374,7 @@ fun SeccionAjustes() {
     val scope = rememberCoroutineScope()
 
     Column(
-        Modifier.fillMaxSize().padding(24.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         Text("Tipo de Aviso", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = AzulPrimario)
@@ -2487,11 +2489,14 @@ fun SeccionAjustes() {
                     Text("Hora del aviso", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Text("Toca para cambiar la hora local del aviso diario.", fontSize = 13.sp, color = Color.Gray)
                 }
+                Spacer(Modifier.width(12.dp))
                 Text(
                     horaEn12h(horaNotif),
                     fontWeight = FontWeight.Bold,
-                    fontSize = 22.sp,
-                    color = Color(0xFF33691E)
+                    fontSize = 20.sp,
+                    color = Color(0xFF33691E),
+                    maxLines = 1,
+                    softWrap = false
                 )
             }
         }
