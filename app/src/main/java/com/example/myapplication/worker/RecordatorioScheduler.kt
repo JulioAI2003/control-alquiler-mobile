@@ -5,11 +5,17 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import com.example.myapplication.MainActivity
 import java.util.Calendar
 
 /**
- * Agenda el aviso diario con una **alarma exacta** ([AlarmManager.setExactAndAllowWhileIdle]),
- * que se dispara a la hora elegida incluso con el dispositivo en Doze (precisión real).
+ * Agenda el aviso diario con [AlarmManager.setAlarmClock], la alarma más resistente a
+ * Doze / App Standby que ofrece Android: el sistema la trata igual que un despertador real
+ * y NO la difiere ni siquiera en dispositivos con gestores de batería agresivos (Xiaomi,
+ * Oppo, Vivo, etc.), a diferencia de `setExactAndAllowWhileIdle`, que sí puede posponerse
+ * horas o días tras uso prolongado en 2do plano (esa era la causa de alarmas "mudas").
+ * Como efecto visible, el sistema muestra un pequeño ícono de reloj en la barra de estado
+ * con la hora del próximo aviso — comportamiento estándar de cualquier app de alarmas.
  *
  * El disparo llega a [RecordatorioReceiver] (acción [ACTION_AVISO_DIARIO]), que ejecuta el
  * chequeo de pendientes y reagenda la alarma del día siguiente.
@@ -31,7 +37,7 @@ object RecordatorioScheduler {
 
         try {
             if (puedeExacta) {
-                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+                am.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAt, showIntent(context)), pi)
             } else {
                 // Sin permiso de alarmas exactas: aviso que igual atraviesa Doze, pero aproximado.
                 am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
@@ -49,6 +55,15 @@ object RecordatorioScheduler {
     private fun pendingIntent(context: Context): PendingIntent {
         val intent = Intent(context, RecordatorioReceiver::class.java).setAction(ACTION_AVISO_DIARIO)
         return PendingIntent.getBroadcast(
+            context, REQUEST_CODE, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    /** Intent que se abre si el usuario toca el ícono de "próxima alarma" en la barra de estado. */
+    private fun showIntent(context: Context): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java)
+        return PendingIntent.getActivity(
             context, REQUEST_CODE, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )

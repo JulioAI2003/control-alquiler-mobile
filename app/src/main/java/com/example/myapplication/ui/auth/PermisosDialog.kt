@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -57,9 +58,19 @@ private fun fullScreenConcedido(ctx: Context): Boolean {
     return ctx.getSystemService(NotificationManager::class.java)?.canUseFullScreenIntent() == true
 }
 
+// Muchos fabricantes (Xiaomi, Oppo, Vivo, Huawei...) "congelan" o matan la app en 2do plano
+// pese a tener alarma exacta, si Android considera que la optimización de batería aplica.
+// Sin esta exención, la alarma diaria puede sonar solo a veces (o días después, no a la hora
+// pactada) — es la causa más común de "la alarma no suena a diario" reportada por usuarios.
+private fun bateriaConcedido(ctx: Context): Boolean {
+    val pm = ctx.getSystemService(PowerManager::class.java) ?: return true
+    return pm.isIgnoringBatteryOptimizations(ctx.packageName)
+}
+
 /** True si falta al menos un permiso necesario para que las alarmas funcionen bien. */
 fun faltanPermisos(ctx: Context): Boolean =
-    !notifConcedido(ctx) || !alarmasExactasConcedido(ctx) || !overlayConcedido(ctx) || !fullScreenConcedido(ctx)
+    !notifConcedido(ctx) || !alarmasExactasConcedido(ctx) || !overlayConcedido(ctx) ||
+        !fullScreenConcedido(ctx) || !bateriaConcedido(ctx)
 
 private fun abrirAjuste(ctx: Context, action: String, conPaquete: Boolean) {
     val intent = Intent(action).apply {
@@ -104,7 +115,8 @@ fun PermisosDialog(onDismiss: () -> Unit) {
     val alarmaOk = remember(tick) { alarmasExactasConcedido(context) }
     val overlayOk = remember(tick) { overlayConcedido(context) }
     val fullOk = remember(tick) { fullScreenConcedido(context) }
-    val todoOk = notifOk && alarmaOk && overlayOk && fullOk
+    val bateriaOk = remember(tick) { bateriaConcedido(context) }
+    val todoOk = notifOk && alarmaOk && overlayOk && fullOk && bateriaOk
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -150,6 +162,20 @@ fun PermisosDialog(onDismiss: () -> Unit) {
                 }
 
                 PermisoFila(
+                    "Sin restricciones de batería",
+                    "Evita que el sistema pause la app y la alarma diaria no suene a tiempo.",
+                    bateriaOk
+                ) {
+                    runCatching {
+                        context.startActivity(
+                            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            }
+                        )
+                    }.onFailure { abrirAjuste(context, Settings.ACTION_APPLICATION_DETAILS_SETTINGS, true) }
+                }
+
+                PermisoFila(
                     "Mostrar sobre otras apps",
                     "Ver la alarma sobre otras apps y abrir ventanas en segundo plano.",
                     overlayOk
@@ -169,8 +195,10 @@ fun PermisosDialog(onDismiss: () -> Unit) {
 
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "En algunos teléfonos (Xiaomi, etc.) activa también, en \"Otros permisos\", " +
-                        "\"Mostrar en pantalla de bloqueo\" y \"Abrir nuevas ventanas en segundo plano\".",
+                    "En algunos teléfonos (Xiaomi, Oppo, Vivo, Huawei...) activa además, en los " +
+                        "ajustes de batería de la app, \"Inicio automático\" o \"Sin restricciones\", y en " +
+                        "\"Otros permisos\": \"Mostrar en pantalla de bloqueo\" y \"Abrir nuevas ventanas en " +
+                        "segundo plano\". Sin esto, el fabricante puede seguir pausando la app y silenciando la alarma.",
                     fontSize = 11.sp, color = Color.Gray, lineHeight = 15.sp
                 )
                 Spacer(Modifier.height(4.dp))
