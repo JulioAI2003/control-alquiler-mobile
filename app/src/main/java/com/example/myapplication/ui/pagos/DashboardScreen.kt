@@ -72,7 +72,8 @@ private fun Inquilino.colores(): EstadoColores = when (estadoPago) {
 
 private fun ServicioCasa.colores(): EstadoColores = when {
     pagado             -> coloresAlDia
-    diasRestantes < 0  -> coloresVencido
+    // diasRestantes == 0 (vence hoy) cuenta como vencido: hoy es la fecha límite.
+    diasRestantes <= 0 -> coloresVencido
     diasRestantes <= 5 -> coloresPorVencer
     else               -> coloresAlDia
 }

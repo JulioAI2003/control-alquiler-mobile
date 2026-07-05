@@ -741,7 +741,8 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
         val fechaVenc = com.example.myapplication.util.fechaSegura(anio, mes, dia)
         val dias = ChronoUnit.DAYS.between(hoy, fechaVenc)
         val estadoPago = when {
-            dias < 0 -> EstadoPago.VENCIDO
+            // dias == 0 (vence hoy) cuenta como vencido: hoy es la fecha límite, no "por vencer".
+            dias <= 0 -> EstadoPago.VENCIDO
             dias <= 5 -> EstadoPago.POR_VENCER
             else -> EstadoPago.AL_DIA
         }

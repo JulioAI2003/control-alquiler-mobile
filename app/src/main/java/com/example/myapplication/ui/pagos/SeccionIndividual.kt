@@ -39,7 +39,8 @@ private val IndRojo  = Color(0xFFC62828)
 // Semáforo por proximidad al vencimiento (igual que cobros/servicios): rojo, amarillo, verde.
 private data class SemColores(val fondo: Color, val borde: Color, val texto: Color)
 private fun coloresPorVencimiento(diasRestantes: Int): SemColores = when {
-    diasRestantes < 0  -> SemColores(Color(0xFFFFCDD2), Color(0xFFD32F2F), Color(0xFFB71C1C)) // vencido
+    // diasRestantes == 0 (vence hoy) cuenta como vencido: hoy es la fecha límite.
+    diasRestantes <= 0 -> SemColores(Color(0xFFFFCDD2), Color(0xFFD32F2F), Color(0xFFB71C1C)) // vencido
     diasRestantes <= 5 -> SemColores(Color(0xFFFFF9C4), Color(0xFFF57F17), Color(0xFFE65100)) // por vencer
     else               -> SemColores(Color(0xFFC8E6C9), Color(0xFF388E3C), Color(0xFF1B5E20)) // al día
 }
