@@ -69,7 +69,7 @@ object NotificadorPendientes {
                     if (!hoy.isBefore(vence)) {
                         avisos += Aviso(
                             clave.hashCode(), "Suscripción por cobrar",
-                            "${p.nombres ?: "Usuario"} · S/ ${p.monto ?: "0"} (${etiquetaVencida(hoy, vence)})",
+                            "${p.nombres ?: "Usuario"} · ${soles(p.monto ?: "0")} (${etiquetaVencida(hoy, vence)})",
                             esCobro = true, monto = p.monto?.toDoubleOrNull() ?: 0.0
                         )
                     }
@@ -86,7 +86,7 @@ object NotificadorPendientes {
                     val etiqueta = if (mov.diasRestantes == 0) "vence HOY" else "vencido hace ${-mov.diasRestantes}d"
                     avisos += Aviso(
                         clave.hashCode(), if (mov.esIngreso) "Cobro pendiente" else "Pago pendiente",
-                        "${mov.nombre} · S/ ${"%.2f".format(mov.montoMostrar)} ($etiqueta)",
+                        "${mov.nombre} · ${soles("%.2f".format(mov.montoMostrar))} ($etiqueta)",
                         esCobro = mov.esIngreso, monto = mov.montoMostrar
                     )
                 }
