@@ -106,7 +106,7 @@ object NotificadorPendientes {
                         val etiqueta = if (dias == 0L) "vence HOY" else "vencido hace ${-dias}d"
                         avisos += Aviso(
                             clave.hashCode(), "Cobro pendiente",
-                            "${pago.nombre} ${pago.apellidos} · S/ ${pago.montoTotal} ($etiqueta)",
+                            "${pago.nombre} ${pago.apellidos} · ${soles(pago.montoTotal)} ($etiqueta)",
                             esCobro = true, monto = pago.montoTotal.toDoubleOrNull() ?: 0.0,
                             nombre = "${pago.nombre} ${pago.apellidos}".trim(),
                             esParcial = pago.esPagoParcial
@@ -123,7 +123,7 @@ object NotificadorPendientes {
                     val etiqueta = if (srv.diasRestantes == 0) "vence HOY" else "vencido hace ${-srv.diasRestantes}d"
                     avisos += Aviso(
                         clave.hashCode(), "Servicio pendiente",
-                        "${srv.nombre} · S/ ${srv.montoReferencial} ($etiqueta)",
+                        "${srv.nombre} · ${soles(srv.montoReferencial)} ($etiqueta)",
                         esCobro = false, monto = srv.montoReferencial.toDoubleOrNull() ?: 0.0
                     )
                 }
@@ -184,7 +184,7 @@ object NotificadorPendientes {
                 if (!hoy.isBefore(vence)) {
                     avisos += Aviso(
                         clave.hashCode(), "Suscripción por pagar",
-                        "Plan ${p.nombrePlan ?: ""} · S/ ${p.monto ?: "0"} (${etiquetaVencida(hoy, vence)})",
+                        "Plan ${p.nombrePlan ?: ""} · ${soles(p.monto ?: "0")} (${etiquetaVencida(hoy, vence)})",
                         esCobro = false, monto = p.monto?.toDoubleOrNull() ?: 0.0
                     )
                 }
@@ -207,12 +207,12 @@ object NotificadorPendientes {
         }
 
         if (cobros.isNotEmpty()) {
-            lineas += "POR COBRAR (${cobros.size} · S/ ${"%.2f".format(cobros.sumOf { it.monto })})"
+            lineas += "POR COBRAR (${cobros.size} · ${soles("%.2f".format(cobros.sumOf { it.monto }))})"
             cobros.forEach { lineas += lineaDe(it) }
         }
         if (pagos.isNotEmpty()) {
             if (lineas.isNotEmpty()) lineas += ""
-            lineas += "POR PAGAR (${pagos.size} · S/ ${"%.2f".format(pagos.sumOf { it.monto })})"
+            lineas += "POR PAGAR (${pagos.size} · ${soles("%.2f".format(pagos.sumOf { it.monto }))})"
             pagos.forEach { lineas += lineaDe(it) }
         }
         return "Tienes pendientes hoy" to lineas.joinToString("\n")
