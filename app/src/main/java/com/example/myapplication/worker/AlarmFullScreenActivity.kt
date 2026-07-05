@@ -14,8 +14,10 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material3.*
@@ -87,64 +89,67 @@ private fun PantallaAlarmaActiva(titulo: String, descripcion: String, onApagar: 
     )
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            Column(
-                modifier            = Modifier
-                    .align(Alignment.Center)
-                    .padding(horizontal = 32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+        Column(
+            modifier            = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 32.dp, vertical = 40.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(90.dp)
+                    .scale(escala)
+                    .background(MaterialTheme.colorScheme.errorContainer, CircleShape),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(110.dp)
-                        .scale(escala)
-                        .background(MaterialTheme.colorScheme.errorContainer, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector        = Icons.Filled.Alarm,
-                        contentDescription = null,
-                        modifier           = Modifier.size(58.dp),
-                        tint               = MaterialTheme.colorScheme.error
-                    )
-                }
-
-                Spacer(Modifier.height(32.dp))
-
-                Text(
-                    text       = titulo,
-                    fontSize   = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign  = TextAlign.Center,
-                    color      = MaterialTheme.colorScheme.onBackground
+                Icon(
+                    imageVector        = Icons.Filled.Alarm,
+                    contentDescription = null,
+                    modifier           = Modifier.size(46.dp),
+                    tint               = MaterialTheme.colorScheme.error
                 )
-
-                Spacer(Modifier.height(24.dp))
-
-                Card(
-                    shape  = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                    elevation = CardDefaults.cardElevation(4.dp)
-                ) {
-                    Text(
-                        text       = descripcion,
-                        fontSize   = 20.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        textAlign  = TextAlign.Start,
-                        color      = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier   = Modifier.padding(horizontal = 28.dp, vertical = 22.dp)
-                    )
-                }
             }
+
+            Spacer(Modifier.height(20.dp))
+
+            Text(
+                text       = titulo,
+                fontSize   = 26.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign  = TextAlign.Center,
+                color      = MaterialTheme.colorScheme.onBackground
+            )
+
+            Spacer(Modifier.height(20.dp))
+
+            // El detalle puede traer varios registros (cobros, pagos, servicios...): se
+            // desplaza dentro de esta tarjeta cuando no entra todo en la pantalla.
+            Card(
+                modifier  = Modifier.weight(1f).fillMaxWidth(),
+                shape     = RoundedCornerShape(20.dp),
+                colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                elevation = CardDefaults.cardElevation(4.dp)
+            ) {
+                Text(
+                    text       = descripcion,
+                    fontSize   = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    textAlign  = TextAlign.Start,
+                    color      = MaterialTheme.colorScheme.onPrimaryContainer,
+                    lineHeight = 22.sp,
+                    modifier   = Modifier
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 24.dp, vertical = 20.dp)
+                )
+            }
+
+            Spacer(Modifier.height(20.dp))
 
             Button(
                 onClick  = onApagar,
                 shape    = RoundedCornerShape(16.dp),
                 colors   = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .padding(horizontal = 32.dp, vertical = 52.dp)
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(Icons.Filled.Alarm, contentDescription = null, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(10.dp))

@@ -81,6 +81,22 @@ class LoginViewModel(private val app: MyApplication) : ViewModel() {
                 )
                 app.updateToken(response.token)
 
+                // Restaura desde el backend el tipo de aviso y la hora del recordatorio
+                // configurados previamente (p. ej. tras reinstalar la app o en un
+                // dispositivo nuevo). Si falla (sin conexión), se conservan los valores
+                // por defecto locales; no debe bloquear el login.
+                runCatching {
+                    val ajustes = AlquilerApiClient.service.getAjustes(response.idUsuario)
+                    app.sessionDataStore.guardarTipoAviso(ajustes.tipoAviso)
+                    app.sessionDataStore.guardarHoraNotificacion(ajustes.horaNotificacion)
+                }
+
+                // Agenda el recordatorio diario ya con la hora restaurada (o la que hubiera
+                // por defecto). Antes esto solo ocurría en el siguiente arranque en frío de
+                // la app, dejando la primera sesión sin alarma programada.
+                val horaVigente = app.sessionDataStore.horaNotificacion.first()
+                com.example.myapplication.worker.RecordatorioScheduler.programar(app, horaVigente)
+
                 _state.value = UiState.Success(response)
 
             } catch (e: HttpException) {

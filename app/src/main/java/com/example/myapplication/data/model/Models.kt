@@ -425,6 +425,25 @@ data class ResumenIndividual(
 )
 
 // ═════════════════════════════════════════════════════════════════════════════
+//  AJUSTES DE LA APP MÓVIL (tipo de aviso + hora del recordatorio diario)
+//  Se guardan en el backend para restaurarse tras reinstalar la app o cambiar de
+//  dispositivo, en vez de volver siempre a los valores por defecto.
+// ═════════════════════════════════════════════════════════════════════════════
+
+@Serializable
+data class AjustesResponse(
+    @SerialName("tipo_aviso")        val tipoAviso:        String = "notificacion",
+    @SerialName("hora_notificacion") val horaNotificacion: String = "08:00"
+)
+
+@Serializable
+data class GuardarAjustesRequest(
+    @SerialName("id_usuario")        val idUsuario:        String,
+    @SerialName("tipo_aviso")        val tipoAviso:        String? = null,
+    @SerialName("hora_notificacion") val horaNotificacion: String? = null
+)
+
+// ═════════════════════════════════════════════════════════════════════════════
 //  CAMBIO DE CONTRASEÑA
 // ═════════════════════════════════════════════════════════════════════════════
 

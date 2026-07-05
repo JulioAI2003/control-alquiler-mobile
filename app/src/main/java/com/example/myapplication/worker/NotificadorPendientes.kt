@@ -29,6 +29,11 @@ object NotificadorPendientes {
 
     const val CHANNEL_ID = "cobros_channel"
 
+    /** Formatea un monto con "S/" y el número unidos por un espacio irrompible, para que
+     *  nunca queden separados en dos líneas (p. ej. "S/" al final de un renglón y "200.00"
+     *  al inicio del siguiente) cuando el texto se ajusta al ancho de la alarma/notificación. */
+    private fun soles(valor: String): String = "S/ $valor"
+
     /**
      * Lee la sesión, consulta los pendientes según el **rol** y avisa. No hace nada si no hay sesión.
      *
@@ -145,8 +150,9 @@ object NotificadorPendientes {
         if (avisos.isEmpty()) return
 
         if (usarAlarma) {
-            // Una sola alarma general con el resumen de cobros y pagos.
-            val (titulo, texto) = construirResumen(avisos)
+            // Una sola alarma general con el detalle de cada cobro y pago (no solo el conteo).
+            // La pantalla de la alarma permite desplazarse si hay varios registros.
+            val (titulo, texto) = construirDetalle(avisos)
             dispararAlarma(context, ID_RESUMEN, titulo, texto)
         } else {
             // Una notificación por ítem (se apilan en la bandeja).
@@ -186,25 +192,28 @@ object NotificadorPendientes {
         } catch (_: Exception) { /* no interrumpe el resto de avisos */ }
     }
 
-    /** Construye el título y texto resumen de la alarma general, en líneas separadas para que
-     *  visualmente quede ordenado (etiqueta y su detalle en renglones distintos). */
-    private fun construirResumen(avisos: List<Aviso>): Pair<String, String> {
+    /** Construye el título y el detalle de la alarma general: ya no solo un conteo, sino
+     *  cada cobro/pago pendiente en su propia línea (igual que vería en una notificación
+     *  individual). Si hay varios registros, la pantalla de la alarma permite deslizarse
+     *  para verlos todos. */
+    private fun construirDetalle(avisos: List<Aviso>): Pair<String, String> {
         val cobros = avisos.filter { it.esCobro }
         val pagos = avisos.filter { !it.esCobro }
         val lineas = mutableListOf<String>()
+
+        fun lineaDe(a: Aviso): String {
+            val marcaParcial = if (a.esParcial) " · Pago por partes" else ""
+            return "• ${a.titulo}: ${a.texto}$marcaParcial"
+        }
+
         if (cobros.isNotEmpty()) {
-            lineas += "Por cobrar:"
-            lineas += "${cobros.size} (S/ ${"%.2f".format(cobros.sumOf { it.monto })})"
+            lineas += "POR COBRAR (${cobros.size} · S/ ${"%.2f".format(cobros.sumOf { it.monto })})"
+            cobros.forEach { lineas += lineaDe(it) }
         }
         if (pagos.isNotEmpty()) {
-            lineas += "Por pagar:"
-            lineas += "${pagos.size} (S/ ${"%.2f".format(pagos.sumOf { it.monto })})"
-        }
-        // Recibos que vienen como pago por partes (saldo pendiente) — se listan por nombre.
-        val parciales = avisos.filter { it.esParcial && it.nombre.isNotBlank() }
-        if (parciales.isNotEmpty()) {
-            lineas += "Pagos por partes:"
-            parciales.forEach { lineas += "- ${it.nombre}" }
+            if (lineas.isNotEmpty()) lineas += ""
+            lineas += "POR PAGAR (${pagos.size} · S/ ${"%.2f".format(pagos.sumOf { it.monto })})"
+            pagos.forEach { lineas += lineaDe(it) }
         }
         return "Tienes pendientes hoy" to lineas.joinToString("\n")
     }

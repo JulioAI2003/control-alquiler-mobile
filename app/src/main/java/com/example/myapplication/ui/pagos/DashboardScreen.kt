@@ -53,7 +53,9 @@ import com.example.myapplication.data.model.ServicioConcepto
 import com.example.myapplication.data.model.UiState
 import com.example.myapplication.data.model.UsuarioAdmin
 import com.example.myapplication.data.model.PagoUsuario
+import com.example.myapplication.data.model.GuardarAjustesRequest
 import com.example.myapplication.data.local.SessionDataStore
+import com.example.myapplication.data.remote.AlquilerApiClient
 import com.example.myapplication.worker.RecordatorioScheduler
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
@@ -2374,6 +2376,31 @@ fun SeccionAjustes() {
     val horaNotif by dataStore.horaNotificacion.collectAsStateWithLifecycle(initialValue = "08:00")
     val scope = rememberCoroutineScope()
 
+    // Guarda el ajuste localmente (efecto inmediato) y lo sincroniza con el backend
+    // en segundo plano: así, si el usuario reinstala la app o cambia de dispositivo,
+    // el próximo login recupera este mismo ajuste en vez de volver al valor por defecto.
+    fun actualizarTipoAviso(tipo: String) {
+        scope.launch {
+            dataStore.guardarTipoAviso(tipo)
+            runCatching {
+                val uid = dataStore.userId.first() ?: return@runCatching
+                AlquilerApiClient.service.guardarAjustes(GuardarAjustesRequest(idUsuario = uid, tipoAviso = tipo))
+            }
+        }
+    }
+
+    fun actualizarHora(hora: String) {
+        scope.launch {
+            dataStore.guardarHoraNotificacion(hora)
+            // Reprograma la alarma exacta para la próxima ocurrencia de la nueva hora.
+            RecordatorioScheduler.programar(context, hora)
+            runCatching {
+                val uid = dataStore.userId.first() ?: return@runCatching
+                AlquilerApiClient.service.guardarAjustes(GuardarAjustesRequest(idUsuario = uid, horaNotificacion = hora))
+            }
+        }
+    }
+
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
@@ -2387,7 +2414,7 @@ fun SeccionAjustes() {
 
         Card(
             modifier = Modifier.fillMaxWidth().bounceClick {
-                scope.launch { dataStore.guardarTipoAviso("notificacion") }
+                actualizarTipoAviso("notificacion")
             },
             colors = CardDefaults.cardColors(
                 containerColor = if (tipoAviso == "notificacion") Color(0xFFF7EFD8) else Color.White
@@ -2411,7 +2438,7 @@ fun SeccionAjustes() {
                 }
                 RadioButton(
                     selected = tipoAviso == "notificacion",
-                    onClick  = { scope.launch { dataStore.guardarTipoAviso("notificacion") } },
+                    onClick  = { actualizarTipoAviso("notificacion") },
                     colors   = RadioButtonDefaults.colors(selectedColor = AzulPrimario)
                 )
             }
@@ -2419,7 +2446,7 @@ fun SeccionAjustes() {
 
         Card(
             modifier = Modifier.fillMaxWidth().bounceClick {
-                scope.launch { dataStore.guardarTipoAviso("alarma") }
+                actualizarTipoAviso("alarma")
             },
             colors = CardDefaults.cardColors(
                 containerColor = if (tipoAviso == "alarma") Color(0xFFFFF3E0) else Color.White
@@ -2443,7 +2470,7 @@ fun SeccionAjustes() {
                 }
                 RadioButton(
                     selected = tipoAviso == "alarma",
-                    onClick  = { scope.launch { dataStore.guardarTipoAviso("alarma") } },
+                    onClick  = { actualizarTipoAviso("alarma") },
                     colors   = RadioButtonDefaults.colors(selectedColor = Color(0xFFE65100))
                 )
             }
@@ -2468,9 +2495,7 @@ fun SeccionAjustes() {
                     { _, hora, minuto ->
                         // Se guarda en 24h ("HH:mm") internamente; el selector entrega 0-23.
                         val nuevaHora = "%02d:%02d".format(hora, minuto)
-                        scope.launch { dataStore.guardarHoraNotificacion(nuevaHora) }
-                        // Reprograma la alarma exacta para la próxima ocurrencia de la nueva hora.
-                        RecordatorioScheduler.programar(context, nuevaHora)
+                        actualizarHora(nuevaHora)
                     },
                     h, m, false // false = selector en formato 12 horas (AM/PM)
                 ).show()

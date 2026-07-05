@@ -179,4 +179,12 @@ interface AlquilerApiService {
 
     @GET("individual/resumen")
     suspend fun getResumenIndividual(@Query("id_usuario") idUsuario: String): ResumenIndividual
+
+    // --- AJUSTES DE LA APP MÓVIL (tipo de aviso + hora del recordatorio) ---
+
+    @GET("mobile/ajustes")
+    suspend fun getAjustes(@Query("id_usuario") idUsuario: String): AjustesResponse
+
+    @PUT("mobile/ajustes")
+    suspend fun guardarAjustes(@Body body: GuardarAjustesRequest): AjustesResponse
 }
