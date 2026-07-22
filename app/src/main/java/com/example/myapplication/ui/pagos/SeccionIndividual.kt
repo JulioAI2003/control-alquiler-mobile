@@ -31,6 +31,8 @@ import com.example.myapplication.R
 import com.example.myapplication.data.model.ConceptoIndividual
 import com.example.myapplication.data.model.MovimientoIndividual
 import com.example.myapplication.data.model.UiState
+import com.example.myapplication.util.aMonto
+import com.example.myapplication.util.aMontoOrNull
 
 private val IndAzul  = Color(0xFF8A6A12)
 private val IndVerde = Color(0xFF2E7D32)
@@ -527,13 +529,13 @@ private fun DialogoRegistrar(
     val accion = if (mov.esIngreso) "cobro" else "pago"
     var monto by remember { mutableStateOf("%.2f".format(mov.montoMostrar)) }
     val montoEditable = !mov.precioFijo
-    val montoValido = monto.toDoubleOrNull() != null
+    val montoValido = monto.aMontoOrNull() != null
 
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             Button(
-                onClick = { onConfirm(monto.toDoubleOrNull()) },
+                onClick = { onConfirm(monto.aMontoOrNull()) },
                 enabled = montoValido,
                 colors = ButtonDefaults.buttonColors(containerColor = acento)
             ) { Text("Sí, registrar") }
@@ -577,13 +579,13 @@ private fun DialogoConcepto(
     var dia by remember { mutableStateOf(conceptoExistente?.diaVencimiento?.toString() ?: "") }
     var celular by remember { mutableStateOf(conceptoExistente?.celular ?: "") }
     var esFijo by remember { mutableStateOf(conceptoExistente?.precioFijo ?: true) }
-    val valido = nombre.isNotBlank() && monto.toDoubleOrNull() != null && (dia.toIntOrNull() ?: 0) in 1..31
+    val valido = nombre.isNotBlank() && monto.aMontoOrNull() != null && (dia.toIntOrNull() ?: 0) in 1..31
 
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             Button(
-                onClick = { onConfirm(nombre, desc.ifBlank { null }, monto.toDouble(), dia.toInt(), esFijo, celular.ifBlank { null }) },
+                onClick = { onConfirm(nombre, desc.ifBlank { null }, monto.aMonto(), dia.toInt(), esFijo, celular.ifBlank { null }) },
                 enabled = valido,
                 colors = ButtonDefaults.buttonColors(containerColor = acento)
             ) { Text(if (esEdicion) "Actualizar" else "Guardar") }

@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.myapplication.data.model.CuartoDetalle
+import com.example.myapplication.util.aMonto
+import com.example.myapplication.util.aMontoOrNull
 import com.example.myapplication.data.model.UiState
 
 private val CtAzul = Color(0xFF8A6A12)
@@ -219,7 +221,7 @@ private fun EditarCuartoDialog(
     var precio by remember { mutableStateOf(cuarto.precio ?: "") }
     var garantia by remember { mutableStateOf(cuarto.garantia ?: "") }
     var descripcion by remember { mutableStateOf(cuarto.descripcion ?: "") }
-    val valido = nro.isNotBlank() && precio.toDoubleOrNull() != null && garantia.toDoubleOrNull() != null
+    val valido = nro.isNotBlank() && precio.aMontoOrNull() != null && garantia.aMontoOrNull() != null
 
     AlertDialog(
         onDismissRequest = { if (!isLoading) onDismiss() },
@@ -233,13 +235,13 @@ private fun EditarCuartoDialog(
                 )
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
-                    precio, { precio = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text("Precio mensual (S/)") },
+                    precio, { precio = it.filter { c -> c.isDigit() || c == '.' || c == ',' } }, label = { Text("Precio mensual (S/)") },
                     singleLine = true, modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
-                    garantia, { garantia = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text("Garantía (S/)") },
+                    garantia, { garantia = it.filter { c -> c.isDigit() || c == '.' || c == ',' } }, label = { Text("Garantía (S/)") },
                     singleLine = true, modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
@@ -252,7 +254,7 @@ private fun EditarCuartoDialog(
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(nro, precio.toDouble(), garantia.toDouble(), descripcion.ifBlank { null }) },
+                onClick = { onConfirm(nro, precio.aMonto(), garantia.aMonto(), descripcion.ifBlank { null }) },
                 enabled = valido && !isLoading,
                 colors = ButtonDefaults.buttonColors(containerColor = CtAzul)
             ) {

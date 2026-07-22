@@ -177,7 +177,10 @@ data class RegistrarInquilinoRequest(
     // esnuevo=true → primera deuda en el mes actual; false → mes siguiente.
     val esnuevo:                                                    Boolean,
     @SerialName("garantia_pagada")         val garantiaPagada:       Boolean,
-    @SerialName("fecha_esperada_garantia") val fechaEsperadaGarantia: String? = null
+    @SerialName("fecha_esperada_garantia") val fechaEsperadaGarantia: String? = null,
+    // Fecha de ingreso real (YYYY-MM-DD), opcional. Si es de un mes anterior, el backend
+    // genera una deuda pendiente por cada mes desde el ingreso hasta el actual.
+    @SerialName("fecha_ingreso")           val fechaIngreso:         String? = null
 )
 
 @Serializable

@@ -27,6 +27,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.myapplication.data.model.CuartoLibre
 import com.example.myapplication.data.model.ServicioNuevo
 import com.example.myapplication.data.model.UiState
+import com.example.myapplication.util.aMonto
+import com.example.myapplication.util.aMontoOrNull
 import java.time.Instant
 import java.time.ZoneOffset
 
@@ -61,6 +63,7 @@ fun RegistrarInquilinoWizard(
     var diaLimpieza by remember { mutableStateOf("") }
     var descripcion by remember { mutableStateOf("") }
     var generarProximoMes by remember { mutableStateOf(false) } // esNuevoCheck
+    var fechaIngreso by remember { mutableStateOf("") }   // yyyy-MM-dd, opcional (ingreso real)
 
     // Garantía
     var garantiaPagada by remember { mutableStateOf<Boolean?>(null) }
@@ -139,7 +142,8 @@ fun RegistrarInquilinoWizard(
                             fechaPago, { v -> fechaPago = v.filter(Char::isDigit).take(2) },
                             diaLimpieza, { diaLimpieza = it },
                             descripcion, { if (it.length <= 90) descripcion = it },
-                            generarProximoMes, { generarProximoMes = it }
+                            generarProximoMes, { generarProximoMes = it },
+                            fechaIngreso, { fechaIngreso = it }
                         )
                         2 -> PasoGarantia(
                             cuarto, garantiaPagada,
@@ -195,7 +199,8 @@ fun RegistrarInquilinoWizard(
                                         esnuevo = !generarProximoMes,
                                         garantiaPagada = garantiaPagada == true,
                                         fechaEsperadaGarantia = if (garantiaPagada == false) fechaEsperada else null,
-                                        servicios = servicios.toList()
+                                        servicios = servicios.toList(),
+                                        fechaIngreso = fechaIngreso.ifBlank { null }
                                     )
                                 },
                                 enabled = paso3Valido && !isLoading,
@@ -274,7 +279,8 @@ private fun PasoContrato(
     fechaPago: String, onFechaPago: (String) -> Unit,
     diaLimpieza: String, onDiaLimpieza: (String) -> Unit,
     descripcion: String, onDescripcion: (String) -> Unit,
-    generarProximoMes: Boolean, onGenerarProximoMes: (Boolean) -> Unit
+    generarProximoMes: Boolean, onGenerarProximoMes: (Boolean) -> Unit,
+    fechaIngreso: String, onFechaIngreso: (String) -> Unit
 ) {
     OutlinedTextField(
         fechaPago, onFechaPago, label = { Text("Día de facturación *") }, singleLine = true,
@@ -282,6 +288,45 @@ private fun PasoContrato(
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         supportingText = { Text("Día del mes (1-31)") }
     )
+
+    // Fecha de ingreso (opcional): para inquilinos que entraron en meses anteriores.
+    // Si se elige una fecha pasada, el backend genera una deuda por cada mes hasta hoy.
+    var showIngresoPicker by remember { mutableStateOf(false) }
+    OutlinedButton(onClick = { showIngresoPicker = true }, modifier = Modifier.fillMaxWidth()) {
+        Icon(Icons.Default.DateRange, null)
+        Spacer(Modifier.width(8.dp))
+        Text(if (fechaIngreso.isBlank()) "Fecha de ingreso (opcional)" else "Ingreso: $fechaIngreso")
+    }
+    if (fechaIngreso.isBlank()) {
+        Text(
+            "Si el inquilino entró en un mes anterior, elígela y se generarán las deudas pendientes de cada mes hasta hoy.",
+            fontSize = 12.sp, color = Color.Gray
+        )
+    } else {
+        TextButton(onClick = { onFechaIngreso("") }) { Text("Quitar fecha de ingreso") }
+    }
+    if (showIngresoPicker) {
+        // Solo se permiten fechas pasadas o de hoy (una fecha futura no genera deuda atrasada).
+        val hoyMillis = System.currentTimeMillis()
+        val datePickerState = rememberDatePickerState(
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis <= hoyMillis
+            }
+        )
+        DatePickerDialog(
+            onDismissRequest = { showIngresoPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val fecha = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
+                        onFechaIngreso(fecha.toString()) // yyyy-MM-dd
+                    }
+                    showIngresoPicker = false
+                }) { Text("Aceptar") }
+            },
+            dismissButton = { TextButton(onClick = { showIngresoPicker = false }) { Text("Cancelar") } }
+        ) { DatePicker(state = datePickerState) }
+    }
 
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
@@ -410,7 +455,7 @@ private fun PasoServicios(
     if (tieneServicio == true) {
         var nombre by remember { mutableStateOf("") }
         var monto by remember { mutableStateOf("") }
-        val agregable = nombre.isNotBlank() && (monto.toDoubleOrNull() ?: -1.0) >= 0.0
+        val agregable = nombre.isNotBlank() && (monto.aMontoOrNull() ?: -1.0) >= 0.0
 
         Spacer(Modifier.height(4.dp))
         OutlinedTextField(nombre, { nombre = it }, label = { Text("Nombre del servicio") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -420,7 +465,7 @@ private fun PasoServicios(
         )
         Button(
             onClick = {
-                onAgregar(ServicioNuevo(nombre.trim(), monto.toDouble()))
+                onAgregar(ServicioNuevo(nombre.trim(), monto.aMonto()))
                 nombre = ""; monto = ""
             },
             enabled = agregable,

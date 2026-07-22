@@ -26,8 +26,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.myapplication.ui.theme.MyApplicationTheme
@@ -75,6 +79,36 @@ class AlarmFullScreenActivity : ComponentActivity() {
             }
         )
         finish()
+    }
+}
+
+/**
+ * Da jerarquía visual al detalle de la alarma poniendo en NEGRITA el título de cada
+ * mensaje. El detalle llega como texto plano multilínea:
+ *   POR COBRAR (2 · S/ 300.00)
+ *   • Juan Pérez: Cuarto 3 · vence HOY
+ * Se resalta el encabezado de sección (POR COBRAR/POR PAGAR) y, en cada ítem "• Título:
+ * texto", la parte del título (antes de ": ").
+ */
+private fun detalleEnNegrita(descripcion: String): AnnotatedString = buildAnnotatedString {
+    val lineas = descripcion.split("\n")
+    lineas.forEachIndexed { i, linea ->
+        when {
+            linea.isBlank() -> { /* preserva el espacio entre secciones */ }
+            linea.startsWith("• ") -> {
+                val resto = linea.removePrefix("• ")
+                val sep = resto.indexOf(": ")
+                append("• ")
+                if (sep >= 0) {
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(resto.substring(0, sep)) }
+                    append(resto.substring(sep)) // ": texto…"
+                } else {
+                    append(resto)
+                }
+            }
+            else -> withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(linea) }
+        }
+        if (i < lineas.lastIndex) append("\n")
     }
 }
 
@@ -131,7 +165,7 @@ private fun PantallaAlarmaActiva(titulo: String, descripcion: String, onApagar: 
                 elevation = CardDefaults.cardElevation(4.dp)
             ) {
                 Text(
-                    text       = descripcion,
+                    text       = detalleEnNegrita(descripcion),
                     fontSize   = 16.sp,
                     fontWeight = FontWeight.Medium,
                     textAlign  = TextAlign.Start,

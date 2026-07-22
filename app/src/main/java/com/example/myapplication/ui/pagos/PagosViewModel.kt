@@ -235,7 +235,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
         nombre: String, apellidos: String, dni: String, celular: String, email: String?,
         fechaPago: Int, diaLimpieza: String, descripcion: String?,
         esnuevo: Boolean, garantiaPagada: Boolean, fechaEsperadaGarantia: String?,
-        servicios: List<ServicioNuevo>
+        servicios: List<ServicioNuevo>, fechaIngreso: String? = null
     ) {
         viewModelScope.launch {
             _registrarInquilinoState.value = UiState.Loading
@@ -247,7 +247,8 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                         nombre = nombre, apellidos = apellidos, dni = dni, celular = celular,
                         email = email, fechaPago = fechaPago, diaLimpieza = diaLimpieza,
                         descripcion = descripcion, esnuevo = esnuevo,
-                        garantiaPagada = garantiaPagada, fechaEsperadaGarantia = fechaEsperadaGarantia
+                        garantiaPagada = garantiaPagada, fechaEsperadaGarantia = fechaEsperadaGarantia,
+                        fechaIngreso = fechaIngreso
                     )
                 )
                 val idInquilino = resp.inquilino?.idInquilino

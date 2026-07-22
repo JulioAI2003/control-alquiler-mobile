@@ -47,6 +47,7 @@ import com.example.myapplication.MyApplication
 import com.example.myapplication.data.model.EstadoPago
 import com.example.myapplication.data.model.Inquilino
 import com.example.myapplication.data.model.CuartoLibre
+import com.example.myapplication.util.aMontoOrNull
 import com.example.myapplication.data.model.InquilinoMobile
 import com.example.myapplication.data.model.ServicioCasa
 import com.example.myapplication.data.model.ServicioConcepto
@@ -404,14 +405,14 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
     if (servicioAConfirmar != null) {
         val srv = servicioAConfirmar!!
         val esPrecioFijo = srv.precioFijo
-        val montoValido = esPrecioFijo || montoIngresadoServicio.toDoubleOrNull() != null
+        val montoValido = esPrecioFijo || montoIngresadoServicio.aMontoOrNull() != null
 
         AlertDialog(
             onDismissRequest = { servicioAConfirmar = null },
             confirmButton = {
                 Button(
                     onClick = {
-                        val monto = if (esPrecioFijo) null else montoIngresadoServicio.toDoubleOrNull()
+                        val monto = if (esPrecioFijo) null else montoIngresadoServicio.aMontoOrNull()
                         vm.pagarServicio(
                             idServicio = srv.idServicio,
                             idPago     = srv.idPago,
@@ -440,7 +441,7 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                         OutlinedTextField(
                             value = montoIngresadoServicio,
                             onValueChange = { v ->
-                                montoIngresadoServicio = v.filter { it.isDigit() || it == '.' }
+                                montoIngresadoServicio = v.filter { it.isDigit() || it == '.' || it == ',' }
                             },
                             label = { Text("Monto (S/)") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -801,7 +802,7 @@ private fun DialogoCobrarInquilino(
     var montoTxt by remember { mutableStateOf("%.2f".format(saldo)) }
     var fechaCompromiso by remember { mutableStateOf<String?>(null) }
 
-    val monto = montoTxt.toDoubleOrNull()
+    val monto = montoTxt.aMontoOrNull()
     val esParcial = monto != null && monto > 0 && monto < saldo
     val montoValido = monto != null && monto > 0 && monto <= saldo + 0.001
     val puedeConfirmar = montoValido && (!esParcial || fechaCompromiso != null)
@@ -835,7 +836,7 @@ private fun DialogoCobrarInquilino(
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
                     value = montoTxt,
-                    onValueChange = { v -> montoTxt = v.filter { it.isDigit() || it == '.' } },
+                    onValueChange = { v -> montoTxt = v.filter { it.isDigit() || it == '.' || it == ',' } },
                     label = { Text("Monto pagado (S/)") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
