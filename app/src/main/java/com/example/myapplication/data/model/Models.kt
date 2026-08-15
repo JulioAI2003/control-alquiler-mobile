@@ -52,7 +52,10 @@ data class PagoBackend(
     val celular:                                                 String? = null,
     val garantia:                                                Double? = null,
     @SerialName("fecha_garantia")          val fechaGarantia:         String? = null,
-    @SerialName("fecha_esperada_garantia") val fechaEsperadaGarantia: String? = null
+    @SerialName("fecha_esperada_garantia") val fechaEsperadaGarantia: String? = null,
+    // Fecha/hora en que se registró el pago (timestamp del backend). Se usa para
+    // mostrar "cuándo se registró el cobro" en la sección de pagos realizados.
+    @SerialName("fecha_pago")              val fechaPago:             String? = null
 )
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -104,7 +107,9 @@ data class Inquilino(
     val periodoAnio:      Int,
     // Garantía
     val montoGarantia:    Double? = null,
-    val garantiaPagada:   Boolean = true
+    val garantiaPagada:   Boolean = true,
+    // Fecha (ISO) en que se registró el pago; solo se llena en el historial de pagos.
+    val fechaPago:        String? = null
 ) {
     /** Texto descriptivo del vencimiento, listo para mostrar en la UI. */
     val etiquetaDias: String get() = when {

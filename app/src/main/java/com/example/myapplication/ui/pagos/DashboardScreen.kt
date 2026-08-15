@@ -48,6 +48,8 @@ import com.example.myapplication.data.model.EstadoPago
 import com.example.myapplication.data.model.Inquilino
 import com.example.myapplication.data.model.CuartoLibre
 import com.example.myapplication.util.aMontoOrNull
+import com.example.myapplication.util.formatearFecha
+import com.example.myapplication.util.DescargasPdf
 import com.example.myapplication.data.model.InquilinoMobile
 import com.example.myapplication.data.model.ServicioCasa
 import com.example.myapplication.data.model.ServicioConcepto
@@ -188,19 +190,17 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
             ModalDrawerSheet(drawerContainerColor = Color.White) {
                 Spacer(Modifier.height(16.dp))
                 Text("Cobros App", Modifier.padding(24.dp), fontWeight = FontWeight.Black, fontSize = 22.sp, color = AzulPrimario)
+                // Estado del submenú "Pagos registrados" (agrupa cobros y servicios pagados).
+                // Empieza abierto si ya estás viendo una de esas secciones.
+                var pagosMenuExpandido by remember {
+                    mutableStateOf(currentScreen == "pagados" || currentScreen == "servicios_pagados")
+                }
                 if (!esAdmin && !esIndividual) {
                     NavigationDrawerItem(
                         icon = { Icon(Icons.Default.Home, null) },
                         label = { Text("Inicio") },
                         selected = currentScreen in listOf("pendientes", "servicios", "cuartos"),
                         onClick = { currentScreen = "pendientes"; scope.launch { drawerState.close() } },
-                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                    )
-                    NavigationDrawerItem(
-                        icon = { Icon(Icons.Default.History, null) },
-                        label = { Text("Inquilinos Pagados") },
-                        selected = currentScreen == "pagados",
-                        onClick = { currentScreen = "pagados"; scope.launch { drawerState.close() } },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
                     NavigationDrawerItem(
@@ -217,13 +217,39 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                         onClick = { currentScreen = "cuartos_todos"; scope.launch { drawerState.close() } },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
+                    // Submenú "Pagos registrados": agrupa el histórico de cobros de
+                    // inquilinos y el de servicios (antes eran dos ítems sueltos).
                     NavigationDrawerItem(
-                        icon = { Icon(Icons.Default.ReceiptLong, null) },
-                        label = { Text("Servicios Pagados") },
-                        selected = currentScreen == "servicios_pagados",
-                        onClick = { currentScreen = "servicios_pagados"; scope.launch { drawerState.close() } },
+                        icon = { Icon(Icons.Default.History, null) },
+                        label = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Pagos registrados", modifier = Modifier.weight(1f))
+                                Icon(
+                                    if (pagosMenuExpandido) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = null
+                                )
+                            }
+                        },
+                        selected = currentScreen in listOf("pagados", "servicios_pagados"),
+                        onClick = { pagosMenuExpandido = !pagosMenuExpandido },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
+                    if (pagosMenuExpandido) {
+                        NavigationDrawerItem(
+                            icon = { Icon(Icons.Default.Group, null) },
+                            label = { Text("Inquilinos Pagados") },
+                            selected = currentScreen == "pagados",
+                            onClick = { currentScreen = "pagados"; scope.launch { drawerState.close() } },
+                            modifier = Modifier.padding(start = 20.dp).padding(NavigationDrawerItemDefaults.ItemPadding)
+                        )
+                        NavigationDrawerItem(
+                            icon = { Icon(Icons.Default.ReceiptLong, null) },
+                            label = { Text("Servicios Pagados") },
+                            selected = currentScreen == "servicios_pagados",
+                            onClick = { currentScreen = "servicios_pagados"; scope.launch { drawerState.close() } },
+                            modifier = Modifier.padding(start = 20.dp).padding(NavigationDrawerItemDefaults.ItemPadding)
+                        )
+                    }
                     NavigationDrawerItem(
                         icon = { Icon(Icons.Default.Settings, null) },
                         label = { Text("Ajustes") },
@@ -961,6 +987,14 @@ fun SeccionPagados(vm: PagosViewModel) {
                                                 color = Color(0xFF388E3C),
                                                 fontWeight = FontWeight.Bold
                                             )
+                                            val fechaCobro = formatearFecha(pago.fechaPago)
+                                            if (fechaCobro.isNotBlank()) {
+                                                Text(
+                                                    "Registrado: $fechaCobro",
+                                                    fontSize = 11.sp,
+                                                    color = Color.DarkGray
+                                                )
+                                            }
                                         }
                                         TextButton(onClick = { vm.revertirPago(pago.idPago) }) {
                                             Text("Revertir", color = Color(0xFFE65100))
@@ -990,13 +1024,16 @@ fun SeccionPagados(vm: PagosViewModel) {
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 fun SeccionInquilinos(vm: PagosViewModel) {
-    val state       by vm.inquilinosState.collectAsStateWithLifecycle()
-    val retiroState by vm.retiroState.collectAsStateWithLifecycle()
+    val state         by vm.inquilinosState.collectAsStateWithLifecycle()
+    val retiroState   by vm.retiroState.collectAsStateWithLifecycle()
+    val contratoState by vm.contratoState.collectAsStateWithLifecycle()
+    val contexto = LocalContext.current
     LaunchedEffect(Unit) { vm.cargarInquilinos() }
 
     var inquilinoSeleccionado by remember { mutableStateOf<InquilinoMobile?>(null) }
     var inquilinoARetirar     by remember { mutableStateOf<InquilinoMobile?>(null) }
     var filtroNombre by remember { mutableStateOf("") }
+    var avisoContrato by remember { mutableStateOf<String?>(null) }
 
     val isRefreshing = state is UiState.Loading
     val pullState = rememberPullToRefreshState()
@@ -1005,6 +1042,25 @@ fun SeccionInquilinos(vm: PagosViewModel) {
         if (retiroState is UiState.Success) {
             inquilinoSeleccionado = null
             vm.resetRetiroState()
+        }
+    }
+
+    // Contrato listo: queda guardado en Descargas y se abre con el visor de PDF.
+    LaunchedEffect(contratoState) {
+        val estado = contratoState
+        if (estado is UiState.Success) {
+            avisoContrato = if (DescargasPdf.abrir(contexto, estado.data))
+                "Contrato guardado en Descargas"
+            else
+                "Contrato guardado en Descargas (no hay app para abrir PDF)"
+            vm.resetContratoState()
+        }
+    }
+
+    LaunchedEffect(avisoContrato) {
+        if (avisoContrato != null) {
+            kotlinx.coroutines.delay(2500)
+            avisoContrato = null
         }
     }
 
@@ -1112,12 +1168,14 @@ fun SeccionInquilinos(vm: PagosViewModel) {
     // Bottom sheet con detalle + acciones
     if (inquilinoSeleccionado != null) {
         InquilinoBottomSheet(
-            inquilino   = inquilinoSeleccionado!!,
-            retiroState = retiroState,
+            inquilino     = inquilinoSeleccionado!!,
+            retiroState   = retiroState,
+            contratoState = contratoState,
             onRetirar        = { inquilinoARetirar = it },
             onCancelarRetiro = { vm.cancelarRetiro(it.idInquilino) },
             onPagarGarantia  = { vm.pagarGarantia(it.idInquilino) },
-            onDismiss        = { inquilinoSeleccionado = null; vm.resetRetiroState() }
+            onContrato       = { vm.descargarContrato(it) },
+            onDismiss        = { inquilinoSeleccionado = null; vm.resetRetiroState(); vm.resetContratoState() }
         )
     }
 
@@ -1138,6 +1196,14 @@ fun SeccionInquilinos(vm: PagosViewModel) {
             title = { Text("Confirmar Retiro") },
             text  = { Text("¿Está seguro de retirar a ${inquilinoARetirar?.nombre}? Tendrá 24 horas para cancelar la acción antes de que sea definitivo.") }
         )
+    }
+
+    if (avisoContrato != null) {
+        Snackbar(
+            modifier = Modifier.padding(16.dp),
+            action = { TextButton(onClick = { avisoContrato = null }) { Text("OK", color = Color.White) } },
+            containerColor = Color(0xFF388E3C)
+        ) { Text(avisoContrato!!, color = Color.White) }
     }
 }
 
@@ -1759,8 +1825,9 @@ fun SeccionServiciosPagados(vm: PagosViewModel) {
                                             val montoMostrar = srv.montoPagado?.toDoubleOrNull() ?: srv.montoReferencial.toDoubleOrNull() ?: 0.0
                                             Text("S/ ${"%.2f".format(montoMostrar)}", fontSize = 12.sp, color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold)
                                             Text("${srv.nombreMes} ${srv.anio} · Día ${srv.dia}", fontSize = 11.sp, color = Color.DarkGray)
-                                            if (srv.fechaPago != null) {
-                                                Text("Pagado: ${srv.fechaPago.take(10)}", fontSize = 11.sp, color = Color.DarkGray)
+                                            val fechaServicio = formatearFecha(srv.fechaPago)
+                                            if (fechaServicio.isNotBlank()) {
+                                                Text("Registrado: $fechaServicio", fontSize = 11.sp, color = Color.DarkGray)
                                             }
                                         }
                                         TextButton(onClick = { servicioARevertir = srv }) {
@@ -1803,9 +1870,11 @@ fun SeccionServiciosPagados(vm: PagosViewModel) {
 fun InquilinoBottomSheet(
     inquilino:        InquilinoMobile,
     retiroState:      UiState<String>,
+    contratoState:    UiState<Uri>,
     onRetirar:        (InquilinoMobile) -> Unit,
     onCancelarRetiro: (InquilinoMobile) -> Unit,
     onPagarGarantia:  (InquilinoMobile) -> Unit,
+    onContrato:       (InquilinoMobile) -> Unit,
     onDismiss:        () -> Unit
 ) {
     val esPendiente = inquilino.estado == "pendiente_retiro"
@@ -1881,6 +1950,30 @@ fun InquilinoBottomSheet(
                         enabled = retiroState !is UiState.Loading
                     ) { Text("Pagar Garantía") }
                 }
+            }
+
+            // ── Contrato PDF ──
+            // El backend lo arma con los datos ya registrados del inquilino y su
+            // cuarto; aquí solo se descarga y se abre con el visor del teléfono.
+            Spacer(Modifier.height(16.dp))
+            OutlinedButton(
+                onClick  = { onContrato(inquilino) },
+                modifier = Modifier.fillMaxWidth(),
+                enabled  = contratoState !is UiState.Loading
+            ) {
+                if (contratoState is UiState.Loading) {
+                    CircularProgressIndicator(Modifier.size(18.dp), color = AzulPrimario, strokeWidth = 2.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Generando contrato…")
+                } else {
+                    Icon(Icons.Default.Description, null, tint = AzulPrimario)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Contrato")
+                }
+            }
+            if (contratoState is UiState.Error) {
+                Spacer(Modifier.height(8.dp))
+                Text(contratoState.message, color = Color.Red, fontSize = 13.sp)
             }
 
             Spacer(Modifier.height(16.dp))

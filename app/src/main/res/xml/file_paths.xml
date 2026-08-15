@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Rutas que el FileProvider puede compartir con otras apps.
+     Solo la carpeta de Descargas propia de la app, donde se guarda el contrato
+     PDF en Android 8–9 (en Android 10+ se usa MediaStore y no pasa por aquí). -->
+<paths>
+    <external-files-path name="descargas" path="Download/" />
+</paths>

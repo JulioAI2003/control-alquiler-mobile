@@ -1,5 +1,6 @@
 package com.example.myapplication.ui.pagos
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -7,11 +8,14 @@ import com.example.myapplication.MyApplication
 import com.example.myapplication.data.model.*
 import com.example.myapplication.data.remote.AlquilerApiClient
 import com.example.myapplication.data.remote.NetworkError
+import com.example.myapplication.util.DescargasPdf
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -32,6 +36,10 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
 
     private val _retiroState = MutableStateFlow<UiState<String>>(UiState.Idle)
     val retiroState: StateFlow<UiState<String>> = _retiroState.asStateFlow()
+
+    // Contrato PDF del inquilino: Success lleva el Uri del archivo ya guardado.
+    private val _contratoState = MutableStateFlow<UiState<Uri>>(UiState.Idle)
+    val contratoState: StateFlow<UiState<Uri>> = _contratoState.asStateFlow()
 
     private val _serviciosState = MutableStateFlow<UiState<List<ServicioCasa>>>(UiState.Idle)
     val serviciosState: StateFlow<UiState<List<ServicioCasa>>> = _serviciosState.asStateFlow()
@@ -210,6 +218,37 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
 
     fun resetRetiroState() {
         _retiroState.value = UiState.Idle
+    }
+
+    /**
+     * Pide al backend el contrato del inquilino y lo guarda en Descargas.
+     * Los datos del contrato (nombre, DNI, baño, fecha de ingreso, precio,
+     * garantía y detalles adicionales) los arma el backend con lo ya registrado.
+     */
+    fun descargarContrato(inquilino: InquilinoMobile) {
+        viewModelScope.launch {
+            _contratoState.value = UiState.Loading
+            try {
+                val cuerpo = AlquilerApiClient.service.descargarContrato(inquilino.idInquilino)
+                // Leer el PDF y escribirlo en disco son operaciones de bloqueo.
+                val uri = withContext(Dispatchers.IO) {
+                    val bytes = cuerpo.use { it.bytes() }
+                    DescargasPdf.guardarEnDescargas(
+                        app,
+                        "contrato_${inquilino.nombre}_${inquilino.apellidos}",
+                        bytes
+                    )
+                }
+                _contratoState.value = UiState.Success(uri)
+            } catch (e: Exception) {
+                _contratoState.value =
+                    UiState.Error(NetworkError.toUserMessage(e, "Error al generar el contrato"))
+            }
+        }
+    }
+
+    fun resetContratoState() {
+        _contratoState.value = UiState.Idle
     }
 
     fun cargarCuartosLibres() {
@@ -762,7 +801,8 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
             periodoMes = mes,
             periodoAnio = anio,
             montoGarantia = garantia,
-            garantiaPagada = fechaGarantia != null
+            garantiaPagada = fechaGarantia != null,
+            fechaPago = fechaPago
         )
     }
 

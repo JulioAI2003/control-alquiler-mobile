@@ -76,6 +76,18 @@
             android:foregroundServiceType="mediaPlayback"
             android:exported="false" />
 
+        <!-- Comparte el contrato PDF guardado con el visor de PDF del usuario
+             (solo lo necesitan Android 8–9; desde Android 10 se usa MediaStore) -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <!-- Pantalla completa al dispararse la alarma -->
         <activity
             android:name=".worker.AlarmFullScreenActivity"

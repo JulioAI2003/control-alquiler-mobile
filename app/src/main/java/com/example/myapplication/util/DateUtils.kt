@@ -14,3 +14,19 @@ fun fechaSegura(anio: Int, mes: Int, dia: Int): LocalDate {
     val ym = YearMonth.of(anio, mes.coerceIn(1, 12))
     return ym.atDay(dia.coerceIn(1, ym.lengthOfMonth()))
 }
+
+/**
+ * Formatea una fecha ISO del backend ("2026-07-27" o "2026-07-27T14:30:00.000Z") a
+ * "dd/MM/yyyy" para mostrarla al usuario. Solo se usa la parte de la fecha (los
+ * primeros 10 caracteres) para evitar confusiones de zona horaria con la hora.
+ * Devuelve "" si el texto es nulo o no se puede parsear.
+ */
+fun formatearFecha(iso: String?): String {
+    if (iso.isNullOrBlank()) return ""
+    return try {
+        val fecha = LocalDate.parse(iso.take(10))
+        "%02d/%02d/%04d".format(fecha.dayOfMonth, fecha.monthValue, fecha.year)
+    } catch (_: Exception) {
+        ""
+    }
+}

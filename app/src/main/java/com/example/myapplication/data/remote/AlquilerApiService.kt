@@ -34,6 +34,12 @@ interface AlquilerApiService {
     @POST("mobile/inquilino/pagar-garantia")
     suspend fun pagarGarantia(@Body body: IdInquilinoRequest): PagoRegistradoResponse
 
+    // Contrato en PDF del inquilino (mismo endpoint que la web).
+    // @Streaming evita que Retrofit cargue el PDF entero en memoria antes de tiempo.
+    @Streaming
+    @GET("inquilino/contrato/pdf")
+    suspend fun descargarContrato(@Query("id_inquilino") idInquilino: String): okhttp3.ResponseBody
+
     // --- SECCIÓN CUARTOS LIBRES ---
 
     @GET("mobile/cuartos-libres")
