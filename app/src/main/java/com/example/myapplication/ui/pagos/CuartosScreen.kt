@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import com.example.myapplication.ui.theme.AppTheme
 import com.example.myapplication.ui.theme.appear
 import com.example.myapplication.ui.theme.bounceClick
 import androidx.compose.foundation.shape.CircleShape
@@ -32,12 +33,36 @@ import com.example.myapplication.util.aMonto
 import com.example.myapplication.util.aMontoOrNull
 import com.example.myapplication.data.model.UiState
 
-private val CtAzul = Color(0xFF8A6A12)
+/** Dorado de marca. Composable para seguir el tema activo. */
+private val CtAzul: Color
+    @Composable get() = AppTheme.colores.dorado
 
-private fun coloresEstado(estado: String?): Pair<Color, Color> = when (estado) {
-    "Disponible" -> Color(0xFFC8E6C9) to Color(0xFF1B5E20)
-    "Alquilado"  -> Color(0xFFEFE2BC) to Color(0xFF6E5410)
-    else         -> Color(0xFFEEEEEE) to Color(0xFF616161)
+/**
+ * Filtro de la lista de cuartos por estado.
+ *
+ * "Alquilado" y "Disponible" son los valores que guarda la BD. Cualquier otro
+ * estado (o nulo) cuenta como no alquilado: para el propietario lo relevante es
+ * si el cuarto le está generando ingreso o no.
+ */
+private enum class FiltroCuarto(val etiqueta: String, val etiquetaVacio: String) {
+    TODOS("Todos", "registrados"),
+    ALQUILADOS("Alquilados", "alquilados"),
+    LIBRES("Sin alquilar", "sin alquilar");
+
+    fun acepta(estado: String?): Boolean = when (this) {
+        TODOS      -> true
+        ALQUILADOS -> estado == "Alquilado"
+        LIBRES     -> estado != "Alquilado"
+    }
+}
+
+@Composable
+private fun coloresEstado(estado: String?): Pair<Color, Color> = with(AppTheme.colores) {
+    when (estado) {
+        "Disponible" -> exitoContenedor to exitoTexto
+        "Alquilado"  -> ocupadoContenedor to ocupadoTexto
+        else         -> neutroContenedor to neutroTexto
+    }
 }
 
 // Holder para recordar la edición pendiente mientras se pregunta por `estemes`.
@@ -66,25 +91,62 @@ fun SeccionCuartos(vm: PagosViewModel) {
         }
     }
 
+    var filtro by remember { mutableStateOf(FiltroCuarto.TODOS) }
+
+    // Lista cargada y su filtrado por estado: alimentan el contador y la lista, así
+    // que se calculan una sola vez fuera del `when`.
+    val cuartos = (state as? UiState.Success)?.data
+    val visibles = cuartos?.filter { filtro.acepta(it.estado) }
+
     Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Todos los cuartos", fontWeight = FontWeight.Bold, color = Color.Gray)
+        EncabezadoLista("Todos los cuartos", total = cuartos?.size, visibles = visibles?.size)
         Spacer(Modifier.height(12.dp))
+
+        // Filtro por estado. Cada opción lleva su conteo para no tener que
+        // seleccionarla solo para saber cuántos hay.
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FiltroCuarto.entries.forEach { opcion ->
+                val cuantos = cuartos?.count { opcion.acepta(it.estado) }
+                FilterChip(
+                    selected = filtro == opcion,
+                    onClick  = { filtro = opcion },
+                    label    = { Text(if (cuantos == null) opcion.etiqueta else "${opcion.etiqueta} ($cuantos)") },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = AppTheme.colores.doradoContenedor,
+                        selectedLabelColor     = AppTheme.colores.doradoContenedorTexto
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled  = true,
+                        selected = filtro == opcion,
+                        borderColor         = AppTheme.colores.borde,
+                        selectedBorderColor = CtAzul
+                    )
+                )
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+
         when (val s = state) {
             is UiState.Success -> {
-                if (s.data.isEmpty()) {
+                val lista = visibles.orEmpty()
+                if (lista.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No tienes cuartos registrados.", color = Color.Gray)
+                        Text(
+                            if (s.data.isEmpty()) "No tienes cuartos registrados."
+                            else "No hay cuartos ${filtro.etiquetaVacio}.",
+                            color = AppTheme.colores.textoSuave
+                        )
                     }
                 } else {
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        itemsIndexed(s.data, key = { _, it -> it.idCuarto }) { index, cuarto ->
+                        itemsIndexed(lista, key = { _, it -> it.idCuarto }) { index, cuarto ->
                             CuartoCard(cuarto, index = index, onClick = { detalle = cuarto })
                         }
                     }
                 }
             }
             is UiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-            is UiState.Error -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(s.message, color = Color.Red) }
+            is UiState.Error -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(s.message, color = AppTheme.colores.error) }
             else -> Unit
         }
     }
@@ -148,22 +210,22 @@ private fun CuartoCard(cuarto: CuartoDetalle, index: Int = 0, onClick: () -> Uni
     val (fondoEstado, textoEstado) = coloresEstado(cuarto.estado)
     Card(
         modifier = Modifier.fillMaxWidth().appear(index).bounceClick { onClick() },
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
+        colors = CardDefaults.cardColors(containerColor = AppTheme.colores.superficie),
+        border = BorderStroke(1.dp, AppTheme.colores.borde),
         shape = RoundedCornerShape(16.dp)
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier.size(44.dp).clip(CircleShape).background(CtAzul),
                 contentAlignment = Alignment.Center
-            ) { Icon(Icons.Default.MeetingRoom, null, tint = Color.White, modifier = Modifier.size(22.dp)) }
+            ) { Icon(Icons.Default.MeetingRoom, null, tint = AppTheme.colores.textoSobreAcento, modifier = Modifier.size(22.dp)) }
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
                 Text("Cuarto ${cuarto.nroCuarto}", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = CtAzul)
-                Text("${cuarto.casa ?: ""} · ${cuarto.piso ?: ""}", fontSize = 12.sp, color = Color.DarkGray)
+                Text("${cuarto.casa ?: ""} · ${cuarto.piso ?: ""}", fontSize = 12.sp, color = AppTheme.colores.textoMedio)
                 cuarto.precio?.toDoubleOrNull()?.let {
                     Text("S/ ${"%.2f".format(it)} · Garantía S/ ${cuarto.garantia?.toDoubleOrNull()?.let { g -> "%.2f".format(g) } ?: "—"}",
-                        fontSize = 12.sp, color = Color.Gray)
+                        fontSize = 12.sp, color = AppTheme.colores.textoSuave)
                 }
             }
             Box(
@@ -176,7 +238,7 @@ private fun CuartoCard(cuarto: CuartoDetalle, index: Int = 0, onClick: () -> Uni
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CuartoDetalleSheet(cuarto: CuartoDetalle, onEditar: () -> Unit, onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color.White) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = AppTheme.colores.superficie) {
         Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding()) {
             Text("Detalle del Cuarto", fontWeight = FontWeight.Black, fontSize = 22.sp, color = CtAzul)
             Spacer(Modifier.height(16.dp))
@@ -206,7 +268,7 @@ private fun DetalleFila(icon: androidx.compose.ui.graphics.vector.ImageVector, l
     Row(Modifier.padding(vertical = 8.dp)) {
         Icon(icon, null, tint = CtAzul)
         Spacer(Modifier.width(12.dp))
-        Column { Text(label, fontSize = 11.sp, color = Color.Gray); Text(valor, fontWeight = FontWeight.Bold) }
+        Column { Text(label, fontSize = 11.sp, color = AppTheme.colores.textoSuave); Text(valor, fontWeight = FontWeight.Bold) }
     }
 }
 
@@ -258,7 +320,7 @@ private fun EditarCuartoDialog(
                 enabled = valido && !isLoading,
                 colors = ButtonDefaults.buttonColors(containerColor = CtAzul)
             ) {
-                if (isLoading) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                if (isLoading) CircularProgressIndicator(Modifier.size(20.dp), color = AppTheme.colores.textoSobreAcento, strokeWidth = 2.dp)
                 else Text("Guardar")
             }
         },

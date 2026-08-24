@@ -31,6 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.myapplication.MyApplication
+import com.example.myapplication.ui.theme.AppTheme
 import com.example.myapplication.R
 import com.example.myapplication.data.model.LoginRequest
 import com.example.myapplication.data.model.LoginResponse
@@ -153,6 +154,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
         modifier         = Modifier
             .fillMaxSize()
             .background(
+                // Degradado de marca: se mantiene igual en claro y en oscuro.
                 Brush.verticalGradient(
                     listOf(Color(0xFFCBA85A), Color(0xFF8A6A12), Color(0xFF4A3A0C))
                 )
@@ -165,7 +167,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                 .padding(horizontal = 24.dp),
             shape     = RoundedCornerShape(24.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
-            colors    = CardDefaults.cardColors(containerColor = Color.White)
+            colors    = CardDefaults.cardColors(containerColor = AppTheme.colores.superficie)
         ) {
             Column(
                 modifier            = Modifier.padding(28.dp),
@@ -186,11 +188,11 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                     text       = "Control de Alquileres",
                     fontSize   = 22.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color      = Color(0xFF8A6A12)
+                    color      = AppTheme.colores.dorado
                 )
                 Text(
                     text     = "Inicia sesión para continuar",
-                    color    = Color(0xFF757575),
+                    color    = AppTheme.colores.textoSuave,
                     fontSize = 14.sp
                 )
 
@@ -302,14 +304,14 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                         if (state is UiState.Loading) {
                             CircularProgressIndicator(
                                 modifier    = Modifier.size(22.dp),
-                                color       = Color(0xFF15151A),
+                                color       = AppTheme.colores.tinta,
                                 strokeWidth = 2.5.dp
                             )
                         } else {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     Icons.Default.Login, null,
-                                    tint = Color(0xFF15151A),
+                                    tint = AppTheme.colores.tinta,
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(Modifier.width(8.dp))
@@ -317,7 +319,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                                     "Ingresar",
                                     fontWeight = FontWeight.Bold,
                                     fontSize   = 16.sp,
-                                    color      = Color(0xFF15151A)
+                                    color      = AppTheme.colores.tinta
                                 )
                             }
                         }

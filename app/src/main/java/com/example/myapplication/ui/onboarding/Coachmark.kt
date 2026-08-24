@@ -26,10 +26,17 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.myapplication.ui.theme.AppTheme
 
-private val Oro      = Color(0xFFC8A24B)
+// El anillo de foco se dibuja en un Canvas (fuera de composición) y siempre va
+// sobre el scrim oscuro, así que es un dorado fijo en ambos temas.
 private val OroClaro = Color(0xFFE6CF8B)
-private val Tinta    = Color(0xFF15151A)
+
+private val Oro: Color
+    @Composable get() = AppTheme.colores.doradoClaro
+/** Tinta oscura para el texto del botón dorado (el dorado es claro en ambos temas). */
+private val Tinta: Color
+    @Composable get() = AppTheme.colores.tinta
 
 /** Un paso de la guía: [anchorId] = id del elemento a resaltar (null = mensaje centrado). */
 data class CoachStep(val anchorId: String?, val titulo: String, val texto: String)
@@ -121,21 +128,21 @@ fun CoachmarkOverlay(state: CoachmarkState, onFinish: () -> Unit) {
                     // el globo no debe propagar el toque al scrim
                     .clickable(interactionSource = noInteraction, indication = null) {},
                 shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = AppTheme.colores.superficie),
                 elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
             ) {
                 Column(Modifier.padding(20.dp)) {
-                    Text(step.titulo, fontWeight = FontWeight.Black, fontSize = 17.sp, color = Tinta)
+                    Text(step.titulo, fontWeight = FontWeight.Black, fontSize = 17.sp, color = AppTheme.colores.texto)
                     Spacer(Modifier.height(8.dp))
-                    Text(step.texto, fontSize = 14.sp, color = Color(0xFF4B4B55), lineHeight = 20.sp)
+                    Text(step.texto, fontSize = 14.sp, color = AppTheme.colores.textoMedio, lineHeight = 20.sp)
                     Spacer(Modifier.height(16.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             "${state.index + 1} / ${state.steps.size}",
-                            fontSize = 12.sp, color = Color.Gray, fontWeight = FontWeight.Bold
+                            fontSize = 12.sp, color = AppTheme.colores.textoSuave, fontWeight = FontWeight.Bold
                         )
                         Spacer(Modifier.weight(1f))
-                        TextButton(onClick = { saltar() }) { Text("Saltar", color = Color.Gray) }
+                        TextButton(onClick = { saltar() }) { Text("Saltar", color = AppTheme.colores.textoSuave) }
                         Spacer(Modifier.width(4.dp))
                         Button(
                             onClick = { avanzar() },

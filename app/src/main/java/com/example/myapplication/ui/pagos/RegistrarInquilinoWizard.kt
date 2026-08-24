@@ -4,6 +4,7 @@
 package com.example.myapplication.ui.pagos
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -24,7 +25,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.myapplication.ui.theme.AppTheme
 import com.example.myapplication.data.model.CuartoLibre
+import com.example.myapplication.data.model.InquilinoSeleccionable
 import com.example.myapplication.data.model.ServicioNuevo
 import com.example.myapplication.data.model.UiState
 import com.example.myapplication.util.aMonto
@@ -32,9 +35,13 @@ import com.example.myapplication.util.aMontoOrNull
 import java.time.Instant
 import java.time.ZoneOffset
 
-private val WzAzul  = Color(0xFF8A6A12)
-private val WzVerde = Color(0xFF2E7D32)
-private val WzNaranja = Color(0xFFED6C02)
+// Acentos del asistente. Composables para seguir el tema activo.
+private val WzAzul: Color
+    @Composable get() = AppTheme.colores.dorado
+private val WzVerde: Color
+    @Composable get() = AppTheme.colores.exitoFuerte
+private val WzNaranja: Color
+    @Composable get() = AppTheme.colores.naranjaSuave
 
 private val DIAS_LIMPIEZA = listOf("Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo")
 
@@ -50,6 +57,13 @@ fun RegistrarInquilinoWizard(
     val isLoading = accionState is UiState.Loading
 
     var step by remember { mutableStateOf(0) } // 0 datos · 1 contrato · 2 garantía · 3 servicios
+
+    // Cuarto adicional para alguien que ya alquila: en vez de tipear sus datos otra
+    // vez se elige de la lista y el backend reutiliza su persona.
+    val seleccionables by vm.seleccionablesState.collectAsStateWithLifecycle()
+    var esExistente by remember { mutableStateOf(false) }
+    var elegido by remember { mutableStateOf<InquilinoSeleccionable?>(null) }
+    LaunchedEffect(esExistente) { if (esExistente) vm.cargarInquilinosSeleccionables() }
 
     // Datos personales
     var nombre by remember { mutableStateOf("") }
@@ -97,7 +111,7 @@ fun RegistrarInquilinoWizard(
         onDismissRequest = { cerrar() },
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Surface(Modifier.fillMaxSize(), color = Color(0xFFF5F5F5)) {
+        Surface(Modifier.fillMaxSize(), color = AppTheme.colores.fondo) {
             Column(Modifier.fillMaxSize()) {
                 // ── Barra superior ──
                 TopAppBar(
@@ -107,7 +121,7 @@ fun RegistrarInquilinoWizard(
                             Icon(Icons.Default.Close, contentDescription = "Cerrar")
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = AppTheme.colores.superficie)
                 )
 
                 // ── Resumen del cuarto (siempre visible) ──
@@ -131,13 +145,38 @@ fun RegistrarInquilinoWizard(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     when (step) {
-                        0 -> PasoDatos(
-                            nombre, { nombre = filtrarLetras(it) },
-                            apellidos, { apellidos = filtrarLetras(it) },
-                            dni, { dni = it.filter(Char::isDigit).take(8) },
-                            celular, { celular = it.filter(Char::isDigit).take(9) },
-                            email, { email = it }
-                        )
+                        0 -> {
+                            SelectorInquilinoExistente(
+                                esExistente = esExistente,
+                                onCambiarModo = { activo ->
+                                    esExistente = activo
+                                    // Cambiar de modo limpia lo tecleado: si no, quedarían
+                                    // mezclados los datos de una persona con los de otra.
+                                    elegido = null
+                                    nombre = ""; apellidos = ""; dni = ""; celular = ""; email = ""
+                                },
+                                estado = seleccionables,
+                                elegido = elegido,
+                                onElegir = { inq ->
+                                    elegido = inq
+                                    nombre = inq.nombre
+                                    apellidos = inq.apellidos
+                                    dni = inq.dni.orEmpty()
+                                    celular = inq.celular.orEmpty()
+                                    email = inq.email.orEmpty()
+                                }
+                            )
+                            PasoDatos(
+                                nombre, { nombre = filtrarLetras(it) },
+                                apellidos, { apellidos = filtrarLetras(it) },
+                                dni, { dni = it.filter(Char::isDigit).take(8) },
+                                celular, { celular = it.filter(Char::isDigit).take(9) },
+                                email, { email = it },
+                                // Los datos vienen del inquilino elegido: se muestran para
+                                // confirmar, pero se editan desde "Editar datos personales".
+                                soloLectura = esExistente && elegido != null
+                            )
+                        }
                         1 -> PasoContrato(
                             fechaPago, { v -> fechaPago = v.filter(Char::isDigit).take(2) },
                             diaLimpieza, { diaLimpieza = it },
@@ -159,12 +198,12 @@ fun RegistrarInquilinoWizard(
                     }
 
                     (accionState as? UiState.Error)?.let { err ->
-                        Text(err.message, color = Color.Red, fontSize = 13.sp)
+                        Text(err.message, color = AppTheme.colores.error, fontSize = 13.sp)
                     }
                 }
 
                 // ── Navegación ──
-                Surface(shadowElevation = 8.dp, color = Color.White) {
+                Surface(shadowElevation = 8.dp, color = AppTheme.colores.superficie) {
                     Row(
                         Modifier.fillMaxWidth().padding(16.dp).navigationBarsPadding(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -200,6 +239,8 @@ fun RegistrarInquilinoWizard(
                                         garantiaPagada = garantiaPagada == true,
                                         fechaEsperadaGarantia = if (garantiaPagada == false) fechaEsperada else null,
                                         servicios = servicios.toList(),
+                                        inquilinoExistente = esExistente && elegido != null,
+                                        idPersonaExistente = elegido?.idPersona,
                                         fechaIngreso = fechaIngreso.ifBlank { null }
                                     )
                                 },
@@ -207,7 +248,7 @@ fun RegistrarInquilinoWizard(
                                 modifier = Modifier.weight(1f),
                                 colors = ButtonDefaults.buttonColors(containerColor = WzVerde)
                             ) {
-                                if (isLoading) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                                if (isLoading) CircularProgressIndicator(Modifier.size(20.dp), color = AppTheme.colores.textoSobreAcento, strokeWidth = 2.dp)
                                 else Text("Registrar inquilino", fontWeight = FontWeight.Bold)
                             }
                         }
@@ -223,7 +264,7 @@ fun RegistrarInquilinoWizard(
 private fun CuartoResumen(cuarto: CuartoLibre) {
     Card(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF7EFD8)),
+        colors = CardDefaults.cardColors(containerColor = AppTheme.colores.doradoContenedor),
         shape = RoundedCornerShape(12.dp)
     ) {
         Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceAround) {
@@ -238,27 +279,131 @@ private fun CuartoResumen(cuarto: CuartoLibre) {
 private fun ResumenItem(label: String, valor: String, icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
-        Text(label, fontSize = 10.sp, color = Color.Gray)
+        Text(label, fontSize = 10.sp, color = AppTheme.colores.textoSuave)
         Text(valor, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = color)
     }
 }
 
 // ── Paso 0: Datos personales ──────────────────────────────────────────────────
+/**
+ * Activa el modo "cuarto adicional" y deja elegir a quién. Solo aparecen los
+ * inquilinos activos del propietario, agrupados por persona: quien ya alquila
+ * dos cuartos figura una sola vez.
+ */
+@Composable
+private fun SelectorInquilinoExistente(
+    esExistente: Boolean,
+    onCambiarModo: (Boolean) -> Unit,
+    estado: UiState<List<InquilinoSeleccionable>>,
+    elegido: InquilinoSeleccionable?,
+    onElegir: (InquilinoSeleccionable) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (esExistente) AppTheme.colores.doradoContenedor
+                             else AppTheme.colores.superficieTenue
+        ),
+        border = BorderStroke(1.dp, if (esExistente) WzAzul else AppTheme.colores.borde),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = esExistente,
+                    onCheckedChange = onCambiarModo,
+                    colors = CheckboxDefaults.colors(checkedColor = WzAzul)
+                )
+                Column(Modifier.weight(1f)) {
+                    Text("Inquilino existente", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text(
+                        "Alquílale otro cuarto a alguien ya registrado, sin volver a crearlo.",
+                        fontSize = 12.sp, color = AppTheme.colores.textoSuave
+                    )
+                }
+            }
+
+            if (esExistente) {
+                Spacer(Modifier.height(8.dp))
+                when (estado) {
+                    is UiState.Loading -> Box(
+                        Modifier.fillMaxWidth().padding(12.dp),
+                        contentAlignment = Alignment.Center
+                    ) { CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp) }
+
+                    is UiState.Error -> Text(estado.message, color = AppTheme.colores.error, fontSize = 12.sp)
+
+                    is UiState.Success -> {
+                        if (estado.data.isEmpty()) {
+                            Text(
+                                "Aún no tienes inquilinos activos. Desmarca la casilla para registrar uno nuevo.",
+                                fontSize = 12.sp, color = AppTheme.colores.textoSuave
+                            )
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                estado.data.forEach { inq ->
+                                    val activo = elegido?.idPersona == inq.idPersona
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth().clickable { onElegir(inq) },
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = if (activo) WzAzul.copy(alpha = 0.18f)
+                                                             else AppTheme.colores.superficie
+                                        ),
+                                        border = BorderStroke(
+                                            if (activo) 2.dp else 1.dp,
+                                            if (activo) WzAzul else AppTheme.colores.borde
+                                        ),
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            RadioButton(
+                                                selected = activo,
+                                                onClick = { onElegir(inq) },
+                                                colors = RadioButtonDefaults.colors(selectedColor = WzAzul)
+                                            )
+                                            Column(Modifier.weight(1f)) {
+                                                Text(inq.nombreCompleto, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                                Text(
+                                                    buildString {
+                                                        append("DNI ${inq.dni ?: "—"}")
+                                                        if (!inq.cuartos.isNullOrBlank()) {
+                                                            append(" · Cuarto(s) ${inq.cuartos}")
+                                                        }
+                                                    },
+                                                    fontSize = 11.sp, color = AppTheme.colores.textoMedio
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    else -> Unit
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun PasoDatos(
     nombre: String, onNombre: (String) -> Unit,
     apellidos: String, onApellidos: (String) -> Unit,
     dni: String, onDni: (String) -> Unit,
     celular: String, onCelular: (String) -> Unit,
-    email: String, onEmail: (String) -> Unit
+    email: String, onEmail: (String) -> Unit,
+    soloLectura: Boolean = false
 ) {
-    OutlinedTextField(nombre, onNombre, label = { Text("Nombre *") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-    OutlinedTextField(apellidos, onApellidos, label = { Text("Apellidos *") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+    OutlinedTextField(nombre, onNombre, label = { Text("Nombre *") }, singleLine = true, modifier = Modifier.fillMaxWidth(), readOnly = soloLectura, enabled = !soloLectura)
+    OutlinedTextField(apellidos, onApellidos, label = { Text("Apellidos *") }, singleLine = true, modifier = Modifier.fillMaxWidth(), readOnly = soloLectura, enabled = !soloLectura)
     OutlinedTextField(
         dni, onDni, label = { Text("DNI *") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         supportingText = { Text("${dni.length}/8") },
-        isError = dni.isNotEmpty() && dni.length != 8
+        isError = dni.isNotEmpty() && dni.length != 8,
+        readOnly = soloLectura, enabled = !soloLectura
     )
     OutlinedTextField(
         celular, onCelular, label = { Text("Celular *") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
@@ -300,7 +445,7 @@ private fun PasoContrato(
     if (fechaIngreso.isBlank()) {
         Text(
             "Si el inquilino entró en un mes anterior, elígela y se generarán las deudas pendientes de cada mes hasta hoy.",
-            fontSize = 12.sp, color = Color.Gray
+            fontSize = 12.sp, color = AppTheme.colores.textoSuave
         )
     } else {
         TextButton(onClick = { onFechaIngreso("") }) { Text("Quitar fecha de ingreso") }
@@ -377,16 +522,16 @@ private fun PasoGarantia(
         Button(
             onClick = { onElegir(true) },
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (garantiaPagada == true) WzVerde else Color.LightGray,
-                contentColor = if (garantiaPagada == true) Color.White else Color.DarkGray
+                containerColor = if (garantiaPagada == true) WzVerde else AppTheme.colores.bordeCampo,
+                contentColor = if (garantiaPagada == true) AppTheme.colores.textoSobreAcento else AppTheme.colores.textoMedio
             ),
             modifier = Modifier.weight(1f)
         ) { Text("Sí, pagó") }
         Button(
             onClick = { onElegir(false) },
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (garantiaPagada == false) WzNaranja else Color.LightGray,
-                contentColor = if (garantiaPagada == false) Color.White else Color.DarkGray
+                containerColor = if (garantiaPagada == false) WzNaranja else AppTheme.colores.bordeCampo,
+                contentColor = if (garantiaPagada == false) AppTheme.colores.textoSobreAcento else AppTheme.colores.textoMedio
             ),
             modifier = Modifier.weight(1f)
         ) { Text("No, aún no") }
@@ -402,7 +547,7 @@ private fun PasoGarantia(
             Spacer(Modifier.width(8.dp))
             Text(if (fechaEsperada.isBlank()) "Seleccionar fecha esperada *" else "Fecha esperada: $fechaEsperada")
         }
-        Text("Se enviará un recordatorio diario desde esa fecha hasta que pague.", fontSize = 12.sp, color = Color.Gray)
+        Text("Se enviará un recordatorio diario desde esa fecha hasta que pague.", fontSize = 12.sp, color = AppTheme.colores.textoSuave)
 
         if (showPicker) {
             val datePickerState = rememberDatePickerState()
@@ -437,16 +582,16 @@ private fun PasoServicios(
         Button(
             onClick = { onElegir(true) },
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (tieneServicio == true) WzAzul else Color.LightGray,
-                contentColor = if (tieneServicio == true) Color.White else Color.DarkGray
+                containerColor = if (tieneServicio == true) WzAzul else AppTheme.colores.bordeCampo,
+                contentColor = if (tieneServicio == true) AppTheme.colores.textoSobreAcento else AppTheme.colores.textoMedio
             ),
             modifier = Modifier.weight(1f)
         ) { Text("Sí") }
         Button(
             onClick = { onElegir(false) },
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (tieneServicio == false) WzAzul else Color.LightGray,
-                contentColor = if (tieneServicio == false) Color.White else Color.DarkGray
+                containerColor = if (tieneServicio == false) WzAzul else AppTheme.colores.bordeCampo,
+                contentColor = if (tieneServicio == false) AppTheme.colores.textoSobreAcento else AppTheme.colores.textoMedio
             ),
             modifier = Modifier.weight(1f)
         ) { Text("No") }
@@ -474,13 +619,13 @@ private fun PasoServicios(
         ) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(6.dp)); Text("Agregar servicio") }
 
         if (servicios.isEmpty()) {
-            Text("Agrega al menos un servicio o elige \"No\".", fontSize = 12.sp, color = Color.Gray)
+            Text("Agrega al menos un servicio o elige \"No\".", fontSize = 12.sp, color = AppTheme.colores.textoSuave)
         } else {
             servicios.forEachIndexed { idx, s ->
                 Card(
                     Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(1.dp, Color(0xFFE0E0E0)), shape = RoundedCornerShape(10.dp)
+                    colors = CardDefaults.cardColors(containerColor = AppTheme.colores.superficie),
+                    border = BorderStroke(1.dp, AppTheme.colores.borde), shape = RoundedCornerShape(10.dp)
                 ) {
                     Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
@@ -488,7 +633,7 @@ private fun PasoServicios(
                             Text("S/ ${"%.2f".format(s.monto)}", fontSize = 13.sp, color = WzVerde)
                         }
                         IconButton(onClick = { onQuitar(idx) }) {
-                            Icon(Icons.Default.Delete, "Quitar", tint = Color.Red)
+                            Icon(Icons.Default.Delete, "Quitar", tint = AppTheme.colores.error)
                         }
                     }
                 }

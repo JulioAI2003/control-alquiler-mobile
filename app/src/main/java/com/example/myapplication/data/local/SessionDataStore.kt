@@ -79,6 +79,26 @@ class SessionDataStore(private val context: Context) {
         context.dataStore.edit { it.clear() }
     }
 
+    // ── Apariencia (persistente, no se borra al cerrar sesión) ─────────────────
+
+    /**
+     * Preferencia de tema del usuario:
+     *  • `true`  → modo oscuro
+     *  • `false` → modo claro
+     *  • `null`  → aún no eligió: se sigue al ajuste del sistema.
+     *
+     * Vive en [prefsStore] (no en el store de sesión) porque es una preferencia
+     * del dispositivo: debe sobrevivir al cierre de sesión.
+     */
+    val temaOscuro: Flow<Boolean?> = context.prefsStore.data.map { it[KEY_TEMA_OSCURO] }
+
+    /** Guarda el tema elegido; `null` vuelve a seguir el ajuste del sistema. */
+    suspend fun guardarTemaOscuro(oscuro: Boolean?) {
+        context.prefsStore.edit { prefs ->
+            if (oscuro == null) prefs.remove(KEY_TEMA_OSCURO) else prefs[KEY_TEMA_OSCURO] = oscuro
+        }
+    }
+
     // ── Onboarding / indicaciones de ayuda (persistente por usuario) ────────────
 
     /** true si el usuario [userId] ya vio las indicaciones de ayuda. */
@@ -109,5 +129,6 @@ class SessionDataStore(private val context: Context) {
         val KEY_ID_ROL     = stringPreferencesKey("id_rol")
         val KEY_TIPO_AVISO = stringPreferencesKey("tipo_aviso")
         val KEY_HORA_NOTIF = stringPreferencesKey("hora_notificacion")
+        val KEY_TEMA_OSCURO = booleanPreferencesKey("tema_oscuro")
     }
 }

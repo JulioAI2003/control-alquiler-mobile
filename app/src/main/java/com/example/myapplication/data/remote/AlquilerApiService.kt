@@ -34,6 +34,23 @@ interface AlquilerApiService {
     @POST("mobile/inquilino/pagar-garantia")
     suspend fun pagarGarantia(@Body body: IdInquilinoRequest): PagoRegistradoResponse
 
+    // Edita nombre, apellidos, celular, DNI y correo. No afecta al contrato.
+    @PUT("mobile/inquilino/datos-personales")
+    suspend fun editarDatosPersonales(@Body body: EditarDatosPersonalesRequest): PagoRegistradoResponse
+
+    // Traslada al inquilino a otro cuarto (mismo endpoint que la web).
+    @POST("inquilino/cambiar-cuarto")
+    suspend fun cambiarCuarto(@Body body: CambiarCuartoRequest): PagoRegistradoResponse
+
+    // Inquilinos ya registrados, para alquilarles un cuarto adicional.
+    @GET("mobile/inquilinos/seleccionables")
+    suspend fun getInquilinosSeleccionables(): List<InquilinoSeleccionable>
+
+    // --- ESTADÍSTICAS (potencial de ingresos por piso) ---
+
+    @GET("mobile/estadisticas")
+    suspend fun getEstadisticas(): EstadisticasMobile
+
     // Contrato en PDF del inquilino (mismo endpoint que la web).
     // @Streaming evita que Retrofit cargue el PDF entero en memoria antes de tiempo.
     @Streaming

@@ -22,13 +22,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.myapplication.ui.theme.AppTheme
 import com.example.myapplication.data.local.SessionDataStore
 import com.example.myapplication.data.model.PosponerRequest
 import com.example.myapplication.data.remote.AlquilerApiClient
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
-private val PosponerAzul = Color(0xFF8A6A12)
+/** Dorado de marca. Composable para seguir el tema activo. */
+private val PosponerAzul: Color
+    @Composable get() = AppTheme.colores.dorado
 
 /**
  * Diálogo para posponer (aplazar) el recordatorio/alarma de un recibo concreto unos días,
@@ -88,7 +91,7 @@ fun PosponerRecordatorioDialog(
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = AppTheme.colores.superficie),
             elevation = CardDefaults.cardElevation(8.dp)
         ) {
             Column(Modifier.padding(24.dp)) {
@@ -104,18 +107,18 @@ fun PosponerRecordatorioDialog(
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
                         Text("Posponer recordatorio", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = PosponerAzul)
-                        Text(titulo, fontSize = 12.sp, color = Color.Gray, maxLines = 1)
+                        Text(titulo, fontSize = 12.sp, color = AppTheme.colores.textoSuave, maxLines = 1)
                     }
                 }
 
                 Spacer(Modifier.height(16.dp))
                 Text(
                     "Aplaza el aviso de este recibo sin cambiar su fecha real. El próximo mes mantiene su fecha.",
-                    fontSize = 13.sp, color = Color(0xFF555555), lineHeight = 18.sp
+                    fontSize = 13.sp, color = AppTheme.colores.textoMedio, lineHeight = 18.sp
                 )
 
                 Spacer(Modifier.height(20.dp))
-                Text("Aplazar:", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = Color.DarkGray)
+                Text("Aplazar:", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = AppTheme.colores.textoMedio)
                 Spacer(Modifier.height(10.dp))
 
                 // ── Opciones rápidas (chips) ────────────────────────────────
@@ -149,7 +152,7 @@ fun PosponerRecordatorioDialog(
                         CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.5.dp, color = PosponerAzul)
                     } else {
                         TextButton(onClick = onDismiss) {
-                            Text("Cancelar", color = Color.Gray, fontWeight = FontWeight.SemiBold)
+                            Text("Cancelar", color = AppTheme.colores.textoSuave, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -166,7 +169,7 @@ private fun ChipDias(texto: String, enabled: Boolean, modifier: Modifier = Modif
         enabled = enabled,
         modifier = modifier,
         shape = RoundedCornerShape(14.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White),
+        colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colores.botonNeutro, contentColor = AppTheme.colores.botonNeutroTexto),
         contentPadding = PaddingValues(vertical = 12.dp, horizontal = 4.dp)
     ) {
         Text(texto, fontSize = 13.sp, fontWeight = FontWeight.Bold)

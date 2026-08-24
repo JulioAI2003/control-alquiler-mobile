@@ -11,8 +11,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -24,6 +27,15 @@ class MyApplication : Application() {
 
     @Volatile var cachedToken: String? = null
         private set
+
+    /**
+     * Tema elegido por el usuario (`true` oscuro, `false` claro, `null` seguir al
+     * sistema). Se siembra de forma síncrona en [onCreate] y luego se mantiene
+     * al día con DataStore, para que la primera composición ya pinte el tema
+     * correcto y no haya un parpadeo claro→oscuro al abrir la app.
+     */
+    private val _temaOscuro = MutableStateFlow<Boolean?>(null)
+    val temaOscuro: StateFlow<Boolean?> = _temaOscuro.asStateFlow()
 
     // Emite un evento cuando el servidor rechaza el token (contraseña cambiada externamente).
     // MainActivity lo observa para navegar a Login automáticamente.
@@ -44,7 +56,11 @@ class MyApplication : Application() {
         runBlocking {
             val token = sessionDataStore.token.first()
             if (!token.isNullOrBlank()) cachedToken = token
+            _temaOscuro.value = sessionDataStore.temaOscuro.first()
         }
+
+        // Mantiene el tema sincronizado cuando el usuario lo cambia en Ajustes.
+        appScope.launch { sessionDataStore.temaOscuro.collect { _temaOscuro.value = it } }
 
         AlquilerApiClient.init(
             context        = this,

@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -15,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -65,7 +67,10 @@ class MainActivity : ComponentActivity() {
         val startDestination = if (!app.cachedToken.isNullOrBlank()) "dashboard" else "login"
 
         setContent {
-            MyApplicationTheme {
+            // Tema elegido en Ajustes; si nunca eligió, sigue al ajuste del sistema.
+            val temaOscuro by app.temaOscuro.collectAsStateWithLifecycle()
+
+            MyApplicationTheme(oscuro = temaOscuro ?: isSystemInDarkTheme()) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color    = MaterialTheme.colorScheme.background

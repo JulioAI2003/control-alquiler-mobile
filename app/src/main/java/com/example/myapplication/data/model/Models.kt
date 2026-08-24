@@ -135,7 +135,12 @@ data class InquilinoMobile(
     val nombre:                                                       String = "",
     val apellidos:                                                    String = "",
     val celular:                                                      String? = null,
+    val dni:                                                          String? = null,
+    val email:                                                        String? = null,
     @SerialName("nro_cuarto")              val nroCuarto:             Int = 0,
+    /** Precio mensual del cuarto: alimenta el total por piso en la app. */
+    val precio:                                                       String? = null,
+    @SerialName("id_piso")                 val idPiso:                String = "",
     val piso:                                                         String = "",
     val casa:                                                         String = "",
     val estado:                                                       String = "",
@@ -147,7 +152,92 @@ data class InquilinoMobile(
 
 @Serializable
 data class IdInquilinoRequest(
-    @SerialName("id_inquilino") val idInquilino: String
+    @SerialName("id_inquilino") val idInquilino: String,
+    /** true retira a la vez todos los cuartos que alquila esa misma persona. */
+    @SerialName("todos_los_cuartos") val todosLosCuartos: Boolean = false
+)
+
+/**
+ * Inquilino ya registrado, para el selector de "inquilino existente" al dar de
+ * alta un cuarto adicional. Se agrupa por persona, no por contrato.
+ */
+@Serializable
+data class InquilinoSeleccionable(
+    @SerialName("id_persona") val idPersona: String = "",
+    val nombre:                              String = "",
+    val apellidos:                           String = "",
+    val dni:                                 String? = null,
+    val celular:                             String? = null,
+    val email:                               String? = null,
+    /** Cuántos cuartos alquila hoy. */
+    val contratos:                           Int = 0,
+    /** Números de esos cuartos, ya formateados ("3, 7"). */
+    val cuartos:                             String? = null
+) {
+    val nombreCompleto: String get() = "$nombre $apellidos".trim()
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  ESTADÍSTICAS (SECCIÓN MOBILE)
+// ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Potencial de ingresos de un piso, calculado sobre el precio de sus cuartos.
+ * Siempre se cumple que `potencial = actual + muerto`.
+ */
+@Serializable
+data class EstadisticaPiso(
+    @SerialName("id_piso")            val idPiso:            String = "",
+    val piso:                                                String = "",
+    val casa:                                                String = "",
+    val cuartos:                                             Int = 0,
+    @SerialName("cuartos_alquilados") val cuartosAlquilados: Int = 0,
+    @SerialName("cuartos_libres")     val cuartosLibres:     Int = 0,
+    /** Lo que daría el piso entero si estuviera lleno. */
+    val potencial:                                           Double = 0.0,
+    /** Lo que genera hoy (cuartos alquilados). */
+    val actual:                                              Double = 0.0,
+    /** Lo que se deja de ganar por los cuartos vacíos. */
+    val muerto:                                              Double = 0.0
+)
+
+@Serializable
+data class EstadisticasMobile(
+    val potencial:                                           Double = 0.0,
+    val actual:                                              Double = 0.0,
+    val muerto:                                              Double = 0.0,
+    val cuartos:                                             Int = 0,
+    @SerialName("cuartos_alquilados") val cuartosAlquilados: Int = 0,
+    @SerialName("porPiso")            val porPiso:           List<EstadisticaPiso> = emptyList()
+)
+
+/**
+ * Traslado de un inquilino a otro cuarto (mismo endpoint que usa la web).
+ *
+ * [aplicarPrecioNuevo] ajusta el recibo pendiente al precio del cuarto de destino.
+ * Los recibos ya pagados nunca se tocan.
+ */
+@Serializable
+data class CambiarCuartoRequest(
+    @SerialName("id_inquilino")        val idInquilino:        String,
+    @SerialName("id_cuarto_nuevo")     val idCuartoNuevo:      String,
+    @SerialName("aplicar_precio_nuevo") val aplicarPrecioNuevo: Boolean
+)
+
+/**
+ * Edición de los datos personales del inquilino (tabla `persona`).
+ *
+ * No toca el contrato (cuarto, fechas ni montos): para eso el backend tiene otro
+ * endpoint. El email viaja siempre, y vacío significa "borrar el correo".
+ */
+@Serializable
+data class EditarDatosPersonalesRequest(
+    @SerialName("id_inquilino") val idInquilino: String,
+    val nombre:                                  String,
+    val apellidos:                               String,
+    val celular:                                 String,
+    val dni:                                     String,
+    val email:                                   String
 )
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -185,7 +275,11 @@ data class RegistrarInquilinoRequest(
     @SerialName("fecha_esperada_garantia") val fechaEsperadaGarantia: String? = null,
     // Fecha de ingreso real (YYYY-MM-DD), opcional. Si es de un mes anterior, el backend
     // genera una deuda pendiente por cada mes desde el ingreso hasta el actual.
-    @SerialName("fecha_ingreso")           val fechaIngreso:         String? = null
+    @SerialName("fecha_ingreso")           val fechaIngreso:         String? = null,
+    // Cuarto adicional para alguien que ya es inquilino: el backend reutiliza su
+    // persona en vez de rechazar el DNI repetido.
+    @SerialName("inquilino_existente")     val inquilinoExistente:   Boolean = false,
+    @SerialName("id_persona_existente")    val idPersonaExistente:   String? = null
 )
 
 @Serializable

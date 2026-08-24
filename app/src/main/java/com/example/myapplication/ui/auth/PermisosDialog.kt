@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.example.myapplication.ui.theme.AppTheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,8 +38,11 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 
-private val PermAzul = Color(0xFF8A6A12)
-private val PermVerde = Color(0xFF2E7D32)
+// Acentos del diálogo. Composables para seguir el tema activo.
+private val PermAzul: Color
+    @Composable get() = AppTheme.colores.dorado
+private val PermVerde: Color
+    @Composable get() = AppTheme.colores.exitoFuerte
 
 // ── Chequeos de permisos ─────────────────────────────────────────────────────
 
@@ -121,7 +125,7 @@ fun PermisosDialog(onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = AppTheme.colores.superficie),
             elevation = CardDefaults.cardElevation(8.dp)
         ) {
             Column(Modifier.padding(24.dp).verticalScroll(rememberScrollState())) {
@@ -135,7 +139,7 @@ fun PermisosDialog(onDismiss: () -> Unit) {
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
                         Text("Permisos necesarios", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = PermAzul)
-                        Text("Para recibir tus cobros y pagos a tiempo", fontSize = 12.sp, color = Color.Gray)
+                        Text("Para recibir tus cobros y pagos a tiempo", fontSize = 12.sp, color = AppTheme.colores.textoSuave)
                     }
                 }
 
@@ -199,7 +203,7 @@ fun PermisosDialog(onDismiss: () -> Unit) {
                         "ajustes de batería de la app, \"Inicio automático\" o \"Sin restricciones\", y en " +
                         "\"Otros permisos\": \"Mostrar en pantalla de bloqueo\" y \"Abrir nuevas ventanas en " +
                         "segundo plano\". Sin esto, el fabricante puede seguir pausando la app y silenciando la alarma.",
-                    fontSize = 11.sp, color = Color.Gray, lineHeight = 15.sp
+                    fontSize = 11.sp, color = AppTheme.colores.textoSuave, lineHeight = 15.sp
                 )
                 Spacer(Modifier.height(4.dp))
                 TextButton(
@@ -213,8 +217,9 @@ fun PermisosDialog(onDismiss: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (todoOk) PermVerde else Color.Black,
-                        contentColor = Color.White
+                        containerColor = if (todoOk) PermVerde else AppTheme.colores.botonNeutro,
+                        contentColor = if (todoOk) AppTheme.colores.textoSobreAcento
+                                       else AppTheme.colores.botonNeutroTexto
                     )
                 ) { Text(if (todoOk) "¡Listo! Continuar" else "Continuar") }
             }
@@ -230,13 +235,13 @@ private fun PermisoFila(titulo: String, descripcion: String, concedido: Boolean,
     ) {
         Icon(
             Icons.Default.CheckCircle, null,
-            tint = if (concedido) PermVerde else Color(0xFFBDBDBD),
+            tint = if (concedido) PermVerde else AppTheme.colores.bordeTenue,
             modifier = Modifier.size(22.dp)
         )
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(titulo, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Text(descripcion, fontSize = 11.sp, color = Color.Gray, lineHeight = 15.sp)
+            Text(descripcion, fontSize = 11.sp, color = AppTheme.colores.textoSuave, lineHeight = 15.sp)
         }
         Spacer(Modifier.width(8.dp))
         if (concedido) {
@@ -245,7 +250,7 @@ private fun PermisoFila(titulo: String, descripcion: String, concedido: Boolean,
             Button(
                 onClick = onConceder,
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White),
+                colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colores.botonNeutro, contentColor = AppTheme.colores.botonNeutroTexto),
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
             ) { Text("Conceder", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
         }

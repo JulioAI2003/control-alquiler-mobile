@@ -37,6 +37,22 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
     private val _retiroState = MutableStateFlow<UiState<String>>(UiState.Idle)
     val retiroState: StateFlow<UiState<String>> = _retiroState.asStateFlow()
 
+    // Edición de datos personales del inquilino (nombre, apellidos, celular, DNI, correo).
+    private val _editarDatosState = MutableStateFlow<UiState<String>>(UiState.Idle)
+    val editarDatosState: StateFlow<UiState<String>> = _editarDatosState.asStateFlow()
+
+    // Inquilinos ya registrados, para alquilarles un cuarto adicional.
+    private val _seleccionablesState = MutableStateFlow<UiState<List<InquilinoSeleccionable>>>(UiState.Idle)
+    val seleccionablesState: StateFlow<UiState<List<InquilinoSeleccionable>>> = _seleccionablesState.asStateFlow()
+
+    // Estadísticas: potencial de ingresos por piso.
+    private val _estadisticasState = MutableStateFlow<UiState<EstadisticasMobile>>(UiState.Idle)
+    val estadisticasState: StateFlow<UiState<EstadisticasMobile>> = _estadisticasState.asStateFlow()
+
+    // Traslado del inquilino a otro cuarto.
+    private val _trasladoState = MutableStateFlow<UiState<String>>(UiState.Idle)
+    val trasladoState: StateFlow<UiState<String>> = _trasladoState.asStateFlow()
+
     // Contrato PDF del inquilino: Success lleva el Uri del archivo ya guardado.
     private val _contratoState = MutableStateFlow<UiState<Uri>>(UiState.Idle)
     val contratoState: StateFlow<UiState<Uri>> = _contratoState.asStateFlow()
@@ -176,11 +192,11 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
         }
     }
 
-    fun iniciarRetiro(idInquilino: String) {
+    fun iniciarRetiro(idInquilino: String, todosLosCuartos: Boolean = false) {
         viewModelScope.launch {
             _retiroState.value = UiState.Loading
             try {
-                AlquilerApiClient.service.iniciarRetiro(IdInquilinoRequest(idInquilino))
+                AlquilerApiClient.service.iniciarRetiro(IdInquilinoRequest(idInquilino, todosLosCuartos))
                 _retiroState.value = UiState.Success("Retiro iniciado")
                 cargarInquilinos()
             } catch (e: Exception) {
@@ -203,11 +219,103 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
         }
     }
 
-    fun cancelarRetiro(idInquilino: String) {
+    /**
+     * Guarda los datos personales editados y recarga la lista para que la tarjeta
+     * muestre el nombre nuevo sin que el usuario tenga que refrescar a mano.
+     */
+    fun editarDatosPersonales(
+        idInquilino: String,
+        nombre:      String,
+        apellidos:   String,
+        celular:     String,
+        dni:         String,
+        email:       String
+    ) {
+        viewModelScope.launch {
+            _editarDatosState.value = UiState.Loading
+            try {
+                AlquilerApiClient.service.editarDatosPersonales(
+                    EditarDatosPersonalesRequest(
+                        idInquilino = idInquilino,
+                        nombre      = nombre.trim(),
+                        apellidos   = apellidos.trim(),
+                        celular     = celular.trim(),
+                        dni         = dni.trim(),
+                        email       = email.trim()
+                    )
+                )
+                _editarDatosState.value = UiState.Success("Datos actualizados")
+                cargarInquilinos()
+            } catch (e: Exception) {
+                _editarDatosState.value =
+                    UiState.Error(NetworkError.toUserMessage(e, "Error al actualizar los datos"))
+            }
+        }
+    }
+
+    fun resetEditarDatosState() { _editarDatosState.value = UiState.Idle }
+
+    /**
+     * Traslada al inquilino a otro cuarto.
+     *
+     * Recarga inquilinos, cuartos libres y pagos porque el traslado mueve las tres
+     * cosas a la vez: el inquilino cambia de habitación, se libera el cuarto viejo
+     * y se ocupa el nuevo, y si [aplicarPrecioNuevo] es true cambia el recibo.
+     */
+    fun trasladarInquilino(idInquilino: String, idCuartoNuevo: String, aplicarPrecioNuevo: Boolean) {
+        viewModelScope.launch {
+            _trasladoState.value = UiState.Loading
+            try {
+                AlquilerApiClient.service.cambiarCuarto(
+                    CambiarCuartoRequest(
+                        idInquilino        = idInquilino,
+                        idCuartoNuevo      = idCuartoNuevo,
+                        aplicarPrecioNuevo = aplicarPrecioNuevo
+                    )
+                )
+                _trasladoState.value = UiState.Success("Inquilino trasladado")
+                cargarInquilinos()
+                cargarCuartosLibres()
+                cargarPagos()
+            } catch (e: Exception) {
+                _trasladoState.value =
+                    UiState.Error(NetworkError.toUserMessage(e, "Error al trasladar al inquilino"))
+            }
+        }
+    }
+
+    fun resetTrasladoState() { _trasladoState.value = UiState.Idle }
+
+    fun cargarInquilinosSeleccionables() {
+        viewModelScope.launch {
+            _seleccionablesState.value = UiState.Loading
+            try {
+                _seleccionablesState.value =
+                    UiState.Success(AlquilerApiClient.service.getInquilinosSeleccionables())
+            } catch (e: Exception) {
+                _seleccionablesState.value =
+                    UiState.Error(NetworkError.toUserMessage(e, "Error al cargar inquilinos"))
+            }
+        }
+    }
+
+    fun cargarEstadisticas() {
+        viewModelScope.launch {
+            _estadisticasState.value = UiState.Loading
+            try {
+                _estadisticasState.value = UiState.Success(AlquilerApiClient.service.getEstadisticas())
+            } catch (e: Exception) {
+                _estadisticasState.value =
+                    UiState.Error(NetworkError.toUserMessage(e, "Error al cargar estadísticas"))
+            }
+        }
+    }
+
+    fun cancelarRetiro(idInquilino: String, todosLosCuartos: Boolean = false) {
         viewModelScope.launch {
             _retiroState.value = UiState.Loading
             try {
-                AlquilerApiClient.service.cancelarRetiro(IdInquilinoRequest(idInquilino))
+                AlquilerApiClient.service.cancelarRetiro(IdInquilinoRequest(idInquilino, todosLosCuartos))
                 _retiroState.value = UiState.Success("Retiro cancelado")
                 cargarInquilinos()
             } catch (e: Exception) {
@@ -274,7 +382,9 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
         nombre: String, apellidos: String, dni: String, celular: String, email: String?,
         fechaPago: Int, diaLimpieza: String, descripcion: String?,
         esnuevo: Boolean, garantiaPagada: Boolean, fechaEsperadaGarantia: String?,
-        servicios: List<ServicioNuevo>, fechaIngreso: String? = null
+        servicios: List<ServicioNuevo>, fechaIngreso: String? = null,
+        // Cuarto adicional: reutiliza la persona en vez de crearla de nuevo.
+        inquilinoExistente: Boolean = false, idPersonaExistente: String? = null
     ) {
         viewModelScope.launch {
             _registrarInquilinoState.value = UiState.Loading
@@ -287,7 +397,9 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
                         email = email, fechaPago = fechaPago, diaLimpieza = diaLimpieza,
                         descripcion = descripcion, esnuevo = esnuevo,
                         garantiaPagada = garantiaPagada, fechaEsperadaGarantia = fechaEsperadaGarantia,
-                        fechaIngreso = fechaIngreso
+                        fechaIngreso = fechaIngreso,
+                        inquilinoExistente = inquilinoExistente,
+                        idPersonaExistente = idPersonaExistente
                     )
                 )
                 val idInquilino = resp.inquilino?.idInquilino

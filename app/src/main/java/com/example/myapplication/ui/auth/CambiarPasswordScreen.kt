@@ -21,6 +21,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.myapplication.ui.theme.AppTheme
 import com.example.myapplication.MyApplication
 import com.example.myapplication.data.model.CambiarPasswordRequest
 import com.example.myapplication.data.model.UiState
@@ -137,9 +138,9 @@ fun CambiarPasswordScreen(onBack: () -> Unit) {
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF8A6A12),
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
+                    containerColor = AppTheme.colores.dorado,
+                    titleContentColor = AppTheme.colores.textoSobreAcento,
+                    navigationIconContentColor = AppTheme.colores.textoSobreAcento
                 )
             )
         }
@@ -219,10 +220,10 @@ fun CambiarPasswordScreen(onBack: () -> Unit) {
                         && passwordNuevo == passwordConfirm
                         && state !is UiState.Loading,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8A6A12))
+                colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colores.dorado)
             ) {
                 if (state is UiState.Loading) {
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                    CircularProgressIndicator(color = AppTheme.colores.textoSobreAcento, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                 } else {
                     Text("Guardar cambios", fontWeight = FontWeight.Bold)
                 }
