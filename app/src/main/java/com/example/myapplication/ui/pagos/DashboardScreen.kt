@@ -1119,80 +1119,17 @@ fun SeccionInquilinos(vm: PagosViewModel) {
         if (filtroNombre.isBlank()) lista
         else lista.filter { "${it.nombre} ${it.apellidos}".contains(filtroNombre, ignoreCase = true) }
     }
-    // Suma de alquileres de lo que se está mostrando.
-    val totalAlquileres = filtrados?.sumOf { it.precio?.aMontoOrNull() ?: 0.0 } ?: 0.0
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         EncabezadoLista("Inquilinos activos", total = inquilinos?.size, visibles = filtrados?.size)
         Spacer(Modifier.height(8.dp))
 
         // ── Filtro por piso ──
-        if (pisos.size > 1) {
-            Row(
-                Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilterChip(
-                    selected = filtroPiso == null,
-                    onClick  = { filtroPiso = null },
-                    label    = { Text("Todos") },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = AppTheme.colores.doradoContenedor,
-                        selectedLabelColor     = AppTheme.colores.doradoContenedorTexto
-                    )
-                )
-                pisos.forEach { p ->
-                    FilterChip(
-                        selected = filtroPiso == p.idPiso,
-                        onClick  = { filtroPiso = if (filtroPiso == p.idPiso) null else p.idPiso },
-                        label    = { Text(p.etiqueta) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = AppTheme.colores.doradoContenedor,
-                            selectedLabelColor     = AppTheme.colores.doradoContenedorTexto
-                        )
-                    )
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-        }
+        FiltroPisos(pisos, filtroPiso) { filtroPiso = it }
+        if (pisos.size > 1) Spacer(Modifier.height(8.dp))
 
-        // ── Total de alquileres de lo mostrado ──
-        if (filtrados != null && filtrados.isNotEmpty()) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = AppTheme.colores.doradoContenedor),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Row(
-                    Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Default.Payments, null, tint = AzulPrimario, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            if (filtroPiso == null) "Total de alquileres"
-                            else "Total del piso seleccionado",
-                            fontSize = 11.sp,
-                            color = AppTheme.colores.doradoContenedorTexto
-                        )
-                        Text(
-                            "S/ ${"%.2f".format(totalAlquileres)}",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 20.sp,
-                            color = AppTheme.colores.doradoContenedorTexto
-                        )
-                    }
-                    Text(
-                        "${filtrados.size} inquilino(s)",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = AppTheme.colores.doradoContenedorTexto
-                    )
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-        }
+        // El total en soles por piso vive en la sección Estadísticas: aquí duplicaba
+        // esa información y restaba espacio a la lista, que es lo que se viene a ver.
         OutlinedTextField(
             value = filtroNombre,
             onValueChange = { filtroNombre = it },
@@ -1434,13 +1371,33 @@ fun SeccionCuartosLibres(vm: PagosViewModel) {
     var cuartoSeleccionado by remember { mutableStateOf<CuartoLibre?>(null) }
     var cuartoAAlquilar by remember { mutableStateOf<CuartoLibre?>(null) }
     var mensajeExito by remember { mutableStateOf<String?>(null) }
+    var filtroPiso by remember { mutableStateOf<String?>(null) }
 
     val isRefreshing = state is UiState.Loading
     val pullState = rememberPullToRefreshState()
 
+    // Lista cargada y su filtrado por piso: alimentan el contador y la lista, así
+    // que se calculan fuera del `when` para que no puedan discrepar.
+    val cuartos = (state as? UiState.Success)?.data
+    val pisos = remember(cuartos) {
+        cuartos.orEmpty()
+            .map { PisoFiltro(it.idPiso, "${it.casa} · ${it.piso}") }
+            .distinctBy { it.idPiso }
+    }
+    // Si se alquila el último cuarto libre de un piso, ese piso desaparece de la
+    // lista y el filtro vuelve solo a "Todos".
+    LaunchedEffect(pisos) {
+        if (filtroPiso != null && pisos.none { it.idPiso == filtroPiso }) filtroPiso = null
+    }
+    val visibles = cuartos?.filter { filtroPiso == null || it.idPiso == filtroPiso }
+
     Column(Modifier.fillMaxSize().padding(16.dp)) {
-        EncabezadoLista("Cuartos disponibles", total = (state as? UiState.Success)?.data?.size)
-        Spacer(Modifier.height(12.dp))
+        EncabezadoLista("Cuartos disponibles", total = cuartos?.size, visibles = visibles?.size)
+        Spacer(Modifier.height(8.dp))
+
+        FiltroPisos(pisos, filtroPiso) { filtroPiso = it }
+        if (pisos.size > 1) Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(4.dp))
         PullToRefreshBox(
             isRefreshing = isRefreshing,
             onRefresh    = { vm.cargarCuartosLibres() },
@@ -1450,7 +1407,8 @@ fun SeccionCuartosLibres(vm: PagosViewModel) {
         ) {
             when (val s = state) {
                 is UiState.Success -> {
-                    if (s.data.isEmpty()) {
+                    val lista = visibles.orEmpty()
+                    if (lista.isEmpty()) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(
@@ -1461,14 +1419,16 @@ fun SeccionCuartosLibres(vm: PagosViewModel) {
                                 )
                                 Spacer(Modifier.height(12.dp))
                                 Text(
-                                    "No hay cuartos libres",
+                                    if (s.data.isEmpty()) "No hay cuartos libres"
+                                    else "Este piso no tiene cuartos libres",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 18.sp,
                                     color = AppTheme.colores.exito
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 Text(
-                                    "¡Todos los cuartos están ocupados!",
+                                    if (s.data.isEmpty()) "¡Todos los cuartos están ocupados!"
+                                    else "Prueba con otro piso o quita el filtro.",
                                     fontSize = 14.sp,
                                     color = AppTheme.colores.textoSuave
                                 )
@@ -1479,7 +1439,7 @@ fun SeccionCuartosLibres(vm: PagosViewModel) {
                             modifier = Modifier.fillMaxSize(),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            itemsIndexed(s.data, key = { _, it -> it.idCuarto }) { index, cuarto ->
+                            itemsIndexed(lista, key = { _, it -> it.idCuarto }) { index, cuarto ->
                                 Card(
                                     modifier = Modifier.fillMaxWidth().appear(index).bounceClick { cuartoSeleccionado = cuarto },
                                     colors = CardDefaults.cardColors(containerColor = coloresCuartoLibre().fondo),

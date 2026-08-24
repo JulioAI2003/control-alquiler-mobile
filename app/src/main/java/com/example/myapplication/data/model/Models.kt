@@ -138,8 +138,6 @@ data class InquilinoMobile(
     val dni:                                                          String? = null,
     val email:                                                        String? = null,
     @SerialName("nro_cuarto")              val nroCuarto:             Int = 0,
-    /** Precio mensual del cuarto: alimenta el total por piso en la app. */
-    val precio:                                                       String? = null,
     @SerialName("id_piso")                 val idPiso:                String = "",
     val piso:                                                         String = "",
     val casa:                                                         String = "",
@@ -251,6 +249,7 @@ data class CuartoLibre(
     val precio:                                String? = null,
     val descripcion:                           String? = null,
     val garantia:                              String? = null,
+    @SerialName("id_piso")    val idPiso:      String = "",
     val piso:                                  String = "",
     val casa:                                  String = ""
 )

@@ -5,6 +5,9 @@ package com.example.myapplication.ui.pagos
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,6 +15,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -79,6 +84,51 @@ fun OpcionRetiro(seleccionada: Boolean, titulo: String, detalle: String, onClick
         Column(Modifier.weight(1f)) {
             Text(titulo, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             Text(detalle, fontSize = 12.sp, color = AppTheme.colores.textoSuave)
+        }
+    }
+}
+
+/**
+ * Fila de chips para filtrar una lista por piso. Devuelve el id del piso elegido
+ * (null = todos). Se oculta sola cuando hay un único piso: filtrar entre una
+ * opción no aporta nada y roba altura a la lista.
+ *
+ * La usan Inquilinos y Cuartos Libres, que solo se diferencian en de dónde salen
+ * los pisos.
+ */
+@Composable
+fun FiltroPisos(
+    pisos: List<PisoFiltro>,
+    seleccionado: String?,
+    onSeleccionar: (String?) -> Unit
+) {
+    if (pisos.size <= 1) return
+
+    Row(
+        Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        val colores = @Composable {
+            FilterChipDefaults.filterChipColors(
+                selectedContainerColor = AppTheme.colores.doradoContenedor,
+                selectedLabelColor     = AppTheme.colores.doradoContenedorTexto
+            )
+        }
+        FilterChip(
+            selected = seleccionado == null,
+            onClick  = { onSeleccionar(null) },
+            label    = { Text("Todos") },
+            colors   = colores()
+        )
+        pisos.forEach { p ->
+            FilterChip(
+                selected = seleccionado == p.idPiso,
+                // Volver a tocar el piso activo lo deselecciona: un toque menos que
+                // ir hasta "Todos".
+                onClick  = { onSeleccionar(if (seleccionado == p.idPiso) null else p.idPiso) },
+                label    = { Text(p.etiqueta) },
+                colors   = colores()
+            )
         }
     }
 }
