@@ -538,7 +538,7 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
 // de la vista principal.
 private val SECCIONES_CON_TUTORIAL = setOf(
     "pagados", "inquilinos", "cuartos_todos", "servicios", "servicios_pagados", "ajustes",
-    "admin_pagos", "admin_pagos_realizados"
+    "estadisticas", "admin_pagos", "admin_pagos_realizados"
 )
 
 // Devuelve el tutorial correspondiente a la VISTA actual. Las vistas principales
@@ -553,11 +553,13 @@ private fun pasosDeAyuda(screen: String, rol: String): List<CoachStep> {
             repasar
         )
         "inquilinos" -> listOf(
-            CoachStep(null, "Inquilinos", "Lista de tus inquilinos activos. Toca una tarjeta para ver su detalle, contactarlo por llamada/WhatsApp o iniciar su retiro."),
+            CoachStep(null, "Inquilinos", "Lista de tus inquilinos activos. Si tienes varios pisos, los botones de arriba filtran la lista, y el número junto al título te dice cuántos estás viendo."),
+            CoachStep(null, "Detalle del inquilino", "Toca una tarjeta para ver su detalle: ahí puedes contactarlo por llamada o WhatsApp, descargar su contrato, editar sus datos personales, trasladarlo a otro cuarto o iniciar su retiro."),
+            CoachStep(null, "Editar y trasladar", "\"Editar datos personales\" cambia nombre, apellidos, DNI, celular y correo sin tocar el contrato. \"Trasladar a otro cuarto\" lo mueve a un cuarto libre y puede ajustar el recibo pendiente al precio del cuarto nuevo."),
             repasar
         )
         "cuartos_todos" -> listOf(
-            CoachStep(null, "Cuartos", "Todos tus cuartos en un solo lugar. Toca uno para ver su detalle y editar su número, precio, garantía o descripción."),
+            CoachStep(null, "Cuartos", "Todos tus cuartos en un solo lugar. Toca uno para ver su detalle y editar su número, precio, garantía o descripción. Los botones de arriba filtran entre alquilados y sin alquilar, y cada uno lleva su conteo."),
             repasar
         )
         "servicios" -> listOf(
@@ -572,6 +574,12 @@ private fun pasosDeAyuda(screen: String, rol: String): List<CoachStep> {
         )
         "ajustes" -> listOf(
             CoachStep(null, "Ajustes", "Cambia entre modo claro y modo oscuro, y elige cómo recibir los avisos: notificación silenciosa o alarma con sonido. También defines a qué hora del día llega el recordatorio diario de cobros y servicios pendientes."),
+            repasar
+        )
+        "estadisticas" -> listOf(
+            CoachStep(null, "Estadísticas", "Cuánto rinden tus cuartos. Las tres cifras salen del precio de cada cuarto (no de lo ya cobrado), y siempre cuadran entre sí: lo potencial es la suma de lo actual más lo muerto."),
+            CoachStep(null, "Las tres cifras", "\"Ingresos actuales\" es lo que generan hoy los cuartos alquilados. \"Ingresos potenciales\" es lo que darían todos si estuvieran ocupados. \"Ingresos muertos\" es lo que dejas de ganar por los cuartos vacíos."),
+            CoachStep(null, "Aprovechamiento y pisos", "La barra muestra qué parte del potencial estás cobrando. Más abajo tienes el desglose por piso: los que tienen cuartos vacíos se marcan en naranja, para ver de un vistazo dónde puedes mejorar."),
             repasar
         )
         "admin_pagos" -> listOf(
@@ -607,7 +615,7 @@ private fun pasosDeAyuda(screen: String, rol: String): List<CoachStep> {
             CoachStep(null, "Pago por partes", "Al registrar un cobro puedes escribir un monto menor al total: el inquilino abona una parte y eliges la fecha en que se compromete a pagar el resto. El recibo se marca como \"Pago por partes\" y su deuda se actualiza sola."),
             CoachStep(null, "Botón \"PP\"", "En el detalle del inquilino, el botón circular \"PP\" (esquina superior derecha) lista los pagos por partes de ese recibo y te deja revertir el último si te equivocaste."),
             CoachStep("tab_1", "Servicios", "Servicios de la casa (luz, agua, etc.). Tiene dos sub-pestañas: \"Pendientes\" y \"Conceptos\"; al abrir Servicios te explico cada una."),
-            CoachStep("tab_2", "Cuartos Libres", "Cuartos disponibles. Toca uno para ver su detalle y usa \"Alquilar\" para registrar un inquilino."),
+            CoachStep("tab_2", "Cuartos Libres", "Cuartos disponibles. Si tienes varios pisos puedes filtrarlos para ver qué hay libre en cada uno. Toca uno para ver su detalle y usa \"Alquilar\" para registrar un inquilino; ahí puedes marcar \"Inquilino existente\" si le alquilas un cuarto más a alguien que ya tienes registrado."),
             repasar
         )
     }
