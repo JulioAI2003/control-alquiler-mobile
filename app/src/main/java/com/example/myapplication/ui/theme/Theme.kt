@@ -22,10 +22,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.Density
 import androidx.core.view.WindowCompat
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -307,10 +310,17 @@ object AppTheme {
  * @param oscuro si es `true` se usa la paleta oscura. Por defecto sigue al
  *   ajuste del sistema; las pantallas que dependen de la preferencia guardada
  *   por el usuario deben pasarla explícitamente.
+ * @param escalaTexto multiplicador del tamaño de letra elegido en Ajustes
+ *   (1f = normal). Se aplica una sola vez aquí, sobre el `fontScale` del
+ *   sistema, de modo que todos los tamaños en `sp` de la app crecen o se
+ *   encogen juntos y ninguna pantalla necesita saber que existe este ajuste.
+ *   Solo afecta al texto: las medidas en `dp` no cambian, así que la
+ *   distribución de las pantallas se mantiene.
  */
 @Composable
 fun MyApplicationTheme(
     oscuro: Boolean = isSystemInDarkTheme(),
+    escalaTexto: Float = 1f,
     content: @Composable () -> Unit
 ) {
     val colores = if (oscuro) ColoresOscuros else ColoresClaros
@@ -335,7 +345,17 @@ fun MyApplicationTheme(
         }
     }
 
-    CompositionLocalProvider(LocalAppColors provides colores) {
+    // El ajuste del usuario multiplica (no reemplaza) al del sistema: quien ya
+    // tenga la letra grande en Android conserva ese tamaño como punto de partida.
+    val densidadSistema = LocalDensity.current
+    val densidad = remember(densidadSistema, escalaTexto) {
+        Density(densidadSistema.density, densidadSistema.fontScale * escalaTexto)
+    }
+
+    CompositionLocalProvider(
+        LocalAppColors provides colores,
+        LocalDensity   provides densidad
+    ) {
         MaterialTheme(
             colorScheme = if (oscuro) DarkColorScheme else LightColorScheme,
             content     = content

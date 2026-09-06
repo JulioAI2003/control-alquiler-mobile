@@ -104,6 +104,20 @@ private fun ServicioCasa.colores(): EstadoColores = when {
 private val AzulPrimario: Color
     @Composable get() = AppTheme.colores.dorado
 
+/**
+ * Niveles de tamaño de letra que se ofrecen en Ajustes: multiplicador → nombre.
+ *
+ * El rango se queda en 85 %–130 % a propósito. El multiplicador solo afecta a los
+ * `sp` (el texto), no a los `dp` (los recuadros), así que pasado ese punto los
+ * textos largos empiezan a desbordar las tarjetas en pantallas angostas.
+ */
+private val NIVELES_TEXTO = listOf(
+    0.85f to "Pequeña",
+    1.00f to "Normal",
+    1.15f to "Grande",
+    1.30f to "Muy grande",
+)
+
 /** Convierte una hora guardada en "HH:mm" (24h) a formato 12 horas con AM/PM (ej. "8:00 a. m."). */
 private fun horaEn12h(hm: String): String {
     val partes = hm.split(":")
@@ -237,6 +251,13 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
                     NavigationDrawerItem(
+                        icon = { Icon(Icons.Default.CleaningServices, null) },
+                        label = { Text("Limpieza") },
+                        selected = currentScreen == "limpieza",
+                        onClick = { currentScreen = "limpieza"; scope.launch { drawerState.close() } },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
+                    NavigationDrawerItem(
                         icon = { Icon(Icons.Default.BarChart, null) },
                         label = { Text("Estadísticas") },
                         selected = currentScreen == "estadisticas",
@@ -357,7 +378,7 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
             "servicios_pagados" -> "Servicios Pagados"; "cuartos" -> "Cuartos Libres"; "cuartos_todos" -> "Cuartos"
             "admin_usuarios" -> "Usuarios"; "admin_pagos" -> "Pagos Pendientes"
             "admin_pagos_realizados" -> "Pagos Registrados"; "ajustes" -> "Ajustes"
-            "estadisticas" -> "Estadísticas"
+            "estadisticas" -> "Estadísticas"; "limpieza" -> "Limpieza"
             "individual_ingresos" -> "Ingresos"; "individual_gastos" -> "Gastos"; "individual_resumen" -> "Resumen"
             else -> "Inquilinos"
         }
@@ -421,6 +442,7 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                     "cuartos"        -> SeccionCuartosLibres(vm)
                     "cuartos_todos"  -> SeccionCuartos(vm)
                     "estadisticas"   -> SeccionEstadisticas(vm)
+                    "limpieza"       -> SeccionLimpieza(vm)
                     "servicios"          -> SeccionServicios(vm, onPagarClick = { servicioAConfirmar = it })
                     "servicios_pagados"  -> SeccionServiciosPagados(vm)
                     "admin_usuarios"         -> SeccionAdminUsuarios(vm)
@@ -537,7 +559,7 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
 // Secciones (abiertas desde el menú) que tienen su propio tutorial, distinto del
 // de la vista principal.
 private val SECCIONES_CON_TUTORIAL = setOf(
-    "pagados", "inquilinos", "cuartos_todos", "servicios", "servicios_pagados", "ajustes",
+    "pagados", "inquilinos", "cuartos_todos", "servicios", "servicios_pagados", "ajustes", "limpieza",
     "estadisticas", "admin_pagos", "admin_pagos_realizados"
 )
 
@@ -572,8 +594,13 @@ private fun pasosDeAyuda(screen: String, rol: String): List<CoachStep> {
             CoachStep(null, "Servicios Pagados", "Historial de los servicios de la casa que ya pagaste (luz, agua, etc.). Puedes revertir un pago si te equivocaste."),
             repasar
         )
+        "limpieza" -> listOf(
+            CoachStep(null, "Horario de limpieza", "Cada piso reparte los siete días de la semana entre sus inquilinos: uno limpia cada día. Aquí ves de un vistazo quién tiene cada día y qué días están libres."),
+            CoachStep(null, "Cambiar un día", "Toca a un inquilino para asignarle otro día. Los días que ya tiene alguien de ese mismo piso aparecen bloqueados, con el nombre de quien lo ocupa."),
+            CoachStep(null, "Conflictos", "Un día marcado en rojo tiene más de un inquilino asignado. Suele venir de datos antiguos, o de un piso con más de siete cuartos ocupados. Toca a cualquiera de ellos para moverlo a un día libre."),
+        )
         "ajustes" -> listOf(
-            CoachStep(null, "Ajustes", "Cambia entre modo claro y modo oscuro, y elige cómo recibir los avisos: notificación silenciosa o alarma con sonido. También defines a qué hora del día llega el recordatorio diario de cobros y servicios pendientes."),
+            CoachStep(null, "Ajustes", "Cambia entre modo claro y modo oscuro, ajusta el tamaño de letra a tu gusto, y elige cómo recibir los avisos: notificación silenciosa o alarma con sonido. También defines a qué hora del día llega el recordatorio diario de cobros y servicios pendientes."),
             repasar
         )
         "estadisticas" -> listOf(
@@ -614,6 +641,7 @@ private fun pasosDeAyuda(screen: String, rol: String): List<CoachStep> {
             CoachStep("tab_0", "Cobros", "Cobros pendientes de tus inquilinos. Toca el monto para registrar el pago; toca la tarjeta para ver el detalle."),
             CoachStep(null, "Pago por partes", "Al registrar un cobro puedes escribir un monto menor al total: el inquilino abona una parte y eliges la fecha en que se compromete a pagar el resto. El recibo se marca como \"Pago por partes\" y su deuda se actualiza sola."),
             CoachStep(null, "Botón \"PP\"", "En el detalle del inquilino, el botón circular \"PP\" (esquina superior derecha) lista los pagos por partes de ese recibo y te deja revertir el último si te equivocaste."),
+            CoachStep(null, "Botón \"RP\"", "Al lado del \"PP\" está \"RP\" (regularizar pago): corrige cuánto se debe de ese mes, ya sea bajando el monto por un descuento acordado o subiéndolo por un recargo de retraso. Pide un motivo, queda en el historial y puedes revertirlo. Solo está activo mientras el recibo tenga saldo."),
             CoachStep("tab_1", "Servicios", "Servicios de la casa (luz, agua, etc.). Tiene dos sub-pestañas: \"Pendientes\" y \"Conceptos\"; al abrir Servicios te explico cada una."),
             CoachStep("tab_2", "Cuartos Libres", "Cuartos disponibles. Si tienes varios pisos puedes filtrarlos para ver qué hay libre en cada uno. Toca uno para ver su detalle y usa \"Alquilar\" para registrar un inquilino; ahí puedes marcar \"Inquilino existente\" si le alquilas un cuarto más a alguien que ya tienes registrado."),
             repasar
@@ -705,6 +733,7 @@ fun DetalleBottomSheet(inquilino: Inquilino, vm: PagosViewModel, onDismiss: () -
     val retiroState by vm.retiroState.collectAsStateWithLifecycle()
     var posponerOpen by remember { mutableStateOf(false) }
     var ppOpen by remember { mutableStateOf(false) }
+    var rpOpen by remember { mutableStateOf(false) }
     if (posponerOpen) {
         PosponerRecordatorioDialog(
             clave = "pago:${inquilino.idPago}",
@@ -715,10 +744,35 @@ fun DetalleBottomSheet(inquilino: Inquilino, vm: PagosViewModel, onDismiss: () -
     if (ppOpen) {
         PagosPorPartesDialog(vm = vm, idPago = inquilino.idPago, onDismiss = { ppOpen = false })
     }
+    if (rpOpen) {
+        RegularizarPagoDialog(vm = vm, inquilino = inquilino, onDismiss = { rpOpen = false })
+    }
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = AppTheme.colores.superficie) {
         Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Detalle del Inquilino", fontWeight = FontWeight.Black, fontSize = 22.sp, color = AzulPrimario, modifier = Modifier.weight(1f))
+                // 20.sp (antes 22) para que el título y los dos botones circulares
+                // quepan en una línea incluso con el tamaño de letra al máximo.
+                Text("Detalle del Inquilino", fontWeight = FontWeight.Black, fontSize = 20.sp, color = AzulPrimario, modifier = Modifier.weight(1f))
+                // Botón circular "RP": regulariza el monto del recibo (sube o baja).
+                // Solo con saldo pendiente: un recibo cancelado ya no se reajusta.
+                val puedeRegularizar = inquilino.monto > 0
+                Box(
+                    Modifier.size(44.dp).clip(CircleShape)
+                        .background(
+                            if (puedeRegularizar) AppTheme.colores.oliva
+                            else AppTheme.colores.superficieTenue
+                        )
+                        .clickable(enabled = puedeRegularizar) { rpOpen = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "RP",
+                        color = if (puedeRegularizar) AppTheme.colores.textoSobreAcento
+                                else AppTheme.colores.textoSuave,
+                        fontWeight = FontWeight.Black, fontSize = 15.sp
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
                 // Botón circular "PP": pagos por partes registrados de este recibo.
                 Box(
                     Modifier.size(44.dp).clip(CircleShape)
@@ -928,6 +982,205 @@ private fun DialogoCobrarInquilino(
                             }
                         }
                     }
+                }
+            }
+        }
+    )
+}
+
+// ── Diálogo: regularizar el monto de un recibo ("RP") ─────────────────────────
+// Sirve para corregir lo que se debe de un mes concreto: un descuento acordado o
+// un recargo por retraso. No registra un pago — cambia el saldo — y por eso exige
+// un motivo, que queda en el historial junto al monto y la fecha.
+@Composable
+private fun RegularizarPagoDialog(
+    vm: PagosViewModel,
+    inquilino: Inquilino,
+    onDismiss: () -> Unit
+) {
+    val listaState  by vm.reajustesState.collectAsStateWithLifecycle()
+    val accionState by vm.reajusteAccionState.collectAsStateWithLifecycle()
+    val pagosState  by vm.pagosState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(inquilino.idPago) { vm.cargarReajustes(inquilino.idPago) }
+
+    val reajustes = (listaState as? UiState.Success)?.data.orEmpty()
+
+    // El saldo se relee tras cada reajuste. Primero de la lista de cobros ya
+    // recargada; si el recibo salió de ella (quedó en cero), del último reajuste.
+    val saldo = (pagosState as? UiState.Success)?.data
+        ?.firstOrNull { it.idPago == inquilino.idPago }?.monto
+        ?: reajustes.firstOrNull()?.montoDespues?.toDoubleOrNull()
+        ?: inquilino.monto
+
+    var montoTxt by remember(saldo) { mutableStateOf("%.2f".format(saldo)) }
+    var motivo   by remember { mutableStateOf("") }
+
+    val nuevoMonto = montoTxt.aMontoOrNull()
+    // Positiva = descuento (el saldo baja); negativa = recargo (sube).
+    val diferencia = nuevoMonto?.let { saldo - it }
+    val hayCambio  = diferencia != null && kotlin.math.abs(diferencia) >= 0.005
+    val guardando  = accionState is UiState.Loading
+    val puedeAplicar = nuevoMonto != null && nuevoMonto >= 0 && hayCambio &&
+                       motivo.isNotBlank() && !guardando
+
+    fun cerrar() { vm.resetReajustesState(); onDismiss() }
+
+    AlertDialog(
+        onDismissRequest = { if (!guardando) cerrar() },
+        confirmButton = {
+            Button(
+                onClick = {
+                    vm.aplicarReajuste(inquilino.idPago, nuevoMonto!!, motivo)
+                    motivo = ""
+                },
+                enabled = puedeAplicar,
+                colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colores.oliva)
+            ) {
+                if (guardando) {
+                    CircularProgressIndicator(
+                        Modifier.size(18.dp),
+                        color = AppTheme.colores.textoSobreAcento, strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(if (diferencia != null && diferencia < 0) "Aplicar recargo" else "Aplicar descuento")
+                }
+            }
+        },
+        dismissButton = { TextButton(onClick = { cerrar() }, enabled = !guardando) { Text("Cerrar") } },
+        title = { Text("Regularizar pago") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text(inquilino.nombre, fontWeight = FontWeight.Bold)
+                Text(
+                    "${inquilino.habitacion} · saldo actual S/ ${"%.2f".format(saldo)}",
+                    fontSize = 12.sp, color = AppTheme.colores.textoSuave
+                )
+
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = montoTxt,
+                    onValueChange = { v -> montoTxt = v.filter { it.isDigit() || it == '.' || it == ',' } },
+                    label = { Text("Nuevo saldo (S/)") },
+                    singleLine = true,
+                    enabled = !guardando,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    "Escribe cuánto debe quedar debiendo, no la diferencia.",
+                    fontSize = 11.sp, color = AppTheme.colores.textoSuave,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+
+                // Resumen del efecto: sin esto es fácil confundir el saldo final
+                // con el importe del ajuste.
+                if (diferencia != null && hayCambio) {
+                    val esDescuento = diferencia > 0
+                    Spacer(Modifier.height(10.dp))
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (esDescuento) AppTheme.colores.exitoContenedorTenue
+                                             else AppTheme.colores.advertenciaContenedor
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(Modifier.padding(12.dp)) {
+                            Text(
+                                (if (esDescuento) "Descuento de S/ " else "Recargo de S/ ") +
+                                    "%.2f".format(kotlin.math.abs(diferencia)),
+                                fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                                color = if (esDescuento) AppTheme.colores.exitoTexto
+                                        else AppTheme.colores.advertenciaTexto
+                            )
+                            Text(
+                                "El saldo pasa de S/ ${"%.2f".format(saldo)} a S/ ${"%.2f".format(nuevoMonto!!)}",
+                                fontSize = 12.sp, color = AppTheme.colores.textoMedio
+                            )
+                            if (nuevoMonto <= 0.0) {
+                                Text(
+                                    "Al quedar en cero, el recibo se marcará como cancelado.",
+                                    fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                                    color = AppTheme.colores.advertenciaTexto,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = motivo,
+                    onValueChange = { if (it.length <= 120) motivo = it },
+                    label = { Text("Motivo *") },
+                    enabled = !guardando,
+                    minLines = 2,
+                    supportingText = { Text("${motivo.length}/120") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                when (val a = accionState) {
+                    is UiState.Error   -> Text(a.message, color = AppTheme.colores.error, fontSize = 12.sp)
+                    is UiState.Success -> Text(a.data, color = AppTheme.colores.exito, fontSize = 12.sp)
+                    else -> Unit
+                }
+
+                // ── Historial ──
+                Spacer(Modifier.height(16.dp))
+                Text("Reajustes aplicados", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Spacer(Modifier.height(4.dp))
+                when (val l = listaState) {
+                    is UiState.Loading -> Box(
+                        Modifier.fillMaxWidth().padding(12.dp),
+                        contentAlignment = Alignment.Center
+                    ) { CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp) }
+
+                    is UiState.Error -> Text(l.message, color = AppTheme.colores.error, fontSize = 12.sp)
+
+                    is UiState.Success -> {
+                        if (reajustes.isEmpty()) {
+                            Text(
+                                "Este recibo aún no tiene reajustes.",
+                                fontSize = 12.sp, color = AppTheme.colores.textoSuave
+                            )
+                        } else {
+                            reajustes.forEachIndexed { i, r ->
+                                Row(
+                                    Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(
+                                            (if (r.esRecargo) "+S/ " else "−S/ ") +
+                                                "%.2f".format(kotlin.math.abs(r.monto)),
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (r.esRecargo) AppTheme.colores.advertencia
+                                                    else AppTheme.colores.exito
+                                        )
+                                        r.descripcion?.takeIf { it.isNotBlank() }?.let {
+                                            Text(it, fontSize = 11.sp, color = AppTheme.colores.textoMedio)
+                                        }
+                                        r.fechaReajuste?.take(10)?.let {
+                                            Text(it, fontSize = 11.sp, color = AppTheme.colores.textoSuave)
+                                        }
+                                    }
+                                    TextButton(
+                                        onClick = { vm.revertirReajuste(inquilino.idPago, r.idReajuste) },
+                                        enabled = !guardando
+                                    ) {
+                                        Text(
+                                            "Revertir",
+                                            color = AppTheme.colores.advertencia,
+                                            fontSize = 12.sp, fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                                if (i != reajustes.lastIndex) HorizontalDivider()
+                            }
+                        }
+                    }
+                    else -> Unit
                 }
             }
         }
@@ -3068,6 +3321,7 @@ fun SeccionAjustes() {
     val dataStore = remember { SessionDataStore(context) }
     val tipoAviso by dataStore.tipoAviso.collectAsStateWithLifecycle(initialValue = "notificacion")
     val horaNotif by dataStore.horaNotificacion.collectAsStateWithLifecycle(initialValue = "08:00")
+    val escalaTexto by dataStore.escalaTexto.collectAsStateWithLifecycle(initialValue = 1f)
     val scope = rememberCoroutineScope()
 
     // Tema actual: el que ya está pintado en pantalla. Si el usuario todavía no
@@ -3077,6 +3331,18 @@ fun SeccionAjustes() {
     /** Cambia entre claro y oscuro. Se guarda al instante y todo el árbol se repinta. */
     fun cambiarTema(oscuro: Boolean) {
         scope.launch { dataStore.guardarTemaOscuro(oscuro) }
+    }
+
+    // Índice del nivel de letra actual dentro de NIVELES_TEXTO. Se compara con
+    // tolerancia porque el valor viaja como Float por DataStore.
+    val nivelActual = NIVELES_TEXTO
+        .indexOfFirst { kotlin.math.abs(it.first - escalaTexto) < 0.01f }
+        .coerceAtLeast(0)
+
+    /** Guarda el nivel de letra. Es solo visual: no toca ningún dato ni ajuste del servidor. */
+    fun cambiarNivelTexto(nivel: Int) {
+        val destino = NIVELES_TEXTO.getOrNull(nivel) ?: return
+        scope.launch { dataStore.guardarEscalaTexto(destino.first) }
     }
 
     // Guarda el ajuste localmente (efecto inmediato) y lo sincroniza con el backend
@@ -3155,6 +3421,123 @@ fun SeccionAjustes() {
                         uncheckedTrackColor = AppTheme.colores.bordeTenue
                     )
                 )
+            }
+        }
+
+        // ── Tamaño de letra ────────────────────────────────────────────────────
+        Text(
+            "Agranda o reduce el texto de toda la app. Es solo visual: no cambia " +
+                "ningún monto, fecha ni cálculo.",
+            fontSize = 14.sp, color = AppTheme.colores.textoSuave
+        )
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors   = CardDefaults.cardColors(containerColor = AppTheme.colores.superficie),
+            border   = BorderStroke(2.dp, AppTheme.colores.borde),
+            shape    = RoundedCornerShape(16.dp)
+        ) {
+            Column(Modifier.padding(20.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.FormatSize, null,
+                        modifier = Modifier.size(40.dp),
+                        tint = AzulPrimario
+                    )
+                    Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Tamaño de letra", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text(
+                            "Se guarda en este dispositivo, igual que el tema.",
+                            fontSize = 13.sp, color = AppTheme.colores.textoSuave
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // Selector paso a paso en vez de una fila de opciones: con la letra
+                // al máximo cuatro etiquetas no entran en pantallas angostas.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val puedeReducir = nivelActual > 0
+                    IconButton(
+                        onClick  = { cambiarNivelTexto(nivelActual - 1) },
+                        enabled  = puedeReducir,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (puedeReducir) AppTheme.colores.doradoContenedor
+                                else AppTheme.colores.superficieTenue
+                            )
+                    ) {
+                        Icon(
+                            Icons.Default.Remove,
+                            contentDescription = "Reducir el tamaño de letra",
+                            tint = if (puedeReducir) AzulPrimario else AppTheme.colores.textoSuave
+                        )
+                    }
+
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            NIVELES_TEXTO[nivelActual].second,
+                            fontWeight = FontWeight.Bold,
+                            fontSize   = 16.sp,
+                            maxLines   = 1
+                        )
+                        Text(
+                            "%d %%".format((NIVELES_TEXTO[nivelActual].first * 100).toInt()),
+                            fontSize = 12.sp,
+                            color    = AppTheme.colores.textoSuave
+                        )
+                    }
+
+                    val puedeAgrandar = nivelActual < NIVELES_TEXTO.lastIndex
+                    IconButton(
+                        onClick  = { cambiarNivelTexto(nivelActual + 1) },
+                        enabled  = puedeAgrandar,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (puedeAgrandar) AppTheme.colores.doradoContenedor
+                                else AppTheme.colores.superficieTenue
+                            )
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Agrandar el tamaño de letra",
+                            tint = if (puedeAgrandar) AzulPrimario else AppTheme.colores.textoSuave
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // La muestra usa los mismos tamaños que las tarjetas de inquilinos,
+                // así que se ve exactamente cómo va a quedar la app antes de salir.
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(AppTheme.colores.superficieTenue)
+                        .padding(14.dp)
+                ) {
+                    Text(
+                        "VISTA PREVIA",
+                        fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                        color = AppTheme.colores.textoSuave
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text("Juan Pérez", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Cuarto 3 · vence hoy · S/ 300.00",
+                        fontSize = 14.sp, color = AppTheme.colores.textoMedio
+                    )
+                }
             }
         }
 

@@ -14,6 +14,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -25,6 +26,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.CallMade
 import androidx.compose.material.icons.filled.CallReceived
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -64,14 +67,23 @@ class AlarmFullScreenActivity : ComponentActivity() {
         val app = application as MyApplication
 
         setContent {
-            // La alarma respeta el mismo tema que el resto de la app.
-            val temaOscuro by app.temaOscuro.collectAsStateWithLifecycle()
+            // La alarma respeta el mismo tema y tamaño de letra que el resto de la app.
+            val temaOscuro  by app.temaOscuro.collectAsStateWithLifecycle()
+            val escalaTexto by app.escalaTexto.collectAsStateWithLifecycle()
 
-            MyApplicationTheme(oscuro = temaOscuro ?: isSystemInDarkTheme()) {
+            MyApplicationTheme(
+                oscuro      = temaOscuro ?: isSystemInDarkTheme(),
+                escalaTexto = escalaTexto
+            ) {
+                // El botón de silenciar cambia de aspecto según el sonido siga o no.
+                val sonando by AlarmSoundService.sonando.collectAsStateWithLifecycle()
+
                 BackHandler(enabled = AlarmSoundService.estaActiva) { }
                 PantallaAlarmaActiva(
                     titulo      = titulo,
                     descripcion = descripcion,
+                    sonando     = sonando,
+                    onSilenciar = { silenciar() },
                     onApagar    = { apagarYCerrar() }
                 )
             }
@@ -81,6 +93,18 @@ class AlarmFullScreenActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         if (!AlarmSoundService.estaActiva) finish()
+    }
+
+    /**
+     * Calla el sonido sin cerrar la pantalla: el usuario deja de ser molestado al
+     * instante pero conserva el detalle de los pendientes delante para leerlo.
+     */
+    private fun silenciar() {
+        startService(
+            Intent(this, AlarmSoundService::class.java).apply {
+                action = AlarmSoundService.ACTION_SILENCIAR
+            }
+        )
     }
 
     private fun apagarYCerrar() {
@@ -245,17 +269,74 @@ private fun GrupoAlarmaCard(grupo: GrupoAlarma) {
     }
 }
 
+/**
+ * Botón de silenciar de la esquina.
+ *
+ * Corta el sonido al instante sin cerrar el aviso: el usuario deja de ser
+ * molestado pero conserva delante el detalle de los pendientes. Una vez
+ * silenciado queda deshabilitado, como indicador de que la alarma sigue en pie
+ * pero ya no suena; para quitarla del todo está "Apagar alarma".
+ */
 @Composable
-private fun PantallaAlarmaActiva(titulo: String, descripcion: String, onApagar: () -> Unit) {
+private fun BotonSilenciar(
+    sonando:     Boolean,
+    onSilenciar: () -> Unit,
+    modifier:    Modifier = Modifier
+) {
+    val fondo = if (sonando) MaterialTheme.colorScheme.error else AppTheme.colores.superficieTenue
+    val tinta = if (sonando) MaterialTheme.colorScheme.onError else AppTheme.colores.textoSuave
+
+    Surface(
+        modifier = modifier
+            .clip(CircleShape)
+            .clickable(enabled = sonando, onClick = onSilenciar),
+        shape           = CircleShape,
+        color           = fondo,
+        border          = if (sonando) null else BorderStroke(1.dp, AppTheme.colores.borde),
+        shadowElevation = if (sonando) 6.dp else 0.dp
+    ) {
+        Row(
+            modifier          = Modifier.heightIn(min = 48.dp).padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector        = if (sonando) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
+                contentDescription = if (sonando) "Silenciar alarma" else "Alarma silenciada",
+                tint               = tinta,
+                modifier           = Modifier.size(22.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text       = if (sonando) "Silenciar" else "Silenciada",
+                fontSize   = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color      = tinta,
+                maxLines   = 1
+            )
+        }
+    }
+}
+
+@Composable
+private fun PantallaAlarmaActiva(
+    titulo:      String,
+    descripcion: String,
+    sonando:     Boolean,
+    onSilenciar: () -> Unit,
+    onApagar:    () -> Unit
+) {
     val pulso = rememberInfiniteTransition(label = "pulso")
-    val escala by pulso.animateFloat(
+    val escalaAnimada by pulso.animateFloat(
         initialValue  = 1f,
         targetValue   = 1.18f,
         animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse),
         label         = "escala"
     )
+    // Al silenciar, el círculo deja de latir: la pantalla se calma con el sonido.
+    val escala = if (sonando) escalaAnimada else 1f
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+      Box(Modifier.fillMaxSize()) {
         Column(
             modifier            = Modifier
                 .fillMaxSize()
@@ -334,5 +415,17 @@ private fun PantallaAlarmaActiva(titulo: String, descripcion: String, onApagar: 
                 Text("Apagar alarma", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
             }
         }
+
+        // Va por encima del contenido y anclado a la esquina para tenerlo a mano
+        // en cuanto suena, sin buscar el botón de apagar al pie de la pantalla.
+        BotonSilenciar(
+            sonando     = sonando,
+            onSilenciar = onSilenciar,
+            modifier    = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(top = 8.dp, end = 12.dp)
+        )
+      }
     }
 }

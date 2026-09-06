@@ -110,6 +110,32 @@ interface AlquilerApiService {
     @POST("mobile/servicios/concepto/restaurar")
     suspend fun restaurarServicioConcepto(@Query("id_servicio") idServicio: String): PagoRegistradoResponse
 
+    // Reajustes de monto de un recibo ("RP"). El backend admite bajar el saldo
+    // (descuento) y subirlo (recargo por mora); exige motivo y solo funciona
+    // mientras el recibo siga pendiente.
+    @POST("pagos/{id_pago}/reajuste")
+    suspend fun aplicarReajuste(
+        @Path("id_pago") idPago: String,
+        @Body body: ReajusteRequest
+    ): PagoRegistradoResponse
+
+    @GET("pagos/{id_pago}/reajustes")
+    suspend fun getReajustes(@Path("id_pago") idPago: String): ReajustesResponse
+
+    @POST("pagos/{id_pago}/reajustes/{id_reajuste}/revertir")
+    suspend fun revertirReajuste(
+        @Path("id_pago") idPago: String,
+        @Path("id_reajuste") idReajuste: Int
+    ): PagoRegistradoResponse
+
+    // --- HORARIO DE LIMPIEZA ---
+
+    @GET("mobile/limpieza")
+    suspend fun getLimpieza(): List<LimpiezaInquilino>
+
+    @PUT("mobile/limpieza")
+    suspend fun guardarDiaLimpieza(@Body body: GuardarDiaLimpiezaRequest): PagoRegistradoResponse
+
     // Abonos / pagos por partes de un recibo de inquilino
     @GET("historial-pago")
     suspend fun getHistorialPago(@Query("id_pago") idPago: String): List<AbonoPago>

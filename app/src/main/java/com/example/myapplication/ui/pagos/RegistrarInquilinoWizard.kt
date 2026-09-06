@@ -43,7 +43,8 @@ private val WzVerde: Color
 private val WzNaranja: Color
     @Composable get() = AppTheme.colores.naranjaSuave
 
-private val DIAS_LIMPIEZA = listOf("Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo")
+// Los días viven en SeccionLimpieza.kt (DIAS_SEMANA): una sola lista para el alta
+// y para el horario, porque el backend valida contra esa misma escritura.
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -298,6 +299,10 @@ private fun SelectorInquilinoExistente(
     elegido: InquilinoSeleccionable?,
     onElegir: (InquilinoSeleccionable) -> Unit
 ) {
+    // Vive aquí y no dentro del `when` para que no se reinicie cada vez que la
+    // lista pasa por Loading al recargarse.
+    var filtroPiso by remember { mutableStateOf<String?>(null) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -340,8 +345,32 @@ private fun SelectorInquilinoExistente(
                                 fontSize = 12.sp, color = AppTheme.colores.textoSuave
                             )
                         } else {
+                            // Pisos donde alguien ya alquila. El filtro arranca en
+                            // "Todos" a propósito: preseleccionar el piso del cuarto
+                            // escondería a candidatos válidos de otros pisos y se
+                            // acabaría registrando dos veces a la misma persona.
+                            val pisos = remember(estado.data) {
+                                estado.data.flatMap { it.pisos }
+                                    .distinctBy { it.idPiso }
+                                    .sortedBy { it.etiqueta }
+                                    .map { PisoFiltro(it.idPiso, it.etiqueta) }
+                            }
+                            val visibles = estado.data.filter { inq ->
+                                filtroPiso == null || inq.pisos.any { it.idPiso == filtroPiso }
+                            }
+
+                            FiltroPisos(pisos, filtroPiso) { filtroPiso = it }
+                            if (pisos.size > 1) Spacer(Modifier.height(10.dp))
+
+                            if (visibles.isEmpty()) {
+                                Text(
+                                    "Ningún inquilino alquila en ese piso. Elige \"Todos los pisos\" para verlos todos.",
+                                    fontSize = 12.sp, color = AppTheme.colores.textoSuave
+                                )
+                            }
+
                             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                estado.data.forEach { inq ->
+                                visibles.forEach { inq ->
                                     val activo = elegido?.idPersona == inq.idPersona
                                     Card(
                                         modifier = Modifier.fillMaxWidth().clickable { onElegir(inq) },
@@ -372,6 +401,13 @@ private fun SelectorInquilinoExistente(
                                                     },
                                                     fontSize = 11.sp, color = AppTheme.colores.textoMedio
                                                 )
+                                                if (inq.pisos.isNotEmpty()) {
+                                                    Text(
+                                                        inq.etiquetaPisos,
+                                                        fontSize = 11.sp,
+                                                        color = AppTheme.colores.textoSuave
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -483,7 +519,7 @@ private fun PasoContrato(
             modifier = Modifier.fillMaxWidth().menuAnchor()
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DIAS_LIMPIEZA.forEach { dia ->
+            DIAS_SEMANA.forEach { dia ->
                 DropdownMenuItem(text = { Text(dia) }, onClick = { onDiaLimpieza(dia); expanded = false })
             }
         }

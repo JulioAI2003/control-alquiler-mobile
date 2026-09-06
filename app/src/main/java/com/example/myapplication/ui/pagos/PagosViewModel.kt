@@ -89,6 +89,21 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
     private val _abonosState = MutableStateFlow<UiState<List<AbonoPago>>>(UiState.Idle)
     val abonosState: StateFlow<UiState<List<AbonoPago>>> = _abonosState.asStateFlow()
 
+    // Reajustes de monto de un recibo ("RP"): el historial y el resultado de aplicar
+    // o revertir uno van por separado, para que un error al guardar no borre la lista.
+    private val _reajustesState = MutableStateFlow<UiState<List<Reajuste>>>(UiState.Idle)
+    val reajustesState: StateFlow<UiState<List<Reajuste>>> = _reajustesState.asStateFlow()
+
+    private val _reajusteAccionState = MutableStateFlow<UiState<String>>(UiState.Idle)
+    val reajusteAccionState: StateFlow<UiState<String>> = _reajusteAccionState.asStateFlow()
+
+    // Horario de limpieza
+    private val _limpiezaState = MutableStateFlow<UiState<List<LimpiezaInquilino>>>(UiState.Idle)
+    val limpiezaState: StateFlow<UiState<List<LimpiezaInquilino>>> = _limpiezaState.asStateFlow()
+
+    private val _limpiezaAccionState = MutableStateFlow<UiState<String>>(UiState.Idle)
+    val limpiezaAccionState: StateFlow<UiState<String>> = _limpiezaAccionState.asStateFlow()
+
     private val _usuariosState = MutableStateFlow<UiState<List<UsuarioAdmin>>>(UiState.Idle)
     val usuariosState: StateFlow<UiState<List<UsuarioAdmin>>> = _usuariosState.asStateFlow()
 
@@ -642,6 +657,99 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
     }
 
     fun resetAbonosState() { _abonosState.value = UiState.Idle }
+
+    // ── Reajustes de monto ("RP" · regularizar pago) ──────────────────────────
+
+    fun cargarReajustes(idPago: String) {
+        viewModelScope.launch {
+            _reajustesState.value = UiState.Loading
+            try {
+                _reajustesState.value =
+                    UiState.Success(AlquilerApiClient.service.getReajustes(idPago).reajustes)
+            } catch (e: Exception) {
+                _reajustesState.value =
+                    UiState.Error(NetworkError.toUserMessage(e, "Error al cargar los reajustes"))
+            }
+        }
+    }
+
+    /**
+     * Cambia el saldo de un recibo pendiente. [nuevoMonto] es el saldo resultante,
+     * no la diferencia: puede ser mayor que el actual (recargo por mora) o menor
+     * (descuento). El backend rechaza montos iguales al actual y motivos vacíos.
+     */
+    fun aplicarReajuste(idPago: String, nuevoMonto: Double, descripcion: String) {
+        viewModelScope.launch {
+            _reajusteAccionState.value = UiState.Loading
+            try {
+                val resp = AlquilerApiClient.service.aplicarReajuste(
+                    idPago, ReajusteRequest(nuevoMonto = nuevoMonto, descripcion = descripcion.trim())
+                )
+                _reajusteAccionState.value = UiState.Success(resp.message)
+                cargarReajustes(idPago)
+                // El saldo cambió: la lista de cobros tiene que reflejarlo al cerrar.
+                cargarPagos()
+            } catch (e: Exception) {
+                _reajusteAccionState.value =
+                    UiState.Error(NetworkError.toUserMessage(e, "Error al aplicar el reajuste"))
+            }
+        }
+    }
+
+    fun revertirReajuste(idPago: String, idReajuste: Int) {
+        viewModelScope.launch {
+            _reajusteAccionState.value = UiState.Loading
+            try {
+                val resp = AlquilerApiClient.service.revertirReajuste(idPago, idReajuste)
+                _reajusteAccionState.value = UiState.Success(resp.message)
+                cargarReajustes(idPago)
+                cargarPagos()
+            } catch (e: Exception) {
+                _reajusteAccionState.value =
+                    UiState.Error(NetworkError.toUserMessage(e, "Error al revertir el reajuste"))
+            }
+        }
+    }
+
+    fun resetReajustesState() {
+        _reajustesState.value = UiState.Idle
+        _reajusteAccionState.value = UiState.Idle
+    }
+
+    fun resetReajusteAccionState() { _reajusteAccionState.value = UiState.Idle }
+
+    // ── Horario de limpieza ───────────────────────────────────────────────────
+
+    fun cargarLimpieza() {
+        viewModelScope.launch {
+            _limpiezaState.value = UiState.Loading
+            try {
+                _limpiezaState.value = UiState.Success(AlquilerApiClient.service.getLimpieza())
+            } catch (e: Exception) {
+                _limpiezaState.value =
+                    UiState.Error(NetworkError.toUserMessage(e, "Error al cargar el horario de limpieza"))
+            }
+        }
+    }
+
+    /** [dia] vacío quita el día. El backend rechaza con 409 si ya está tomado en el piso. */
+    fun guardarDiaLimpieza(idInquilino: String, dia: String) {
+        viewModelScope.launch {
+            _limpiezaAccionState.value = UiState.Loading
+            try {
+                val resp = AlquilerApiClient.service.guardarDiaLimpieza(
+                    GuardarDiaLimpiezaRequest(idInquilino = idInquilino, diaLimpieza = dia)
+                )
+                _limpiezaAccionState.value = UiState.Success(resp.message)
+                cargarLimpieza()
+            } catch (e: Exception) {
+                _limpiezaAccionState.value =
+                    UiState.Error(NetworkError.toUserMessage(e, "Error al guardar el día de limpieza"))
+            }
+        }
+    }
+
+    fun resetLimpiezaAccionState() { _limpiezaAccionState.value = UiState.Idle }
 
     fun cargarUsuarios() {
         viewModelScope.launch {

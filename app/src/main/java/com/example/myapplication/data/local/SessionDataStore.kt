@@ -6,6 +6,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -99,6 +100,21 @@ class SessionDataStore(private val context: Context) {
         }
     }
 
+    /**
+     * Multiplicador del tamaño del texto elegido por el usuario (1f = tamaño normal).
+     * Se aplica sobre el ajuste de fuente del sistema, no lo reemplaza: quien ya
+     * tenga letra grande en Android la conserva y este valor la escala aún más.
+     *
+     * Vive en [prefsStore] por lo mismo que el tema: es del dispositivo y debe
+     * sobrevivir al cierre de sesión.
+     */
+    val escalaTexto: Flow<Float> = context.prefsStore.data.map { it[KEY_ESCALA_TEXTO] ?: 1f }
+
+    /** Guarda el multiplicador del tamaño del texto. */
+    suspend fun guardarEscalaTexto(escala: Float) {
+        context.prefsStore.edit { prefs -> prefs[KEY_ESCALA_TEXTO] = escala }
+    }
+
     // ── Onboarding / indicaciones de ayuda (persistente por usuario) ────────────
 
     /** true si el usuario [userId] ya vio las indicaciones de ayuda. */
@@ -130,5 +146,6 @@ class SessionDataStore(private val context: Context) {
         val KEY_TIPO_AVISO = stringPreferencesKey("tipo_aviso")
         val KEY_HORA_NOTIF = stringPreferencesKey("hora_notificacion")
         val KEY_TEMA_OSCURO = booleanPreferencesKey("tema_oscuro")
+        val KEY_ESCALA_TEXTO = floatPreferencesKey("escala_texto")
     }
 }

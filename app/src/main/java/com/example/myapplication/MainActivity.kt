@@ -68,9 +68,13 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             // Tema elegido en Ajustes; si nunca eligió, sigue al ajuste del sistema.
-            val temaOscuro by app.temaOscuro.collectAsStateWithLifecycle()
+            val temaOscuro  by app.temaOscuro.collectAsStateWithLifecycle()
+            val escalaTexto by app.escalaTexto.collectAsStateWithLifecycle()
 
-            MyApplicationTheme(oscuro = temaOscuro ?: isSystemInDarkTheme()) {
+            MyApplicationTheme(
+                oscuro      = temaOscuro ?: isSystemInDarkTheme(),
+                escalaTexto = escalaTexto
+            ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color    = MaterialTheme.colorScheme.background

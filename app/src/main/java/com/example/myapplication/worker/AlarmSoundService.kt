@@ -9,41 +9,59 @@ import android.media.RingtoneManager
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
+/**
+ * Servicio en primer plano que hace sonar la alarma de cobros.
+ *
+ * Distingue dos acciones que antes eran una sola:
+ *  • [ACTION_SILENCIAR] — calla el sonido pero deja la alarma en pie: la pantalla
+ *    y la notificación siguen visibles para poder leer los pendientes con calma.
+ *  • [ACTION_STOP]      — apaga la alarma por completo y se detiene el servicio.
+ */
 class AlarmSoundService : Service() {
 
     private var mediaPlayer: MediaPlayer? = null
 
+    // Datos del aviso en curso. Se guardan porque al silenciar hay que reconstruir
+    // la notificación (cambian las acciones que ofrece).
+    private var titulo      = "Cobro pendiente"
+    private var descripcion = ""
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) {
-            detenerAlarma()
-            return START_NOT_STICKY
+        when (intent?.action) {
+            ACTION_STOP      -> { detenerAlarma(); return START_NOT_STICKY }
+            ACTION_SILENCIAR -> { silenciar();     return START_NOT_STICKY }
         }
 
-        val titulo      = intent?.getStringExtra(EXTRA_TITULO) ?: "Cobro pendiente"
-        val descripcion = intent?.getStringExtra(EXTRA_DESCRIPCION) ?: ""
-        val notifId     = intent?.getIntExtra(EXTRA_NOTIF_ID, 0) ?: 0
+        titulo      = intent?.getStringExtra(EXTRA_TITULO) ?: "Cobro pendiente"
+        descripcion = intent?.getStringExtra(EXTRA_DESCRIPCION) ?: ""
 
-        estaActiva = true
+        estaActiva        = true
         descripcionActiva = descripcion
-        mostrarNotificacion(titulo, descripcion, notifId)
+        _sonando.value    = true
+
+        mostrarNotificacion(sonando = true)
         reproducirSonido()
 
         return START_NOT_STICKY
     }
 
-    private fun mostrarNotificacion(titulo: String, descripcion: String, notifId: Int) {
-        val stopPi = PendingIntent.getService(
-            this, 0,
-            Intent(this, AlarmSoundService::class.java).apply { action = ACTION_STOP },
+    private fun mostrarNotificacion(sonando: Boolean) {
+        fun piServicio(accion: String, requestCode: Int) = PendingIntent.getService(
+            this, requestCode,
+            Intent(this, AlarmSoundService::class.java).apply { action = accion },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+
         // Tocar la notificación (o el aviso a pantalla completa) abre la pantalla de la alarma
         // para poder detenerla — NO entra a la app.
         val fullScreenPi = PendingIntent.getActivity(
-            this, notifId + 10_000,
+            this, 10_000,
             Intent(this, AlarmFullScreenActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 putExtra(EXTRA_DESCRIPCION, descripcion)
@@ -64,7 +82,20 @@ class AlarmSoundService : Service() {
             .setAutoCancel(false)
             .setContentIntent(fullScreenPi)
             .setFullScreenIntent(fullScreenPi, true)
-            .addAction(android.R.drawable.ic_media_pause, "Detener alarma", stopPi)
+            .apply {
+                if (sonando) {
+                    addAction(
+                        android.R.drawable.ic_lock_silent_mode, "Silenciar",
+                        piServicio(ACTION_SILENCIAR, 1)
+                    )
+                } else {
+                    setSubText("Silenciada")
+                }
+                addAction(
+                    android.R.drawable.ic_media_pause, "Detener alarma",
+                    piServicio(ACTION_STOP, 2)
+                )
+            }
             .build()
 
         startForeground(FOREGROUND_NOTIF_ID, notif)
@@ -92,32 +123,55 @@ class AlarmSoundService : Service() {
         } catch (_: Exception) { }
     }
 
-    private fun detenerAlarma() {
-        estaActiva = false
-        mediaPlayer?.stop()
+    private fun liberarReproductor() {
+        try { mediaPlayer?.stop() } catch (_: Exception) { }
         mediaPlayer?.release()
         mediaPlayer = null
+    }
+
+    /**
+     * Calla el sonido dejando la alarma activa. La notificación se reconstruye sin
+     * la acción "Silenciar" para que quede claro que ya no está sonando.
+     */
+    private fun silenciar() {
+        liberarReproductor()
+        _sonando.value = false
+        // Si el aviso ya no estaba en pie (el servicio revivió solo para esta acción),
+        // no hay nada que mantener en primer plano.
+        if (estaActiva) runCatching { mostrarNotificacion(sonando = false) } else stopSelf()
+    }
+
+    private fun detenerAlarma() {
+        estaActiva     = false
+        _sonando.value = false
+        liberarReproductor()
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
     override fun onDestroy() {
-        estaActiva = false
-        mediaPlayer?.stop()
-        mediaPlayer?.release()
-        mediaPlayer = null
+        estaActiva     = false
+        _sonando.value = false
+        liberarReproductor()
         super.onDestroy()
     }
 
     companion object {
         const val ACTION_STOP         = "com.example.myapplication.STOP_ALARM"
+        const val ACTION_SILENCIAR    = "com.example.myapplication.SILENCE_ALARM"
         const val EXTRA_TITULO        = "titulo"
         const val EXTRA_DESCRIPCION   = "descripcion"
         const val EXTRA_NOTIF_ID      = "notif_id"
         const val FOREGROUND_NOTIF_ID = 9001
         const val CHANNEL_ALARM_ID    = "alarma_cobros_channel"
 
+        /** true mientras el aviso sigue en pie (aunque esté silenciado). */
         @Volatile var estaActiva: Boolean = false
         @Volatile var descripcionActiva: String = ""
+
+        /** true solo mientras el sonido está reproduciéndose. La UI lo observa
+         *  para pintar el botón de silenciar como activo o ya silenciado. */
+        private val _sonando = MutableStateFlow(false)
+        val sonando: StateFlow<Boolean> = _sonando.asStateFlow()
     }
 }

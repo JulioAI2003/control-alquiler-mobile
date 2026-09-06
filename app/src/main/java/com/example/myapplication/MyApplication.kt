@@ -37,6 +37,14 @@ class MyApplication : Application() {
     private val _temaOscuro = MutableStateFlow<Boolean?>(null)
     val temaOscuro: StateFlow<Boolean?> = _temaOscuro.asStateFlow()
 
+    /**
+     * Tamaño de letra elegido en Ajustes (1f = normal). Se siembra igual que el
+     * tema, de forma síncrona, para que la primera composición ya use el tamaño
+     * correcto y el texto no dé un salto al abrir la app.
+     */
+    private val _escalaTexto = MutableStateFlow(1f)
+    val escalaTexto: StateFlow<Float> = _escalaTexto.asStateFlow()
+
     // Emite un evento cuando el servidor rechaza el token (contraseña cambiada externamente).
     // MainActivity lo observa para navegar a Login automáticamente.
     private val _sessionExpired = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
@@ -56,11 +64,13 @@ class MyApplication : Application() {
         runBlocking {
             val token = sessionDataStore.token.first()
             if (!token.isNullOrBlank()) cachedToken = token
-            _temaOscuro.value = sessionDataStore.temaOscuro.first()
+            _temaOscuro.value  = sessionDataStore.temaOscuro.first()
+            _escalaTexto.value = sessionDataStore.escalaTexto.first()
         }
 
-        // Mantiene el tema sincronizado cuando el usuario lo cambia en Ajustes.
-        appScope.launch { sessionDataStore.temaOscuro.collect { _temaOscuro.value = it } }
+        // Mantiene tema y tamaño de letra sincronizados cuando se cambian en Ajustes.
+        appScope.launch { sessionDataStore.temaOscuro.collect  { _temaOscuro.value  = it } }
+        appScope.launch { sessionDataStore.escalaTexto.collect { _escalaTexto.value = it } }
 
         AlquilerApiClient.init(
             context        = this,

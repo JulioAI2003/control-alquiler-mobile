@@ -170,10 +170,21 @@ data class InquilinoSeleccionable(
     /** Cuántos cuartos alquila hoy. */
     val contratos:                           Int = 0,
     /** Números de esos cuartos, ya formateados ("3, 7"). */
-    val cuartos:                             String? = null
+    val cuartos:                             String? = null,
+    /** Pisos donde ya alquila. Alimenta el filtro por piso del selector. */
+    val pisos:                               List<PisoInquilino> = emptyList()
 ) {
     val nombreCompleto: String get() = "$nombre $apellidos".trim()
+    /** Etiquetas de sus pisos, listas para mostrar ("Casa A · Piso 2, Casa A · Piso 3"). */
+    val etiquetaPisos: String get() = pisos.joinToString(", ") { it.etiqueta }
 }
+
+/** Piso en el que un inquilino ya tiene un cuarto. */
+@Serializable
+data class PisoInquilino(
+    @SerialName("id_piso") val idPiso:   String = "",
+    val etiqueta:                        String = ""
+)
 
 // ═════════════════════════════════════════════════════════════════════════════
 //  ESTADÍSTICAS (SECCIÓN MOBILE)
@@ -415,6 +426,73 @@ data class AbonoPago(
     @SerialName("descripcion_abono")   val descripcion:    String? = null,
     @SerialName("fecha_abono")         val fechaAbono:     String? = null,
     @SerialName("fecha_compromiso_restante") val fechaCompromiso: String? = null
+)
+
+// ── Reajustes de monto de un recibo ("RP" · regularizar pago) ─────────────────
+/**
+ * Cambio manual del saldo de un recibo pendiente, con motivo obligatorio.
+ *
+ * [nuevoMonto] es el saldo que queda tras el ajuste, no la diferencia: si el
+ * recibo debe S/ 300 y se le suma una mora de S/ 20, aquí va 320.
+ */
+@Serializable
+data class ReajusteRequest(
+    @SerialName("nuevo_monto") val nuevoMonto:  Double,
+    val descripcion:                            String
+)
+
+/**
+ * Un reajuste ya aplicado (GET /pagos/{id}/reajustes).
+ *
+ * [montoDescontado] viene con signo desde el backend: positivo es un descuento
+ * (bajó el saldo) y negativo un recargo (lo subió).
+ */
+@Serializable
+data class Reajuste(
+    @SerialName("id_reajuste")         val idReajuste:      Int = 0,
+    @SerialName("id_pago")             val idPago:          String = "",
+    @SerialName("monto_descontado")    val montoDescontado: String = "0",
+    @SerialName("monto_total_antes")   val montoAntes:      String = "0",
+    @SerialName("monto_total_despues") val montoDespues:    String = "0",
+    val descripcion:                                        String? = null,
+    @SerialName("fecha_reajuste")      val fechaReajuste:   String? = null
+) {
+    val monto: Double get() = montoDescontado.toDoubleOrNull() ?: 0.0
+    /** true si subió el saldo (mora, servicio extra…) en vez de bajarlo. */
+    val esRecargo: Boolean get() = monto < 0
+}
+
+@Serializable
+data class ReajustesResponse(val reajustes: List<Reajuste> = emptyList())
+
+// ── Horario de limpieza ───────────────────────────────────────────────────────
+/**
+ * Un contrato activo con su día de limpieza asignado.
+ *
+ * La unidad es el contrato, no la persona: quien alquila dos cuartos en el mismo
+ * piso limpia un día por cada uno, que es como están los datos hoy.
+ */
+@Serializable
+data class LimpiezaInquilino(
+    @SerialName("id_inquilino") val idInquilino: String = "",
+    val nombre:                                  String = "",
+    val apellidos:                               String = "",
+    @SerialName("nro_cuarto")   val nroCuarto:   String = "",
+    @SerialName("id_piso")      val idPiso:      String = "",
+    val piso:                                    String = "",
+    val casa:                                    String = "",
+    /** "Lunes".."Domingo", o vacío si aún no tiene día. */
+    @SerialName("dia_limpieza") val diaLimpieza: String = "",
+    val estado:                                  String = "activo"
+) {
+    val nombreCompleto: String get() = "$nombre $apellidos".trim()
+}
+
+@Serializable
+data class GuardarDiaLimpiezaRequest(
+    @SerialName("id_inquilino") val idInquilino: String,
+    /** Cadena vacía quita el día asignado. */
+    @SerialName("dia_limpieza") val diaLimpieza: String
 )
 
 // ═════════════════════════════════════════════════════════════════════════════
