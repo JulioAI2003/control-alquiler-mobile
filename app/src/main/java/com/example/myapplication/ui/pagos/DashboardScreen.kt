@@ -462,7 +462,13 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
 
     // 1. Detalle Deslizable (Click en Tarjeta)
     if (inquilinoDetalle != null) {
-        DetalleBottomSheet(inquilinoDetalle!!, vm = vm, onDismiss = { inquilinoDetalle = null })
+        DetalleBottomSheet(
+            inquilinoDetalle!!,
+            vm = vm,
+            onDismiss = { inquilinoDetalle = null },
+            // Cierra el detalle y devuelve a la lista, que ya se recargó con el saldo nuevo.
+            onPagoRegularizado = { msg -> inquilinoDetalle = null; mensajeExito = msg }
+        )
     }
 
     // 2a. Confirmación pago de inquilino (con opción de pago por partes)
@@ -536,7 +542,16 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
             onDismissRequest = { mensajeExito = null },
             confirmButton = { Button(onClick = { mensajeExito = null }, Modifier.fillMaxWidth()) { Text("Entendido / Cerrar") } },
             icon = { Icon(Icons.Default.CheckCircle, null, Modifier.size(64.dp), AppTheme.colores.exitoBrillante) },
-            title = { Text(if (mensajeExito!!.contains("revertido", ignoreCase = true)) "¡Pago Revertido!" else "¡Pago Registrado!") },
+            title = {
+                Text(
+                    when {
+                        mensajeExito!!.contains("revertido", ignoreCase = true) -> "¡Pago Revertido!"
+                        mensajeExito!!.contains("recargo",   ignoreCase = true) ||
+                        mensajeExito!!.contains("descuento", ignoreCase = true) -> "¡Monto Regularizado!"
+                        else -> "¡Pago Registrado!"
+                    }
+                )
+            },
             text = { Text(mensajeExito!!, fontSize = 16.sp) }
         )
     }
@@ -575,7 +590,7 @@ private fun pasosDeAyuda(screen: String, rol: String): List<CoachStep> {
             repasar
         )
         "inquilinos" -> listOf(
-            CoachStep(null, "Inquilinos", "Lista de tus inquilinos activos. Si tienes varios pisos, los botones de arriba filtran la lista, y el número junto al título te dice cuántos estás viendo."),
+            CoachStep(null, "Inquilinos", "Lista de tus inquilinos activos. Si tienes varios pisos, el selector \"Piso\" de arriba filtra la lista, y el número junto al título te dice cuántos estás viendo de cuántos hay."),
             CoachStep(null, "Detalle del inquilino", "Toca una tarjeta para ver su detalle: ahí puedes contactarlo por llamada o WhatsApp, descargar su contrato, editar sus datos personales, trasladarlo a otro cuarto o iniciar su retiro."),
             CoachStep(null, "Editar y trasladar", "\"Editar datos personales\" cambia nombre, apellidos, DNI, celular y correo sin tocar el contrato. \"Trasladar a otro cuarto\" lo mueve a un cuarto libre y puede ajustar el recibo pendiente al precio del cuarto nuevo."),
             repasar
@@ -598,9 +613,13 @@ private fun pasosDeAyuda(screen: String, rol: String): List<CoachStep> {
             CoachStep(null, "Horario de limpieza", "Cada piso reparte los siete días de la semana entre sus inquilinos: uno limpia cada día. Aquí ves de un vistazo quién tiene cada día y qué días están libres."),
             CoachStep(null, "Cambiar un día", "Toca a un inquilino para asignarle otro día. Los días que ya tiene alguien de ese mismo piso aparecen bloqueados, con el nombre de quien lo ocupa."),
             CoachStep(null, "Conflictos", "Un día marcado en rojo tiene más de un inquilino asignado. Suele venir de datos antiguos, o de un piso con más de siete cuartos ocupados. Toca a cualquiera de ellos para moverlo a un día libre."),
+            CoachStep(null, "Sin día asignado", "Los inquilinos que todavía no tienen día aparecen al pie de su piso, sobre fondo naranja. Tócalos para darles uno."),
+            repasar
         )
         "ajustes" -> listOf(
             CoachStep(null, "Ajustes", "Cambia entre modo claro y modo oscuro, ajusta el tamaño de letra a tu gusto, y elige cómo recibir los avisos: notificación silenciosa o alarma con sonido. También defines a qué hora del día llega el recordatorio diario de cobros y servicios pendientes."),
+            CoachStep(null, "Tamaño de letra", "Cuatro niveles, de Pequeña a Muy grande, con una vista previa para ver cómo queda antes de salir. Solo cambia cómo se ve el texto: ningún monto, fecha ni cálculo se toca. Se guarda en este dispositivo."),
+            CoachStep(null, "Cuando suena la alarma", "Si eliges \"Alarma\", al saltar verás el detalle a pantalla completa con un botón \"Silenciar\" en la esquina superior derecha: corta el sonido al instante pero deja el aviso en pantalla para que leas los pendientes con calma. \"Apagar alarma\", abajo, lo quita del todo."),
             repasar
         )
         "estadisticas" -> listOf(
@@ -637,13 +656,14 @@ private fun pasosDeAyuda(screen: String, rol: String): List<CoachStep> {
             repasar
         )
         else -> listOf(
-            CoachStep("menu", "Menú", "Aquí abres el menú: Inquilinos, Cuartos, Inquilinos Pagados, Servicios Pagados y Ajustes."),
+            CoachStep("menu", "Menú", "Aquí abres el menú: Inquilinos, Cuartos, Limpieza, Estadísticas, Pagos registrados (de inquilinos y de servicios) y Ajustes."),
             CoachStep("tab_0", "Cobros", "Cobros pendientes de tus inquilinos. Toca el monto para registrar el pago; toca la tarjeta para ver el detalle."),
             CoachStep(null, "Pago por partes", "Al registrar un cobro puedes escribir un monto menor al total: el inquilino abona una parte y eliges la fecha en que se compromete a pagar el resto. El recibo se marca como \"Pago por partes\" y su deuda se actualiza sola."),
             CoachStep(null, "Botón \"PP\"", "En el detalle del inquilino, el botón circular \"PP\" (esquina superior derecha) lista los pagos por partes de ese recibo y te deja revertir el último si te equivocaste."),
-            CoachStep(null, "Botón \"RP\"", "Al lado del \"PP\" está \"RP\" (regularizar pago): corrige cuánto se debe de ese mes, ya sea bajando el monto por un descuento acordado o subiéndolo por un recargo de retraso. Pide un motivo, queda en el historial y puedes revertirlo. Solo está activo mientras el recibo tenga saldo."),
+            CoachStep(null, "Botón \"RP\"", "Al lado del \"PP\" está \"RP\" (regularizar pago): corrige cuánto se debe de ese mes, ya sea bajando el monto por un descuento acordado o subiéndolo por un recargo de retraso. Escribes el saldo que debe quedar (no la diferencia) y el motivo, que es obligatorio. Al aplicarlo vuelves a la lista de cobros con el monto ya actualizado. Queda en el historial y puedes revertirlo entrando de nuevo. Solo está activo mientras el recibo tenga saldo."),
             CoachStep("tab_1", "Servicios", "Servicios de la casa (luz, agua, etc.). Tiene dos sub-pestañas: \"Pendientes\" y \"Conceptos\"; al abrir Servicios te explico cada una."),
-            CoachStep("tab_2", "Cuartos Libres", "Cuartos disponibles. Si tienes varios pisos puedes filtrarlos para ver qué hay libre en cada uno. Toca uno para ver su detalle y usa \"Alquilar\" para registrar un inquilino; ahí puedes marcar \"Inquilino existente\" si le alquilas un cuarto más a alguien que ya tienes registrado."),
+            CoachStep("tab_2", "Cuartos Libres", "Cuartos disponibles. Si tienes varios pisos, el selector \"Piso\" de arriba te deja ver qué hay libre en cada uno. Toca un cuarto para su detalle y usa \"Alquilar\" para registrar al inquilino."),
+            CoachStep(null, "Inquilino existente", "En el primer paso de \"Alquilar\" puedes marcar \"Inquilino existente\" para darle un cuarto más a alguien que ya tienes registrado, sin volver a crearlo. La lista trae su propio selector de piso para encontrarlo rápido, y cada persona muestra en qué pisos alquila hoy."),
             repasar
         )
     }
@@ -728,7 +748,13 @@ fun ListaPendientes(vm: PagosViewModel, onCardClick: (Inquilino) -> Unit, onPaga
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DetalleBottomSheet(inquilino: Inquilino, vm: PagosViewModel, onDismiss: () -> Unit) {
+fun DetalleBottomSheet(
+    inquilino: Inquilino,
+    vm: PagosViewModel,
+    onDismiss: () -> Unit,
+    /** Se aplicó un reajuste: hay que cerrar el detalle y volver a la lista de cobros. */
+    onPagoRegularizado: (String) -> Unit = {}
+) {
     val context = LocalContext.current
     val retiroState by vm.retiroState.collectAsStateWithLifecycle()
     var posponerOpen by remember { mutableStateOf(false) }
@@ -745,7 +771,12 @@ fun DetalleBottomSheet(inquilino: Inquilino, vm: PagosViewModel, onDismiss: () -
         PagosPorPartesDialog(vm = vm, idPago = inquilino.idPago, onDismiss = { ppOpen = false })
     }
     if (rpOpen) {
-        RegularizarPagoDialog(vm = vm, inquilino = inquilino, onDismiss = { rpOpen = false })
+        RegularizarPagoDialog(
+            vm         = vm,
+            inquilino  = inquilino,
+            onDismiss  = { rpOpen = false },
+            onAplicado = { msg -> rpOpen = false; onPagoRegularizado(msg) }
+        )
     }
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = AppTheme.colores.superficie) {
         Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding()) {
@@ -762,7 +793,9 @@ fun DetalleBottomSheet(inquilino: Inquilino, vm: PagosViewModel, onDismiss: () -
                             if (puedeRegularizar) AppTheme.colores.oliva
                             else AppTheme.colores.superficieTenue
                         )
-                        .clickable(enabled = puedeRegularizar) { rpOpen = true },
+                        .clickable(enabled = puedeRegularizar) {
+                            vm.resetReajusteAccionState(); rpOpen = true
+                        },
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -996,7 +1029,8 @@ private fun DialogoCobrarInquilino(
 private fun RegularizarPagoDialog(
     vm: PagosViewModel,
     inquilino: Inquilino,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onAplicado: (String) -> Unit
 ) {
     val listaState  by vm.reajustesState.collectAsStateWithLifecycle()
     val accionState by vm.reajusteAccionState.collectAsStateWithLifecycle()
@@ -1016,6 +1050,25 @@ private fun RegularizarPagoDialog(
     var montoTxt by remember(saldo) { mutableStateOf("%.2f".format(saldo)) }
     var motivo   by remember { mutableStateOf("") }
 
+    // Distingue aplicar de revertir, que comparten estado en el ViewModel: aplicar
+    // cierra y devuelve a la lista de cobros; revertir se queda para poder deshacer
+    // varios reajustes seguidos y ver cómo queda el historial.
+    var esperandoAplicar by remember { mutableStateOf(false) }
+
+    LaunchedEffect(accionState) {
+        when (val a = accionState) {
+            is UiState.Success -> if (esperandoAplicar) {
+                esperandoAplicar = false
+                val mensaje = a.data
+                vm.resetReajustesState()
+                onAplicado(mensaje)
+            }
+            // Falló el guardado: el diálogo se queda abierto mostrando el motivo.
+            is UiState.Error -> esperandoAplicar = false
+            else -> Unit
+        }
+    }
+
     val nuevoMonto = montoTxt.aMontoOrNull()
     // Positiva = descuento (el saldo baja); negativa = recargo (sube).
     val diferencia = nuevoMonto?.let { saldo - it }
@@ -1031,8 +1084,8 @@ private fun RegularizarPagoDialog(
         confirmButton = {
             Button(
                 onClick = {
+                    esperandoAplicar = true
                     vm.aplicarReajuste(inquilino.idPago, nuevoMonto!!, motivo)
-                    motivo = ""
                 },
                 enabled = puedeAplicar,
                 colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colores.oliva)
