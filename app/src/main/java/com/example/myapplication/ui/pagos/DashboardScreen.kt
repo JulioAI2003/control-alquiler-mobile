@@ -591,8 +591,10 @@ private fun pasosDeAyuda(screen: String, rol: String): List<CoachStep> {
         )
         "inquilinos" -> listOf(
             CoachStep(null, "Inquilinos", "Lista de tus inquilinos activos. Si tienes varios pisos, el selector \"Piso\" de arriba filtra la lista, y el número junto al título te dice cuántos estás viendo de cuántos hay."),
-            CoachStep(null, "Detalle del inquilino", "Toca una tarjeta para ver su detalle: ahí puedes contactarlo por llamada o WhatsApp, descargar su contrato, editar sus datos personales, trasladarlo a otro cuarto o iniciar su retiro."),
-            CoachStep(null, "Editar y trasladar", "\"Editar datos personales\" cambia nombre, apellidos, DNI, celular y correo sin tocar el contrato. \"Trasladar a otro cuarto\" lo mueve a un cuarto libre y puede ajustar el recibo pendiente al precio del cuarto nuevo."),
+            CoachStep(null, "Detalle del inquilino", "Toca una tarjeta para ver su detalle: ahí puedes ver su historial de pagos, descargar su contrato, editar sus datos personales, trasladarlo a otro cuarto o iniciar su retiro."),
+            CoachStep(null, "Historial de pagos", "Todos los recibos de ese inquilino, del mes más reciente al más antiguo, con los pagados y los pendientes juntos. Arriba tienes el total cobrado y lo que queda por cobrar en toda la relación. Es solo consulta: para cobrar o corregir un monto se usa la sección Cobros."),
+            CoachStep(null, "Editar y trasladar", "\"Editar datos personales\" cambia nombre, apellidos, DNI, celular y correo, y también el día de facturación. \"Trasladar a otro cuarto\" lo mueve a un cuarto libre y puede ajustar el recibo pendiente al precio del cuarto nuevo."),
+            CoachStep(null, "Día de facturación", "Es el día de cada mes en que se le cobra el alquiler. Al cambiarlo aparece un interruptor para mover también sus recibos ya emitidos y sin pagar; si lo apagas, los recibos actuales conservan su día y el cambio empieza el mes siguiente. Los recibos ya pagados nunca se tocan."),
             repasar
         )
         "cuartos_todos" -> listOf(
@@ -1379,6 +1381,7 @@ fun SeccionInquilinos(vm: PagosViewModel) {
     var inquilinoARetirar     by remember { mutableStateOf<InquilinoMobile?>(null) }
     var inquilinoAEditar      by remember { mutableStateOf<InquilinoMobile?>(null) }
     var inquilinoATrasladar   by remember { mutableStateOf<InquilinoMobile?>(null) }
+    var inquilinoHistorial    by remember { mutableStateOf<InquilinoMobile?>(null) }
     var filtroNombre by remember { mutableStateOf("") }
     var filtroPiso   by remember { mutableStateOf<String?>(null) }
     var aviso by remember { mutableStateOf<String?>(null) }
@@ -1553,7 +1556,17 @@ fun SeccionInquilinos(vm: PagosViewModel) {
             // dejarían un doble oscurecido de fondo.
             onEditarDatos    = { inquilinoAEditar = it; inquilinoSeleccionado = null },
             onTrasladar      = { inquilinoATrasladar = it; inquilinoSeleccionado = null },
+            onHistorial      = { inquilinoHistorial = it; inquilinoSeleccionado = null },
             onDismiss        = { inquilinoSeleccionado = null; vm.resetRetiroState(); vm.resetContratoState() }
+        )
+    }
+
+    // Historial de recibos del inquilino (solo lectura)
+    inquilinoHistorial?.let { inq ->
+        HistorialPagosSheet(
+            inquilino = inq,
+            vm        = vm,
+            onDismiss = { inquilinoHistorial = null; vm.resetHistorialInquilinoState() }
         )
     }
 
@@ -1562,8 +1575,11 @@ fun SeccionInquilinos(vm: PagosViewModel) {
         EditarDatosInquilinoSheet(
             inquilino = inq,
             estado    = editarState,
-            onGuardar = { nombre, apellidos, celular, dni, email ->
-                vm.editarDatosPersonales(inq.idInquilino, nombre, apellidos, celular, dni, email)
+            onGuardar = { nombre, apellidos, celular, dni, email, dia, moverRecibos ->
+                vm.editarDatosPersonales(
+                    inq.idInquilino, nombre, apellidos, celular, dni, email,
+                    diaFacturacion = dia, moverRecibosPendientes = moverRecibos
+                )
             },
             onDismiss = { inquilinoAEditar = null; vm.resetEditarDatosState() }
         )
@@ -1586,10 +1602,12 @@ fun SeccionInquilinos(vm: PagosViewModel) {
     // Guardado correcto: se cierran el formulario y el detalle (sus datos ya son
     // viejos, la lista se recargó) y se confirma con el aviso de la sección.
     LaunchedEffect(editarState) {
-        if (editarState is UiState.Success) {
+        val resultado = editarState
+        if (resultado is UiState.Success) {
             inquilinoAEditar = null
             inquilinoSeleccionado = null
-            aviso = "Datos del inquilino actualizados"
+            // El servidor detalla si además cambió el día y cuántos recibos movió.
+            aviso = resultado.data
             vm.resetEditarDatosState()
         }
     }
@@ -2363,6 +2381,7 @@ fun InquilinoBottomSheet(
     onContrato:       (InquilinoMobile) -> Unit,
     onEditarDatos:    (InquilinoMobile) -> Unit,
     onTrasladar:      (InquilinoMobile) -> Unit,
+    onHistorial:      (InquilinoMobile) -> Unit,
     onDismiss:        () -> Unit
 ) {
     val esPendiente = inquilino.estado == "pendiente_retiro"
@@ -2487,6 +2506,19 @@ fun InquilinoBottomSheet(
                 }
             }
 
+            // ── Historial de pagos ──
+            // Todos sus recibos, pagados y pendientes. Es solo consulta: desde aquí
+            // no se cobra ni se revierte nada.
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick  = { onHistorial(inquilino) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.ReceiptLong, null, tint = AzulPrimario, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Historial de pagos")
+            }
+
             // ── Contrato PDF ──
             // El backend lo arma con los datos ya registrados del inquilino y su
             // cuarto; aquí solo se descarga y se abre con el visor del teléfono.
@@ -2573,7 +2605,10 @@ fun InquilinoBottomSheet(
 fun EditarDatosInquilinoSheet(
     inquilino: InquilinoMobile,
     estado:    UiState<String>,
-    onGuardar: (nombre: String, apellidos: String, celular: String, dni: String, email: String) -> Unit,
+    onGuardar: (
+        nombre: String, apellidos: String, celular: String, dni: String, email: String,
+        diaFacturacion: Int?, moverRecibosPendientes: Boolean
+    ) -> Unit,
     onDismiss: () -> Unit
 ) {
     // `inquilino.idInquilino` como clave: si se abre otro inquilino, los campos
@@ -2583,6 +2618,13 @@ fun EditarDatosInquilinoSheet(
     var celular   by remember(inquilino.idInquilino) { mutableStateOf(inquilino.celular.orEmpty()) }
     var dni       by remember(inquilino.idInquilino) { mutableStateOf(inquilino.dni.orEmpty()) }
     var email     by remember(inquilino.idInquilino) { mutableStateOf(inquilino.email.orEmpty()) }
+    // Día del mes en que se le factura. Se precarga con el que ya tiene.
+    var diaTxt    by remember(inquilino.idInquilino) {
+        mutableStateOf(inquilino.fechaPago?.toString().orEmpty())
+    }
+    // Por defecto se arrastran los recibos pendientes: si acordaste una fecha nueva,
+    // lo normal es que el recibo en curso también se mueva.
+    var moverRecibos by remember(inquilino.idInquilino) { mutableStateOf(true) }
 
     // Se validan al intentar guardar, no mientras se escribe: marcar en rojo un
     // campo que aún se está llenando resulta molesto.
@@ -2594,7 +2636,12 @@ fun EditarDatosInquilinoSheet(
     val dniMal       = dni.isBlank()
     // El correo es opcional, pero si se escribe algo debe parecer un correo.
     val emailMal     = email.isNotBlank() && !android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()
-    val hayErrores   = nombreMal || apellidosMal || dniMal || emailMal
+    val diaNum       = diaTxt.toIntOrNull()
+    val diaMal       = diaTxt.isNotBlank() && (diaNum == null || diaNum !in 1..31)
+    // Solo se manda al servidor si de verdad cambió: así el contrato no se toca
+    // cuando la edición era únicamente de datos personales.
+    val diaCambio    = diaNum != null && diaNum != inquilino.fechaPago
+    val hayErrores   = nombreMal || apellidosMal || dniMal || emailMal || diaMal
 
     ModalBottomSheet(onDismissRequest = { if (!guardando) onDismiss() }, containerColor = AppTheme.colores.superficie) {
         Column(
@@ -2606,7 +2653,8 @@ fun EditarDatosInquilinoSheet(
         ) {
             Text("Editar Datos", fontWeight = FontWeight.Black, fontSize = 22.sp, color = AzulPrimario)
             Text(
-                "Cambia los datos personales del inquilino. El cuarto, las fechas y los montos no se modifican.",
+                "Cambia sus datos personales y, si hace falta, el día en que se le factura. " +
+                    "El cuarto y los montos no se modifican.",
                 fontSize = 13.sp, color = AppTheme.colores.textoSuave
             )
             Spacer(Modifier.height(20.dp))
@@ -2674,6 +2722,64 @@ fun EditarDatosInquilinoSheet(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            // ── Día de facturación ──
+            Spacer(Modifier.height(20.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(16.dp))
+            Text("Facturación", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = AzulPrimario)
+            Spacer(Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = diaTxt,
+                onValueChange = { nuevo -> diaTxt = nuevo.filter(Char::isDigit).take(2) },
+                label = { Text("Día de facturación") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                isError = validar && diaMal,
+                supportingText = {
+                    Text(
+                        if (validar && diaMal) "Escribe un día entre 1 y 31"
+                        else "Día de cada mes en que se le cobra el alquiler."
+                    )
+                },
+                enabled = !guardando,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // El interruptor solo aparece si el día realmente cambió: si no, sería
+            // una opción sin efecto que solo confunde.
+            if (diaCambio) {
+                Spacer(Modifier.height(12.dp))
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = AppTheme.colores.advertenciaContenedor),
+                    shape  = RoundedCornerShape(12.dp)
+                ) {
+                    Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "Mover también sus recibos pendientes",
+                                fontWeight = FontWeight.Bold, fontSize = 14.sp,
+                                color = AppTheme.colores.advertenciaTexto
+                            )
+                            Text(
+                                if (moverRecibos)
+                                    "Los recibos emitidos y sin pagar pasarán al día $diaNum. " +
+                                        "Los ya pagados no se tocan."
+                                else
+                                    "Los recibos actuales conservan su día; el cambio empieza " +
+                                        "a aplicarse desde el próximo mes.",
+                                fontSize = 12.sp, color = AppTheme.colores.textoMedio
+                            )
+                        }
+                        Switch(
+                            checked = moverRecibos,
+                            onCheckedChange = { moverRecibos = it },
+                            enabled = !guardando
+                        )
+                    }
+                }
+            }
+
             if (estado is UiState.Error) {
                 Spacer(Modifier.height(12.dp))
                 Text(estado.message, color = AppTheme.colores.error, fontSize = 13.sp)
@@ -2690,7 +2796,11 @@ fun EditarDatosInquilinoSheet(
                 Button(
                     onClick = {
                         validar = true
-                        if (!hayErrores) onGuardar(nombre, apellidos, celular, dni, email)
+                        if (!hayErrores) onGuardar(
+                            nombre, apellidos, celular, dni, email,
+                            diaNum.takeIf { diaCambio },
+                            moverRecibos && diaCambio
+                        )
                     },
                     enabled = !guardando,
                     modifier = Modifier.weight(1f)

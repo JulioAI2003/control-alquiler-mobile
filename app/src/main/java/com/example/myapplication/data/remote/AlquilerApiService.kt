@@ -34,7 +34,8 @@ interface AlquilerApiService {
     @POST("mobile/inquilino/pagar-garantia")
     suspend fun pagarGarantia(@Body body: IdInquilinoRequest): PagoRegistradoResponse
 
-    // Edita nombre, apellidos, celular, DNI y correo. No afecta al contrato.
+    // Edita nombre, apellidos, celular, DNI, correo y —si se manda— el día de
+    // facturación. El resto del contrato (cuarto, fechas, día de limpieza) no se toca.
     @PUT("mobile/inquilino/datos-personales")
     suspend fun editarDatosPersonales(@Body body: EditarDatosPersonalesRequest): PagoRegistradoResponse
 
@@ -127,6 +128,13 @@ interface AlquilerApiService {
         @Path("id_pago") idPago: String,
         @Path("id_reajuste") idReajuste: Int
     ): PagoRegistradoResponse
+
+    // Historial completo de recibos de un inquilino (sección Inquilinos de la app):
+    // pagados y pendientes, del más reciente al más antiguo.
+    @GET("mobile/inquilino/pagos")
+    suspend fun getHistorialInquilino(
+        @Query("id_inquilino") idInquilino: String
+    ): List<PagoHistorial>
 
     // --- HORARIO DE LIMPIEZA ---
 

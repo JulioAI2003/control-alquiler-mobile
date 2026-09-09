@@ -97,6 +97,12 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
     private val _reajusteAccionState = MutableStateFlow<UiState<String>>(UiState.Idle)
     val reajusteAccionState: StateFlow<UiState<String>> = _reajusteAccionState.asStateFlow()
 
+    // Historial de recibos de un inquilino (sección Inquilinos)
+    private val _historialInquilinoState =
+        MutableStateFlow<UiState<List<PagoHistorial>>>(UiState.Idle)
+    val historialInquilinoState: StateFlow<UiState<List<PagoHistorial>>> =
+        _historialInquilinoState.asStateFlow()
+
     // Horario de limpieza
     private val _limpiezaState = MutableStateFlow<UiState<List<LimpiezaInquilino>>>(UiState.Idle)
     val limpiezaState: StateFlow<UiState<List<LimpiezaInquilino>>> = _limpiezaState.asStateFlow()
@@ -238,29 +244,41 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
      * Guarda los datos personales editados y recarga la lista para que la tarjeta
      * muestre el nombre nuevo sin que el usuario tenga que refrescar a mano.
      */
+    /**
+     * Guarda los datos personales y, si [diaFacturacion] no es null, también el día
+     * del mes en que se le factura. [moverRecibosPendientes] arrastra a ese día los
+     * recibos ya emitidos que sigan sin pagar; los pagados nunca se tocan.
+     */
     fun editarDatosPersonales(
         idInquilino: String,
         nombre:      String,
         apellidos:   String,
         celular:     String,
         dni:         String,
-        email:       String
+        email:       String,
+        diaFacturacion: Int? = null,
+        moverRecibosPendientes: Boolean = false
     ) {
         viewModelScope.launch {
             _editarDatosState.value = UiState.Loading
             try {
-                AlquilerApiClient.service.editarDatosPersonales(
+                val resp = AlquilerApiClient.service.editarDatosPersonales(
                     EditarDatosPersonalesRequest(
                         idInquilino = idInquilino,
                         nombre      = nombre.trim(),
                         apellidos   = apellidos.trim(),
                         celular     = celular.trim(),
                         dni         = dni.trim(),
-                        email       = email.trim()
+                        email       = email.trim(),
+                        fechaPago   = diaFacturacion,
+                        actualizarReciboPendiente = moverRecibosPendientes
                     )
                 )
-                _editarDatosState.value = UiState.Success("Datos actualizados")
+                _editarDatosState.value = UiState.Success(resp.message)
                 cargarInquilinos()
+                // Cambiar el día de facturación mueve las fechas de vencimiento, que
+                // es justo lo que colorea la lista de cobros.
+                if (diaFacturacion != null) cargarPagos()
             } catch (e: Exception) {
                 _editarDatosState.value =
                     UiState.Error(NetworkError.toUserMessage(e, "Error al actualizar los datos"))
@@ -717,6 +735,23 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
     }
 
     fun resetReajusteAccionState() { _reajusteAccionState.value = UiState.Idle }
+
+    // ── Historial de recibos de un inquilino ──────────────────────────────────
+
+    fun cargarHistorialInquilino(idInquilino: String) {
+        viewModelScope.launch {
+            _historialInquilinoState.value = UiState.Loading
+            try {
+                _historialInquilinoState.value =
+                    UiState.Success(AlquilerApiClient.service.getHistorialInquilino(idInquilino))
+            } catch (e: Exception) {
+                _historialInquilinoState.value =
+                    UiState.Error(NetworkError.toUserMessage(e, "Error al cargar el historial de pagos"))
+            }
+        }
+    }
+
+    fun resetHistorialInquilinoState() { _historialInquilinoState.value = UiState.Idle }
 
     // ── Horario de limpieza ───────────────────────────────────────────────────
 

@@ -145,7 +145,9 @@ data class InquilinoMobile(
     @SerialName("dias_para_retiro")        val diasParaRetiro:        Int? = null,
     @SerialName("fecha_garantia")          val fechaGarantia:         String? = null,
     @SerialName("fecha_esperada_garantia") val fechaEsperadaGarantia: String? = null,
-    @SerialName("monto_garantia")          val montoGarantia:         String? = null
+    @SerialName("monto_garantia")          val montoGarantia:         String? = null,
+    /** Día del mes en que se le factura (1-31). */
+    @SerialName("fecha_pago")              val fechaPago:             Int? = null
 )
 
 @Serializable
@@ -246,7 +248,18 @@ data class EditarDatosPersonalesRequest(
     val apellidos:                               String,
     val celular:                                 String,
     val dni:                                     String,
-    val email:                                   String
+    val email:                                   String,
+    /**
+     * Día del mes de facturación (1-31). `null` deja el contrato intacto, que es
+     * como se comportaba este endpoint antes de admitir el cambio.
+     */
+    @SerialName("fecha_pago")   val fechaPago:   Int? = null,
+    /**
+     * Mueve también el día de los recibos ya emitidos que sigan pendientes. Los
+     * pagados no se tocan nunca.
+     */
+    @SerialName("actualizar_recibo_pendiente")
+    val actualizarReciboPendiente:               Boolean = false
 )
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -427,6 +440,52 @@ data class AbonoPago(
     @SerialName("fecha_abono")         val fechaAbono:     String? = null,
     @SerialName("fecha_compromiso_restante") val fechaCompromiso: String? = null
 )
+
+// ── Historial de recibos de un inquilino (sección Inquilinos) ────────────────
+/**
+ * Un recibo mensual del inquilino, pagado o no.
+ *
+ * Los montos llegan como texto porque en Postgres son `numeric` y el driver los
+ * serializa así; las propiedades `…Num` los convierten una sola vez.
+ */
+@Serializable
+data class PagoHistorial(
+    @SerialName("id_pago")              val idPago:          String = "",
+    val mes:                                                 Int = 1,
+    val anio:                                                Int = 2000,
+    val dia:                                                 Int = 1,
+    /** Lo facturado del mes (renta + servicios), antes de reajustes. */
+    @SerialName("monto_facturado")      val montoFacturado:  String = "0",
+    /** Lo que falta por cobrar. 0 cuando está saldado. */
+    val saldo:                                               String = "0",
+    /** Reajuste acumulado con signo: positivo descuento, negativo recargo. */
+    val ajuste:                                              String = "0",
+    @SerialName("descripcion_reajuste") val motivoReajuste:  String? = null,
+    @SerialName("mensualidad_pagada")   val pagada:          Boolean = false,
+    @SerialName("es_pago_parcial")      val esParcial:       Boolean = false,
+    @SerialName("metodo_pago")          val metodoPago:      String? = null,
+    /** Fecha en que se saldó el recibo. Null mientras siga pendiente. */
+    @SerialName("fecha_pago")           val fechaPago:       String? = null,
+    @SerialName("fecha_compromiso")     val fechaCompromiso: String? = null,
+    @SerialName("nro_cuarto")           val nroCuarto:       Int = 0,
+    /** Cuántos abonos se registraron contra este recibo. */
+    val abonos:                                              Int = 0,
+    /** Suma de esos abonos: lo realmente cobrado. */
+    val pagado:                                              String = "0"
+) {
+    val montoFacturadoNum: Double get() = montoFacturado.toDoubleOrNull() ?: 0.0
+    val saldoNum:          Double get() = saldo.toDoubleOrNull() ?: 0.0
+    val pagadoNum:         Double get() = pagado.toDoubleOrNull() ?: 0.0
+    val ajusteNum:         Double get() = ajuste.toDoubleOrNull() ?: 0.0
+
+    /** true si se cobró algo pero aún queda saldo. */
+    val enCurso: Boolean get() = !pagada && pagadoNum > 0
+
+    val nombreMes: String get() = listOf(
+        "", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    ).getOrElse(mes) { mes.toString() }
+}
 
 // ── Reajustes de monto de un recibo ("RP" · regularizar pago) ─────────────────
 /**
