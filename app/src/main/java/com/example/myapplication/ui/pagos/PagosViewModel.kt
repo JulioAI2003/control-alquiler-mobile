@@ -240,6 +240,22 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
         }
     }
 
+    // Usa el mismo estado que pagarGarantia: ambos viven en el detalle del inquilino
+    // y se recargan pendientes e inquilinos porque la garantía figura en los dos.
+    fun revertirGarantia(idInquilino: String) {
+        viewModelScope.launch {
+            _retiroState.value = UiState.Loading
+            try {
+                AlquilerApiClient.service.revertirGarantia(IdInquilinoRequest(idInquilino))
+                _retiroState.value = UiState.Success("Pago de garantía revertido: vuelve a quedar pendiente")
+                cargarInquilinos()
+                cargarPagos()
+            } catch (e: Exception) {
+                _retiroState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al revertir la garantía"))
+            }
+        }
+    }
+
     /**
      * Guarda los datos personales editados y recarga la lista para que la tarjeta
      * muestre el nombre nuevo sin que el usuario tenga que refrescar a mano.

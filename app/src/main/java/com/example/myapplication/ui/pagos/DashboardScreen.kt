@@ -1379,6 +1379,7 @@ fun SeccionInquilinos(vm: PagosViewModel) {
 
     var inquilinoSeleccionado by remember { mutableStateOf<InquilinoMobile?>(null) }
     var inquilinoARetirar     by remember { mutableStateOf<InquilinoMobile?>(null) }
+    var garantiaARevertir     by remember { mutableStateOf<InquilinoMobile?>(null) }
     var inquilinoAEditar      by remember { mutableStateOf<InquilinoMobile?>(null) }
     var inquilinoATrasladar   by remember { mutableStateOf<InquilinoMobile?>(null) }
     var inquilinoHistorial    by remember { mutableStateOf<InquilinoMobile?>(null) }
@@ -1390,8 +1391,10 @@ fun SeccionInquilinos(vm: PagosViewModel) {
     val pullState = rememberPullToRefreshState()
 
     LaunchedEffect(retiroState) {
-        if (retiroState is UiState.Success) {
+        val resultado = retiroState
+        if (resultado is UiState.Success) {
             inquilinoSeleccionado = null
+            aviso = resultado.data
             vm.resetRetiroState()
         }
     }
@@ -1551,6 +1554,7 @@ fun SeccionInquilinos(vm: PagosViewModel) {
             onRetirar        = { inquilinoARetirar = it },
             onCancelarRetiro = { vm.cancelarRetiro(it.idInquilino) },
             onPagarGarantia  = { vm.pagarGarantia(it.idInquilino) },
+            onRevertirGarantia = { garantiaARevertir = it },
             onContrato       = { vm.descargarContrato(it) },
             // Se cierra el detalle al abrir el formulario: dos hojas apiladas
             // dejarían un doble oscurecido de fondo.
@@ -1618,6 +1622,32 @@ fun SeccionInquilinos(vm: PagosViewModel) {
             aviso = "Inquilino trasladado de cuarto"
             vm.resetTrasladoState()
         }
+    }
+
+    // Confirmación antes de revertir la garantía
+    garantiaARevertir?.let { inq ->
+        val monto = inq.montoGarantia?.toDoubleOrNull() ?: 0.0
+        AlertDialog(
+            onDismissRequest = { garantiaARevertir = null },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        vm.revertirGarantia(inq.idInquilino)
+                        garantiaARevertir = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colores.peligro)
+                ) { Text("Sí, revertir") }
+            },
+            dismissButton = { TextButton(onClick = { garantiaARevertir = null }) { Text("Cancelar") } },
+            title = { Text("Revertir pago de garantía") },
+            text = {
+                Text(
+                    "La garantía de S/ ${"%.2f".format(monto)} de ${inq.nombre} volverá a figurar " +
+                        "como pendiente. Si el monto no es el correcto, corrígelo en el cuarto " +
+                        "(sección Cuartos) y luego vuelve a registrar el pago."
+                )
+            }
+        )
     }
 
     // Confirmación antes de iniciar retiro
@@ -2378,6 +2408,7 @@ fun InquilinoBottomSheet(
     onRetirar:        (InquilinoMobile) -> Unit,
     onCancelarRetiro: (InquilinoMobile) -> Unit,
     onPagarGarantia:  (InquilinoMobile) -> Unit,
+    onRevertirGarantia: (InquilinoMobile) -> Unit,
     onContrato:       (InquilinoMobile) -> Unit,
     onEditarDatos:    (InquilinoMobile) -> Unit,
     onTrasladar:      (InquilinoMobile) -> Unit,
@@ -2475,10 +2506,16 @@ fun InquilinoBottomSheet(
                         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.CheckCircle, null, tint = AppTheme.colores.exito)
                             Spacer(Modifier.width(8.dp))
-                            Column {
+                            Column(Modifier.weight(1f)) {
                                 Text("Garantía: S/ ${"%.2f".format(montoGar)}", fontWeight = FontWeight.Bold, color = AppTheme.colores.exitoFuerte)
                                 Text("Pagado", fontSize = 12.sp, color = AppTheme.colores.exito)
                             }
+                            // Deshace el pago si se marcó por error o con un monto que
+                            // no era el real (el monto se corrige en el cuarto).
+                            TextButton(
+                                onClick = { onRevertirGarantia(inquilino) },
+                                enabled = retiroState !is UiState.Loading
+                            ) { Text("Revertir", color = AppTheme.colores.peligro, fontWeight = FontWeight.Bold) }
                         }
                     }
                 } else {

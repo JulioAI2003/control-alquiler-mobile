@@ -34,6 +34,10 @@ interface AlquilerApiService {
     @POST("mobile/inquilino/pagar-garantia")
     suspend fun pagarGarantia(@Body body: IdInquilinoRequest): PagoRegistradoResponse
 
+    // Deshace el pago de garantía: vuelve a quedar pendiente.
+    @POST("mobile/inquilino/revertir-garantia")
+    suspend fun revertirGarantia(@Body body: IdInquilinoRequest): PagoRegistradoResponse
+
     // Edita nombre, apellidos, celular, DNI, correo y —si se manda— el día de
     // facturación. El resto del contrato (cuarto, fechas, día de limpieza) no se toca.
     @PUT("mobile/inquilino/datos-personales")
