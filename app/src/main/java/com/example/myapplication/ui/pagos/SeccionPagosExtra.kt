@@ -138,6 +138,7 @@ fun SeccionPagosExtra(vm: PagosViewModel) {
         DialogoGastoExtraForm(
             titulo = "Nuevo pago extra",
             montoInicial = "", asuntoInicial = "",
+            fechaInicial = LocalDate.now().toString(),
             onConfirm = { monto, asunto, fecha ->
                 vm.registrarGastoExtra(monto, asunto, fecha)
                 mostrarNuevo = false
@@ -259,7 +260,7 @@ private fun DialogoConfirmarGastoEscaneado(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.width(12.dp))
-                    Text("Extrayendo el monto y el asunto de la imagen")
+                    Text("Extrayendo el monto, el asunto y la fecha de la imagen")
                 }
             }
         )
@@ -267,13 +268,14 @@ private fun DialogoConfirmarGastoEscaneado(
             titulo = "Confirmar pago extra",
             montoInicial = estado.data.monto?.let { "%.2f".format(it) } ?: "",
             asuntoInicial = estado.data.asunto ?: "",
-            notaEscaneo = "Revisa el monto y el asunto: se extrajeron automáticamente de la imagen compartida.",
+            fechaInicial = estado.data.fecha,
+            notaEscaneo = "Se extrajeron de la imagen compartida. Completa a mano lo que haya quedado vacío antes de guardar.",
             onConfirm = onGuardar,
             onDismiss = onDescartar
         )
         is UiState.Error -> DialogoGastoExtraForm(
             titulo = "Confirmar pago extra",
-            montoInicial = "", asuntoInicial = "",
+            montoInicial = "", asuntoInicial = "", fechaInicial = null,
             notaEscaneo = estado.message,
             onConfirm = onGuardar,
             onDismiss = onDescartar
@@ -283,12 +285,14 @@ private fun DialogoConfirmarGastoEscaneado(
 }
 
 // ── Diálogo: formulario de monto/asunto/fecha, reusado por el alta manual y por
-//    la confirmación tras escanear ─────────────────────────────────────────────
+//    la confirmación tras escanear. Los 3 campos son obligatorios: si el escaneo no
+//    encontró alguno, queda vacío y hay que completarlo a mano antes de guardar. ──
 @Composable
 private fun DialogoGastoExtraForm(
     titulo: String,
     montoInicial: String,
     asuntoInicial: String,
+    fechaInicial: String? = null,
     notaEscaneo: String? = null,
     onConfirm: (monto: Double, asunto: String, fecha: String) -> Unit,
     onDismiss: () -> Unit
@@ -296,9 +300,9 @@ private fun DialogoGastoExtraForm(
     val context = LocalContext.current
     var monto by remember { mutableStateOf(montoInicial) }
     var asunto by remember { mutableStateOf(asuntoInicial) }
-    var fecha by remember { mutableStateOf(LocalDate.now().toString()) }
+    var fecha by remember { mutableStateOf(fechaInicial ?: "") }
     val montoValido = (monto.aMontoOrNull() ?: 0.0) > 0
-    val valido = montoValido && asunto.isNotBlank()
+    val valido = montoValido && asunto.isNotBlank() && fecha.isNotBlank()
 
     fun abrirSelectorFecha() {
         val ld = runCatching { LocalDate.parse(fecha) }.getOrDefault(LocalDate.now())
@@ -347,7 +351,7 @@ private fun DialogoGastoExtraForm(
                 ) {
                     Icon(Icons.Default.DateRange, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Fecha: $fecha")
+                    Text(if (fecha.isBlank()) "Elegir fecha" else "Fecha: $fecha")
                 }
             }
         }

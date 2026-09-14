@@ -1095,19 +1095,14 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
 
     /** Lee el texto de la captura compartida y separa monto/asunto con la heurística de Yape. */
     fun escanearImagenGasto(uri: Uri) {
-        android.util.Log.d("PagosExtraDiag", "escanearImagenGasto: uri=$uri")
         viewModelScope.launch {
             _escaneoGastoState.value = UiState.Loading
             try {
                 val texto = withContext(Dispatchers.IO) {
                     EscanerOcr.reconocerTexto(app, uri)
                 }
-                android.util.Log.d("PagosExtraDiag", "texto reconocido:\n$texto")
-                val datos = YapeReciboParser.extraer(texto)
-                android.util.Log.d("PagosExtraDiag", "datos extraidos: monto=${datos.monto} asunto=${datos.asunto}")
-                _escaneoGastoState.value = UiState.Success(datos)
+                _escaneoGastoState.value = UiState.Success(YapeReciboParser.extraer(texto))
             } catch (e: Exception) {
-                android.util.Log.e("PagosExtraDiag", "fallo el OCR", e)
                 _escaneoGastoState.value = UiState.Error("No se pudo leer la imagen. Ingresa el monto y el asunto a mano.")
             }
         }

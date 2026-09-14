@@ -4,7 +4,6 @@ package com.example.myapplication
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -50,12 +49,9 @@ class MainActivity : ComponentActivity() {
     /** Si el Intent es "compartir imagen" (ej. captura de Yape desde la Galería), lo publica
      *  en [ImagenCompartidaBus] para que el Dashboard lo recoja y abra "Pagos extra". */
     private fun procesarIntentCompartido(intent: Intent?) {
-        Log.d("PagosExtraDiag", "procesarIntentCompartido: action=${intent?.action} type=${intent?.type}")
         if (intent?.action != Intent.ACTION_SEND) return
         if (intent.type?.startsWith("image/") != true) return
-        val uri = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
-        Log.d("PagosExtraDiag", "procesarIntentCompartido: uri=$uri")
-        if (uri == null) return
+        val uri = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java) ?: return
         ImagenCompartidaBus.emitir(uri)
     }
 
