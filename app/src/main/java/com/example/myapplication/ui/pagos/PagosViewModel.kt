@@ -9,6 +9,9 @@ import com.example.myapplication.data.model.*
 import com.example.myapplication.data.remote.AlquilerApiClient
 import com.example.myapplication.data.remote.NetworkError
 import com.example.myapplication.util.DescargasPdf
+import com.example.myapplication.util.DatosGastoEscaneado
+import com.example.myapplication.util.EscanerOcr
+import com.example.myapplication.util.YapeReciboParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -131,6 +134,21 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
 
     private val _accionIndividualState = MutableStateFlow<UiState<String>>(UiState.Idle)
     val accionIndividualState: StateFlow<UiState<String>> = _accionIndividualState.asStateFlow()
+
+    // ── GASTOS EXTRA (arrendador) ─────────────────────────────────────────────
+    private val _gastosExtraState = MutableStateFlow<UiState<List<GastoExtra>>>(UiState.Idle)
+    val gastosExtraState: StateFlow<UiState<List<GastoExtra>>> = _gastosExtraState.asStateFlow()
+
+    private val _resumenGastosExtraState = MutableStateFlow<UiState<ResumenGastosExtra>>(UiState.Idle)
+    val resumenGastosExtraState: StateFlow<UiState<ResumenGastosExtra>> = _resumenGastosExtraState.asStateFlow()
+
+    private val _accionGastoExtraState = MutableStateFlow<UiState<String>>(UiState.Idle)
+    val accionGastoExtraState: StateFlow<UiState<String>> = _accionGastoExtraState.asStateFlow()
+
+    // Datos leídos de la captura de Yape mientras se escanea (para mostrar el diálogo
+    // de confirmación ni bien terminan). Loading = escaneando; Idle = sin nada pendiente.
+    private val _escaneoGastoState = MutableStateFlow<UiState<DatosGastoEscaneado>>(UiState.Idle)
+    val escaneoGastoState: StateFlow<UiState<DatosGastoEscaneado>> = _escaneoGastoState.asStateFlow()
 
     fun cargarPagos() {
         viewModelScope.launch {
@@ -1046,6 +1064,81 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
     }
 
     fun resetAccionIndividualState() { _accionIndividualState.value = UiState.Idle }
+
+    // ── GASTOS EXTRA (arrendador) ─────────────────────────────────────────────
+
+    fun cargarGastosExtra(mes: Int? = null, anio: Int? = null) {
+        viewModelScope.launch {
+            _gastosExtraState.value = UiState.Loading
+            try {
+                _gastosExtraState.value = UiState.Success(
+                    AlquilerApiClient.service.getGastosExtra(mes, anio)
+                )
+            } catch (e: Exception) {
+                _gastosExtraState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al cargar los gastos"))
+            }
+        }
+    }
+
+    fun cargarResumenGastosExtra(anio: Int = LocalDate.now().year) {
+        viewModelScope.launch {
+            _resumenGastosExtraState.value = UiState.Loading
+            try {
+                _resumenGastosExtraState.value = UiState.Success(
+                    AlquilerApiClient.service.getResumenGastosExtra(anio)
+                )
+            } catch (e: Exception) {
+                _resumenGastosExtraState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al cargar el resumen"))
+            }
+        }
+    }
+
+    /** Lee el texto de la captura compartida y separa monto/asunto con la heurística de Yape. */
+    fun escanearImagenGasto(uri: Uri) {
+        viewModelScope.launch {
+            _escaneoGastoState.value = UiState.Loading
+            try {
+                val texto = withContext(Dispatchers.IO) {
+                    EscanerOcr.reconocerTexto(app, uri)
+                }
+                _escaneoGastoState.value = UiState.Success(YapeReciboParser.extraer(texto))
+            } catch (e: Exception) {
+                _escaneoGastoState.value = UiState.Error("No se pudo leer la imagen. Ingresa el monto y el asunto a mano.")
+            }
+        }
+    }
+
+    fun resetEscaneoGastoState() { _escaneoGastoState.value = UiState.Idle }
+
+    fun registrarGastoExtra(monto: Double, asunto: String, fecha: String?, origen: String? = null) {
+        viewModelScope.launch {
+            _accionGastoExtraState.value = UiState.Loading
+            try {
+                AlquilerApiClient.service.crearGastoExtra(CrearGastoExtraRequest(monto, asunto, fecha, origen))
+                _accionGastoExtraState.value = UiState.Success("Gasto extra registrado")
+                cargarGastosExtra()
+                cargarResumenGastosExtra()
+            } catch (e: Exception) {
+                _accionGastoExtraState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al registrar el gasto"))
+            }
+        }
+    }
+
+    fun eliminarGastoExtra(idGasto: String) {
+        viewModelScope.launch {
+            _accionGastoExtraState.value = UiState.Loading
+            try {
+                val resp = AlquilerApiClient.service.eliminarGastoExtra(idGasto)
+                _accionGastoExtraState.value = UiState.Success(resp.message)
+                cargarGastosExtra()
+                cargarResumenGastosExtra()
+            } catch (e: Exception) {
+                _accionGastoExtraState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al eliminar el gasto"))
+            }
+        }
+    }
+
+    fun resetAccionGastoExtraState() { _accionGastoExtraState.value = UiState.Idle }
 
     private fun PagoBackend.toInquilinoUi(hoy: LocalDate): Inquilino {
         // fechaSegura evita el crash si el día de pago no existe en el mes (ej. 31 en abril).

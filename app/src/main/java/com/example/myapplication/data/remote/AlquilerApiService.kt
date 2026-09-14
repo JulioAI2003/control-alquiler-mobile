@@ -241,6 +241,23 @@ interface AlquilerApiService {
     @GET("individual/resumen")
     suspend fun getResumenIndividual(@Query("id_usuario") idUsuario: String): ResumenIndividual
 
+    // --- GASTOS EXTRA (arrendador) — "Pagos registrados > Pagos extra" ---
+
+    @GET("gastos-extra")
+    suspend fun getGastosExtra(
+        @Query("mes") mes: Int? = null,
+        @Query("anio") anio: Int? = null
+    ): List<GastoExtra>
+
+    @GET("gastos-extra/resumen")
+    suspend fun getResumenGastosExtra(@Query("anio") anio: Int): ResumenGastosExtra
+
+    @POST("gastos-extra")
+    suspend fun crearGastoExtra(@Body body: CrearGastoExtraRequest): GastoExtra
+
+    @DELETE("gastos-extra/{id_gasto}")
+    suspend fun eliminarGastoExtra(@Path("id_gasto") idGasto: String): PagoRegistradoResponse
+
     // --- AJUSTES DE LA APP MÓVIL (tipo de aviso + hora del recordatorio) ---
 
     @GET("mobile/ajustes")

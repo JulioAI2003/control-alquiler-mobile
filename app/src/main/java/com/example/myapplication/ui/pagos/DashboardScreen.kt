@@ -61,6 +61,7 @@ import com.example.myapplication.data.model.PagoUsuario
 import com.example.myapplication.data.model.GuardarAjustesRequest
 import com.example.myapplication.data.local.SessionDataStore
 import com.example.myapplication.data.remote.AlquilerApiClient
+import com.example.myapplication.util.ImagenCompartidaBus
 import com.example.myapplication.worker.RecordatorioScheduler
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
@@ -153,6 +154,21 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
     LaunchedEffect(esAdmin) { if (esAdmin && currentScreen == "pendientes") currentScreen = "admin_usuarios" }
     LaunchedEffect(esIndividual) { if (esIndividual && currentScreen == "pendientes") currentScreen = "individual_ingresos" }
 
+    // Captura de Yape (u otra imagen) compartida desde la Galería: la app la recibe en
+    // MainActivity y la publica en ImagenCompartidaBus. Aquí se abre "Pagos extra" y se
+    // dispara el OCR. Espera a que el rol termine de cargar (solo aplica al arrendador,
+    // no a Individual/Administrador) para no diverger a esta sección por error.
+    val imagenCompartida by ImagenCompartidaBus.imagenPendiente.collectAsStateWithLifecycle()
+    LaunchedEffect(imagenCompartida, rol) {
+        val uri = imagenCompartida ?: return@LaunchedEffect
+        val r = rol ?: return@LaunchedEffect
+        if (r != "Administrador" && r != "Individual") {
+            currentScreen = "pagos_extra"
+            vm.escanearImagenGasto(uri)
+        }
+        ImagenCompartidaBus.consumir()
+    }
+
     // Cada vista tiene su propio tutorial, mostrado una sola vez por usuario. La vista
     // principal usa el flag de onboarding; las demás secciones, su propio flag.
     LaunchedEffect(currentScreen, userId, rol) {
@@ -226,7 +242,7 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                 // Estado del submenú "Pagos registrados" (agrupa cobros y servicios pagados).
                 // Empieza abierto si ya estás viendo una de esas secciones.
                 var pagosMenuExpandido by remember {
-                    mutableStateOf(currentScreen == "pagados" || currentScreen == "servicios_pagados")
+                    mutableStateOf(currentScreen in listOf("pagados", "servicios_pagados", "pagos_extra"))
                 }
                 if (!esAdmin && !esIndividual) {
                     NavigationDrawerItem(
@@ -277,7 +293,7 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                                 )
                             }
                         },
-                        selected = currentScreen in listOf("pagados", "servicios_pagados"),
+                        selected = currentScreen in listOf("pagados", "servicios_pagados", "pagos_extra"),
                         onClick = { pagosMenuExpandido = !pagosMenuExpandido },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
@@ -294,6 +310,15 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                             label = { Text("Servicios Pagados") },
                             selected = currentScreen == "servicios_pagados",
                             onClick = { currentScreen = "servicios_pagados"; scope.launch { drawerState.close() } },
+                            modifier = Modifier.padding(start = 20.dp).padding(NavigationDrawerItemDefaults.ItemPadding)
+                        )
+                        // Gastos fuera de lo estimado: a mano o escaneando una captura de Yape
+                        // compartida desde la Galería (ver ImagenCompartidaBus).
+                        NavigationDrawerItem(
+                            icon = { Icon(Icons.Default.PhotoCamera, null) },
+                            label = { Text("Pagos extra") },
+                            selected = currentScreen == "pagos_extra",
+                            onClick = { currentScreen = "pagos_extra"; scope.launch { drawerState.close() } },
                             modifier = Modifier.padding(start = 20.dp).padding(NavigationDrawerItemDefaults.ItemPadding)
                         )
                     }
@@ -375,7 +400,8 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
 
         val screenTitle = when (currentScreen) {
             "pendientes" -> "Cobros"; "pagados" -> "Pagados"; "servicios" -> "Servicios"
-            "servicios_pagados" -> "Servicios Pagados"; "cuartos" -> "Cuartos Libres"; "cuartos_todos" -> "Cuartos"
+            "servicios_pagados" -> "Servicios Pagados"; "pagos_extra" -> "Pagos Extra"
+            "cuartos" -> "Cuartos Libres"; "cuartos_todos" -> "Cuartos"
             "admin_usuarios" -> "Usuarios"; "admin_pagos" -> "Pagos Pendientes"
             "admin_pagos_realizados" -> "Pagos Registrados"; "ajustes" -> "Ajustes"
             "estadisticas" -> "Estadísticas"; "limpieza" -> "Limpieza"
@@ -445,6 +471,7 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                     "limpieza"       -> SeccionLimpieza(vm)
                     "servicios"          -> SeccionServicios(vm, onPagarClick = { servicioAConfirmar = it })
                     "servicios_pagados"  -> SeccionServiciosPagados(vm)
+                    "pagos_extra"        -> SeccionPagosExtra(vm)
                     "admin_usuarios"         -> SeccionAdminUsuarios(vm)
                     "admin_pagos"            -> SeccionAdminPagos(vm)
                     "admin_pagos_realizados" -> SeccionAdminPagosRealizados(vm)
@@ -574,7 +601,7 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
 // Secciones (abiertas desde el menú) que tienen su propio tutorial, distinto del
 // de la vista principal.
 private val SECCIONES_CON_TUTORIAL = setOf(
-    "pagados", "inquilinos", "cuartos_todos", "servicios", "servicios_pagados", "ajustes", "limpieza",
+    "pagados", "inquilinos", "cuartos_todos", "servicios", "servicios_pagados", "pagos_extra", "ajustes", "limpieza",
     "estadisticas", "admin_pagos", "admin_pagos_realizados"
 )
 
@@ -609,6 +636,12 @@ private fun pasosDeAyuda(screen: String, rol: String): List<CoachStep> {
         )
         "servicios_pagados" -> listOf(
             CoachStep(null, "Servicios Pagados", "Historial de los servicios de la casa que ya pagaste (luz, agua, etc.). Puedes revertir un pago si te equivocaste."),
+            repasar
+        )
+        "pagos_extra" -> listOf(
+            CoachStep(null, "Pagos extra", "Gastos fuera de lo estimado: lo que compras de improviso (ferretería, taxi, un arreglo...). Los \"chips\" de arriba muestran cuánto llevas gastado cada mes."),
+            CoachStep(null, "Desde una captura de Yape", "Comparte una captura de un pago de Yape desde tu Galería y elige esta app: se abre aquí mismo con el monto y el asunto ya leídos, listos para confirmar o corregir antes de guardar."),
+            CoachStep(null, "A mano", "El botón \"+\" agrega un gasto extra escribiendo el monto y el asunto tú mismo, sin necesidad de una captura."),
             repasar
         )
         "limpieza" -> listOf(
@@ -658,7 +691,7 @@ private fun pasosDeAyuda(screen: String, rol: String): List<CoachStep> {
             repasar
         )
         else -> listOf(
-            CoachStep("menu", "Menú", "Aquí abres el menú: Inquilinos, Cuartos, Limpieza, Estadísticas, Pagos registrados (de inquilinos y de servicios) y Ajustes."),
+            CoachStep("menu", "Menú", "Aquí abres el menú: Inquilinos, Cuartos, Limpieza, Estadísticas, Pagos registrados (de inquilinos, de servicios y pagos extra) y Ajustes."),
             CoachStep("tab_0", "Cobros", "Cobros pendientes de tus inquilinos. Toca el monto para registrar el pago; toca la tarjeta para ver el detalle."),
             CoachStep(null, "Pago por partes", "Al registrar un cobro puedes escribir un monto menor al total: el inquilino abona una parte y eliges la fecha en que se compromete a pagar el resto. El recibo se marca como \"Pago por partes\" y su deuda se actualiza sola."),
             CoachStep(null, "Botón \"PP\"", "En el detalle del inquilino, el botón circular \"PP\" (esquina superior derecha) lista los pagos por partes de ese recibo y te deja revertir el último si te equivocaste."),

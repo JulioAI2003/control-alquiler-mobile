@@ -37,14 +37,25 @@
         android:theme="@style/Theme.MyApplication"
         android:networkSecurityConfig="@xml/network_security_config">
 
-        <!-- MainActivity: Compose entry point -->
+        <!-- MainActivity: Compose entry point.
+             launchMode="singleTask": si la app ya está abierta y el usuario comparte
+             una nueva captura desde la galería, reutiliza la instancia existente y
+             dispara onNewIntent() en vez de crear una segunda instancia superpuesta. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Aparece como destino al compartir una imagen (ej. captura de Yape)
+                 desde la Galería u otra app: la abre directo en "Pagos extra". -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
             </intent-filter>
         </activity>
 

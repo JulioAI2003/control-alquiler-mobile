@@ -104,6 +104,10 @@ dependencies {
     // ── WorkManager (notificaciones locales en segundo plano) ─────────────────
     implementation(libs.androidx.work.runtime)
 
+    // ── OCR on-device (escanear capturas de Yape en "Pagos extra") ────────────
+    // Modelo empaquetado en el APK (no depende de Google Play Services).
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+
     // ── Tests ─────────────────────────────────────────────────────────────────
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

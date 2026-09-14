@@ -1,6 +1,8 @@
 // ─── MainActivity.kt ─────────────────────────────────────────────────────────
 package com.example.myapplication
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -15,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.core.content.IntentCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
@@ -26,6 +29,7 @@ import com.example.myapplication.ui.auth.PermisosDialog
 import com.example.myapplication.ui.auth.faltanPermisos
 import com.example.myapplication.ui.pagos.DashboardScreen
 import com.example.myapplication.ui.theme.MyApplicationTheme
+import com.example.myapplication.util.ImagenCompartidaBus
 import com.example.myapplication.worker.RecordatorioScheduler
 import androidx.work.WorkManager
 import kotlinx.coroutines.flow.first
@@ -41,6 +45,22 @@ import kotlinx.coroutines.runBlocking
  * El botón "Cerrar Sesión" de [DashboardScreen] borra el token y vuelve a Login.
  */
 class MainActivity : ComponentActivity() {
+
+    /** Si el Intent es "compartir imagen" (ej. captura de Yape desde la Galería), lo publica
+     *  en [ImagenCompartidaBus] para que el Dashboard lo recoja y abra "Pagos extra". */
+    private fun procesarIntentCompartido(intent: Intent?) {
+        if (intent?.action != Intent.ACTION_SEND) return
+        if (intent.type?.startsWith("image/") != true) return
+        val uri = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java) ?: return
+        ImagenCompartidaBus.emitir(uri)
+    }
+
+    // launchMode="singleTask": si la app ya está en primer plano, Android reutiliza esta
+    // instancia y entrega el nuevo Intent aquí en vez de recrear la Activity.
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        procesarIntentCompartido(intent)
+    }
 
     private fun agendarRecordatorioDiario() {
         // Limpia el trabajo periódico de versiones anteriores (migración a alarma exacta).
@@ -59,6 +79,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val app = application as MyApplication
+
+        // Arranque en frío compartiendo una imagen (ej. captura de Yape) directamente.
+        procesarIntentCompartido(intent)
 
         // Agenda el recordatorio diario solo si hay sesión activa
         if (!app.cachedToken.isNullOrBlank()) agendarRecordatorioDiario()

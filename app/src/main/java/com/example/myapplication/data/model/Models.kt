@@ -663,6 +663,55 @@ data class ResumenIndividual(
 )
 
 // ═════════════════════════════════════════════════════════════════════════════
+//  GASTOS EXTRA (arrendador) — gastos fuera de lo estimado: "Pagos registrados >
+//  Pagos extra". Se registran a mano o escaneando una captura de Yape (OCR en el
+//  dispositivo); a diferencia del módulo Individual, no son recurrentes: cada uno
+//  es un registro suelto con su propia fecha.
+// ═════════════════════════════════════════════════════════════════════════════
+
+@Serializable
+data class GastoExtra(
+    @SerialName("id_gasto")             val idGasto:  String = "",
+    val monto:                                        String = "0",
+    val asunto:                                        String = "",
+    val fecha:                                         String = "",
+    @SerialName("mes_correspondiente")  val mes:      Int = 1,
+    @SerialName("anio_correspondiente") val anio:     Int = 2000,
+    val origen:                                        String? = null,
+    @SerialName("creado_en")            val creadoEn: String? = null
+) {
+    val montoDouble: Double get() = monto.toDoubleOrNull() ?: 0.0
+    val esEscaneado: Boolean get() = origen == "yape"
+    val nombreMes: String get() = listOf(
+        "", "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+        "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
+    ).getOrElse(mes) { mes.toString() }
+}
+
+@Serializable
+data class CrearGastoExtraRequest(
+    val monto:  Double,
+    val asunto: String,
+    val fecha:  String? = null,   // "yyyy-MM-dd"; si es null, el backend usa hoy
+    val origen: String? = null    // "yape" (escaneado) | "manual"
+)
+
+@Serializable
+data class ResumenGastosExtra(
+    val anio:  Int = 0,
+    val meses: List<ResumenGastoExtraMes> = emptyList()
+)
+
+@Serializable
+data class ResumenGastoExtraMes(
+    val mes:      Int = 0,
+    val cantidad: Int = 0,
+    val total:    String = "0"
+) {
+    val totalDouble: Double get() = total.toDoubleOrNull() ?: 0.0
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 //  AJUSTES DE LA APP MÓVIL (tipo de aviso + hora del recordatorio diario)
 //  Se guardan en el backend para restaurarse tras reinstalar la app o cambiar de
 //  dispositivo, en vez de volver siempre a los valores por defecto.
