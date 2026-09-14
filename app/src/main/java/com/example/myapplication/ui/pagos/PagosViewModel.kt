@@ -145,6 +145,11 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
     private val _accionGastoExtraState = MutableStateFlow<UiState<String>>(UiState.Idle)
     val accionGastoExtraState: StateFlow<UiState<String>> = _accionGastoExtraState.asStateFlow()
 
+    // Gasto mensual en servicios de la casa (luz, agua, etc.), para comparar en
+    // Estadísticas contra los gastos extra.
+    private val _resumenServiciosState = MutableStateFlow<UiState<ResumenServicios>>(UiState.Idle)
+    val resumenServiciosState: StateFlow<UiState<ResumenServicios>> = _resumenServiciosState.asStateFlow()
+
     // Datos leídos de la captura de Yape mientras se escanea (para mostrar el diálogo
     // de confirmación ni bien terminan). Loading = escaneando; Idle = sin nada pendiente.
     private val _escaneoGastoState = MutableStateFlow<UiState<DatosGastoEscaneado>>(UiState.Idle)
@@ -1139,6 +1144,19 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
     }
 
     fun resetAccionGastoExtraState() { _accionGastoExtraState.value = UiState.Idle }
+
+    fun cargarResumenServicios(anio: Int = LocalDate.now().year) {
+        viewModelScope.launch {
+            _resumenServiciosState.value = UiState.Loading
+            try {
+                _resumenServiciosState.value = UiState.Success(
+                    AlquilerApiClient.service.getResumenServicios(anio)
+                )
+            } catch (e: Exception) {
+                _resumenServiciosState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al cargar los gastos de servicios"))
+            }
+        }
+    }
 
     private fun PagoBackend.toInquilinoUi(hoy: LocalDate): Inquilino {
         // fechaSegura evita el crash si el día de pago no existe en el mes (ej. 31 en abril).

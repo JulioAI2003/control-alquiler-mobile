@@ -93,6 +93,10 @@ interface AlquilerApiService {
     @GET("mobile/servicios/realizados")
     suspend fun getServiciosRealizados(@Query("id_usuario") idUsuario: String): List<ServicioCasa>
 
+    // Gasto mensual del arrendador en servicios de la casa, por mes (para Estadísticas).
+    @GET("mobile/servicios/resumen")
+    suspend fun getResumenServicios(@Query("anio") anio: Int): ResumenServicios
+
     @POST("mobile/servicios/pagar")
     suspend fun pagarServicio(@Body body: PagarServicioRequest): PagoRegistradoResponse
 

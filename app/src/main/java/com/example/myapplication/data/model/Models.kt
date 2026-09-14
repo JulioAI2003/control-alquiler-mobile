@@ -711,6 +711,23 @@ data class ResumenGastoExtraMes(
     val totalDouble: Double get() = total.toDoubleOrNull() ?: 0.0
 }
 
+/** Total pagado por mes en servicios de la casa (luz, agua, etc.): el "gasto mensual"
+ *  del arrendador, para comparar en Estadísticas contra los gastos extra. */
+@Serializable
+data class ResumenServicios(
+    val anio:  Int = 0,
+    val meses: List<ResumenServicioMes> = emptyList()
+)
+
+@Serializable
+data class ResumenServicioMes(
+    val mes:      Int = 0,
+    val cantidad: Int = 0,
+    val total:    String = "0"
+) {
+    val totalDouble: Double get() = total.toDoubleOrNull() ?: 0.0
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 //  AJUSTES DE LA APP MÓVIL (tipo de aviso + hora del recordatorio diario)
 //  Se guardan en el backend para restaurarse tras reinstalar la app o cambiar de
