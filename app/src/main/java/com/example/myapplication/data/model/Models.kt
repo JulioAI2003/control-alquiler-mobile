@@ -453,6 +453,87 @@ data class AbonoPago(
     @SerialName("fecha_compromiso_restante") val fechaCompromiso: String? = null
 )
 
+// ═════════════════════════════════════════════════════════════════════════════
+//  SUPERVISOR (administra las cuentas de varios propietarios)
+// ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * El supervisor al que ESTE propietario le concedió acceso, o null si a nadie.
+ *
+ * [activo] dice si además ya marcó la cuenta para administrarla: conceder y
+ * aceptar son dos pasos, y hasta que ocurren los dos el acceso no existe.
+ */
+@Serializable
+data class SupervisorVinculo(
+    @SerialName("id_supervisor") val idSupervisor: String = "",
+    val nombre:                                    String = "",
+    val apellido:                                  String? = null,
+    val email:                                     String = "",
+    val activo:                                    Boolean = false
+) {
+    val nombreCompleto: String get() = "$nombre ${apellido.orEmpty()}".trim()
+}
+
+@Serializable
+data class BuscarSupervisorRequest(val email: String)
+
+/** Lo que devuelve la búsqueda por correo: se muestra para confirmar antes de conceder. */
+@Serializable
+data class SupervisorEncontrado(
+    @SerialName("id_supervisor") val idSupervisor: String = "",
+    val nombre:                                    String = "",
+    val email:                                     String = ""
+)
+
+@Serializable
+data class VincularSupervisorRequest(
+    @SerialName("id_supervisor") val idSupervisor: String
+)
+
+/** Una cuenta que concedió acceso a este supervisor. [activo] = la tiene marcada. */
+@Serializable
+data class CuentaSupervisada(
+    @SerialName("id_usuario") val idUsuario: String = "",
+    val nombre:                              String = "",
+    val apellido:                            String? = null,
+    val email:                               String = "",
+    val estado:                              String = "activo",
+    val activo:                              Boolean = false
+) {
+    val nombreCompleto: String get() = "$nombre ${apellido.orEmpty()}".trim()
+}
+
+@Serializable
+data class MarcarCuentaRequest(
+    @SerialName("id_usuario") val idUsuario: String,
+    val activo:                              Boolean
+)
+
+/**
+ * Pendientes de una cuenta administrada. Alimenta el inicio del supervisor y la
+ * alarma ("Julio: 3 cobros · 5 pagos").
+ */
+@Serializable
+data class ResumenCuenta(
+    @SerialName("id_usuario")         val idUsuario:         String = "",
+    val nombre:                                              String = "",
+    val apellido:                                            String? = null,
+    /** Cobros de inquilinos pendientes. */
+    val cobros:                                              Int = 0,
+    @SerialName("total_cobros")       val totalCobros:       String = "0",
+    @SerialName("cobros_vencidos")    val cobrosVencidos:    Int = 0,
+    /** Servicios de la casa por pagar. */
+    val servicios:                                           Int = 0,
+    @SerialName("total_servicios")    val totalServicios:    String = "0",
+    @SerialName("servicios_vencidos") val serviciosVencidos: Int = 0
+) {
+    val nombreCompleto: String get() = "$nombre ${apellido.orEmpty()}".trim()
+    val totalCobrosNum:    Double get() = totalCobros.toDoubleOrNull() ?: 0.0
+    val totalServiciosNum: Double get() = totalServicios.toDoubleOrNull() ?: 0.0
+    val pendientes: Int get() = cobros + servicios
+    val vencidos:   Int get() = cobrosVencidos + serviciosVencidos
+}
+
 // ── Historial de recibos de un inquilino (sección Inquilinos) ────────────────
 /**
  * Un recibo mensual del inquilino, pagado o no.

@@ -146,6 +146,10 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
     val userId by app.sessionDataStore.userId.collectAsStateWithLifecycle(initialValue = null)
     val esAdmin = rol == "Administrador"
     val esIndividual = rol == "Individual"
+    // Supervisor: administra las cuentas de otros propietarios. Su app no tiene
+    // inquilinos ni cuartos — solo cobrar y pagar en las cuentas que administra.
+    val esSupervisor = rol == "Supervisor"
+    val cuentaActiva by vm.cuentaActiva.collectAsStateWithLifecycle()
 
     // Indicaciones de ayuda (coach-marks). El efecto que las dispara está más abajo,
     // tras declarar `currentScreen` (cada vista tiene su propio tutorial).
@@ -153,6 +157,12 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
     var currentScreen by remember { mutableStateOf(if (esAdmin) "admin_usuarios" else "pendientes") }
     LaunchedEffect(esAdmin) { if (esAdmin && currentScreen == "pendientes") currentScreen = "admin_usuarios" }
     LaunchedEffect(esIndividual) { if (esIndividual && currentScreen == "pendientes") currentScreen = "individual_ingresos" }
+    LaunchedEffect(esSupervisor) { if (esSupervisor && currentScreen == "pendientes") currentScreen = "sup_inicio" }
+    // Al salir del detalle de una cuenta hay que soltarla: si no, las listas del
+    // supervisor seguirían pidiendo los datos de la cuenta anterior.
+    LaunchedEffect(currentScreen) {
+        if (esSupervisor && currentScreen !in listOf("sup_cobros", "sup_servicios")) vm.abrirCuenta(null)
+    }
 
     // Captura de Yape (u otra imagen) compartida desde la Galería: la app la recibe en
     // MainActivity y la publica en ImagenCompartidaBus. Aquí se abre "Pagos extra" y se
@@ -330,6 +340,22 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
                 }
+                if (esSupervisor) {
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.Default.Groups, null) },
+                        label = { Text("Cuentas") },
+                        selected = currentScreen == "sup_inicio",
+                        onClick = { currentScreen = "sup_inicio"; scope.launch { drawerState.close() } },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.Default.ManageAccounts, null) },
+                        label = { Text("Administrar cuentas") },
+                        selected = currentScreen == "sup_cuentas",
+                        onClick = { currentScreen = "sup_cuentas"; scope.launch { drawerState.close() } },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
+                }
                 if (esIndividual) {
                     NavigationDrawerItem(
                         icon = { Icon(Icons.Default.Home, null) },
@@ -391,10 +417,16 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
             }
         }
     ) {
-        val tabScreens = if (esIndividual) listOf("individual_ingresos", "individual_gastos", "individual_resumen")
-                         else listOf("pendientes", "servicios", "cuartos")
-        val tabTitles  = if (esIndividual) listOf("Ingresos", "Gastos", "Resumen")
-                         else listOf("Cobros", "Servicios", "Cuartos Libres")
+        val tabScreens = when {
+            esIndividual -> listOf("individual_ingresos", "individual_gastos", "individual_resumen")
+            esSupervisor -> listOf("sup_cobros", "sup_servicios")
+            else         -> listOf("pendientes", "servicios", "cuartos")
+        }
+        val tabTitles = when {
+            esIndividual -> listOf("Ingresos", "Gastos", "Resumen")
+            esSupervisor -> listOf("Cobros", "Servicios")
+            else         -> listOf("Cobros", "Servicios", "Cuartos Libres")
+        }
         val selectedTab = tabScreens.indexOf(currentScreen).coerceAtLeast(0)
         val showTabs = !esAdmin && currentScreen in tabScreens
 
@@ -405,6 +437,9 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
             "admin_usuarios" -> "Usuarios"; "admin_pagos" -> "Pagos Pendientes"
             "admin_pagos_realizados" -> "Pagos Registrados"; "ajustes" -> "Ajustes"
             "estadisticas" -> "Estadísticas"; "limpieza" -> "Limpieza"
+            "sup_inicio" -> "Cuentas"; "sup_cuentas" -> "Administrar cuentas"
+            // En el detalle manda el nombre de la cuenta: es lo que ubica al supervisor.
+            "sup_cobros", "sup_servicios" -> cuentaActiva?.nombreCompleto ?: "Cuenta"
             "individual_ingresos" -> "Ingresos"; "individual_gastos" -> "Gastos"; "individual_resumen" -> "Resumen"
             else -> "Inquilinos"
         }
@@ -415,7 +450,12 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                     CenterAlignedTopAppBar(
                         title = {
                             val saludo = "Bienvenido, ${nombreUsuario ?: "Usuario"}"
-                            Text(if (showTabs) saludo else screenTitle, fontWeight = FontWeight.ExtraBold, fontSize = if (showTabs) 18.sp else 20.sp)
+                            val mostrarSaludo = showTabs && !esSupervisor
+                            Text(
+                                if (mostrarSaludo) saludo else screenTitle,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = if (mostrarSaludo) 18.sp else 20.sp
+                            )
                         },
                         navigationIcon = {
                             IconButton(
@@ -469,13 +509,28 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
                     "cuartos_todos"  -> SeccionCuartos(vm)
                     "estadisticas"   -> SeccionEstadisticas(vm)
                     "limpieza"       -> SeccionLimpieza(vm)
+                    // ── Supervisor ──
+                    "sup_inicio" -> SeccionSupervisorInicio(
+                        vm = vm,
+                        onAbrirCuenta = { vm.abrirCuenta(it); currentScreen = "sup_cobros" },
+                        onIrACuentas  = { currentScreen = "sup_cuentas" }
+                    )
+                    "sup_cuentas"   -> SeccionCuentasSupervisadas(vm)
+                    // Reutilizan las listas del propietario: el ViewModel ya apunta a la
+                    // cuenta abierta, así que piden sus datos sin saber nada del supervisor.
+                    "sup_cobros"    -> ListaPendientes(
+                        vm = vm,
+                        onCardClick  = { inquilinoDetalle = it },
+                        onPagarClick = { inquilinoAConfirmar = it }
+                    )
+                    "sup_servicios" -> SeccionServicios(vm, onPagarClick = { servicioAConfirmar = it })
                     "servicios"          -> SeccionServicios(vm, onPagarClick = { servicioAConfirmar = it })
                     "servicios_pagados"  -> SeccionServiciosPagados(vm)
                     "pagos_extra"        -> SeccionPagosExtra(vm)
                     "admin_usuarios"         -> SeccionAdminUsuarios(vm)
                     "admin_pagos"            -> SeccionAdminPagos(vm)
                     "admin_pagos_realizados" -> SeccionAdminPagosRealizados(vm)
-                    "ajustes"                -> SeccionAjustes()
+                    "ajustes"                -> SeccionAjustes(vm)
                     "individual_ingresos"    -> SeccionIndividual(vm, "ingreso")
                     "individual_gastos"      -> SeccionIndividual(vm, "gasto")
                     "individual_resumen"     -> SeccionResumenIndividual(vm)
@@ -602,7 +657,7 @@ fun DashboardScreen(onLogout: () -> Unit, onCambiarPassword: () -> Unit = {}) {
 // de la vista principal.
 private val SECCIONES_CON_TUTORIAL = setOf(
     "pagados", "inquilinos", "cuartos_todos", "servicios", "servicios_pagados", "pagos_extra", "ajustes", "limpieza",
-    "estadisticas", "admin_pagos", "admin_pagos_realizados"
+    "estadisticas", "admin_pagos", "admin_pagos_realizados", "sup_cuentas"
 )
 
 // Devuelve el tutorial correspondiente a la VISTA actual. Las vistas principales
@@ -651,9 +706,15 @@ private fun pasosDeAyuda(screen: String, rol: String): List<CoachStep> {
             CoachStep(null, "Sin día asignado", "Los inquilinos que todavía no tienen día aparecen al pie de su piso, sobre fondo naranja. Tócalos para darles uno."),
             repasar
         )
+        "sup_cuentas" -> listOf(
+            CoachStep(null, "Administrar cuentas", "Aquí salen solo las cuentas que escribieron TU correo en sus Ajustes. Marca con el check las que quieras administrar; las que dejes sin marcar no aparecerán en tu inicio ni en tus avisos."),
+            CoachStep(null, "Quitar una cuenta", "Desmarcar una cuenta deja de mostrártela, pero el acceso te lo da el propietario: si él te lo quita desde sus Ajustes, la cuenta desaparece de esta lista sola."),
+            repasar
+        )
         "ajustes" -> listOf(
             CoachStep(null, "Ajustes", "Cambia entre modo claro y modo oscuro, ajusta el tamaño de letra a tu gusto, y elige cómo recibir los avisos: notificación silenciosa o alarma con sonido. También defines a qué hora del día llega el recordatorio diario de cobros y servicios pendientes."),
             CoachStep(null, "Tamaño de letra", "Cuatro niveles, de Pequeña a Muy grande, con una vista previa para ver cómo queda antes de salir. Solo cambia cómo se ve el texto: ningún monto, fecha ni cálculo se toca. Se guarda en este dispositivo."),
+            CoachStep(null, "Supervisor", "Al final de Ajustes puedes dar acceso a una persona de confianza para que registre tus cobros y pagos de servicios. Escribes su correo, el sistema te muestra su nombre para que confirmes que es quien crees, y solo entonces se le concede. No verá inquilinos, cuartos ni estadísticas, y puedes quitarle el acceso cuando quieras: lo pierde al instante."),
             CoachStep(null, "Cuando suena la alarma", "Si eliges \"Alarma\", al saltar verás el detalle a pantalla completa con un botón \"Silenciar\" en la esquina superior derecha: corta el sonido al instante pero deja el aviso en pantalla para que leas los pendientes con calma. \"Apagar alarma\", abajo, lo quita del todo."),
             repasar
         )
@@ -684,6 +745,14 @@ private fun pasosDeAyuda(screen: String, rol: String): List<CoachStep> {
             CoachStep("tab_2", "Resumen", "El balance del mes: cuánto entró, cuánto salió y tu resultado."),
             CoachStep(null, "Las 3 sub-pestañas", "Dentro de Ingresos y de Gastos verás: \"Pendientes\" (lo que falta cobrar o pagar), \"Realizados\" (lo ya registrado, que puedes Revertir si te equivocas) y \"Conceptos\" (crea, edita o elimina tus ingresos y gastos fijos; tienes 24 h para deshacer un borrado)."),
             CoachStep(null, "Registrar y recordar", "En \"Pendientes\" toca Cobrar o Pagar y confirma. En Ingresos, si aún no toca cobrar, puedes usar \"Posponer\" para aplazar el aviso. La app te recordará cada pago e ingreso para que nunca se te olvide una cuota."),
+            repasar
+        )
+        "Supervisor" -> listOf(
+            CoachStep("menu", "Menú", "Dos secciones: \"Cuentas\" (las que administras hoy) y \"Administrar cuentas\" (elegir cuáles)."),
+            CoachStep(null, "Cómo te dan acceso", "El propietario escribe tu correo en sus Ajustes. Luego su cuenta te aparece en \"Administrar cuentas\" y tú la marcas. Hacen falta los dos pasos: hasta que marcas la cuenta no ves nada de ella."),
+            CoachStep(null, "Cuentas", "Una tarjeta por cuenta con sus cobros y sus pagos pendientes, y el total de cada uno. Si algo está vencido, la tarjeta se marca en rojo. Toca una para entrar."),
+            CoachStep(null, "Dentro de una cuenta", "Dos pestañas: \"Cobros\" son los alquileres por cobrar a sus inquilinos, \"Servicios\" lo que el propietario debe pagar (luz, agua…). Puedes registrar los pagos y revertirlos si te equivocas, igual que el propietario."),
+            CoachStep(null, "Avisos", "Recibirás el aviso diario con el resumen de todas las cuentas que administras, agrupado por persona."),
             repasar
         )
         "Administrador" -> listOf(
@@ -3586,12 +3655,183 @@ fun SeccionAdminPagosRealizados(vm: PagosViewModel) {
     }
 }
 
+/**
+ * Da o quita acceso a un supervisor: alguien que administra los cobros y pagos de
+ * esta cuenta sin ser su dueño.
+ *
+ * El correo se BUSCA antes de guardar y se confirma contra el nombre que devuelve
+ * el servidor. Escribir mal una letra y acertar con el correo de otro supervisor
+ * real le daría acceso a tus cobros sin que te enteraras; ver el nombre antes de
+ * aceptar cierra ese riesgo.
+ */
+@Composable
+private fun BloqueSupervisor(vm: PagosViewModel) {
+    val vinculo  by vm.vinculoState.collectAsStateWithLifecycle()
+    val busqueda by vm.buscarSupervisorState.collectAsStateWithLifecycle()
+    val accion   by vm.accionVinculoState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) { vm.cargarVinculoSupervisor() }
+
+    var email by remember { mutableStateOf("") }
+    var confirmarRevocar by remember { mutableStateOf(false) }
+    val ocupado = accion is UiState.Loading || busqueda is UiState.Loading
+    val actual = (vinculo as? UiState.Success)?.data
+
+    // Al conceder o revocar, el campo se limpia: lo tecleado ya no aplica.
+    LaunchedEffect(accion) { if (accion is UiState.Success) email = "" }
+
+    Text("Supervisor", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = AzulPrimario)
+    Text(
+        "Puedes dar acceso a una persona de confianza para que registre tus cobros y " +
+            "pagos de servicios. No podrá ver ni tocar nada más, y puedes quitárselo cuando quieras.",
+        fontSize = 14.sp, color = AppTheme.colores.textoSuave
+    )
+
+    if (actual != null) {
+        // ── Ya hay un supervisor: se muestra y se ofrece revocar ──
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = AppTheme.colores.exitoContenedorTenue),
+            border = BorderStroke(2.dp, AppTheme.colores.exito),
+            shape  = RoundedCornerShape(16.dp)
+        ) {
+            Column(Modifier.padding(20.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.VerifiedUser, null,
+                        modifier = Modifier.size(40.dp), tint = AppTheme.colores.exito
+                    )
+                    Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(actual.nombreCompleto, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text(actual.email, fontSize = 12.sp, color = AppTheme.colores.textoSuave)
+                        Text(
+                            if (actual.activo) "Administrando tu cuenta"
+                            else "Le diste acceso, pero todavía no activó tu cuenta",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (actual.activo) AppTheme.colores.exitoTexto
+                                    else AppTheme.colores.advertenciaTexto
+                        )
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+                OutlinedButton(
+                    onClick  = { confirmarRevocar = true },
+                    enabled  = !ocupado,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors   = ButtonDefaults.outlinedButtonColors(contentColor = AppTheme.colores.peligro)
+                ) { Text("Quitar el acceso") }
+            }
+        }
+    } else {
+        // ── Sin supervisor: buscar por correo ──
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = AppTheme.colores.superficie),
+            border = BorderStroke(2.dp, AppTheme.colores.borde),
+            shape  = RoundedCornerShape(16.dp)
+        ) {
+            Column(Modifier.padding(20.dp)) {
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it; vm.resetBuscarSupervisor(); vm.resetAccionVinculo() },
+                    label = { Text("Correo del supervisor") },
+                    singleLine = true,
+                    enabled = !ocupado,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(10.dp))
+                Button(
+                    onClick  = { vm.buscarSupervisor(email) },
+                    enabled  = email.isNotBlank() && !ocupado,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors   = ButtonDefaults.buttonColors(containerColor = AzulPrimario)
+                ) {
+                    if (busqueda is UiState.Loading) {
+                        CircularProgressIndicator(
+                            Modifier.size(18.dp),
+                            color = AppTheme.colores.textoSobreAcento, strokeWidth = 2.dp
+                        )
+                    } else Text("Buscar")
+                }
+
+                (busqueda as? UiState.Error)?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(it.message, color = AppTheme.colores.error, fontSize = 13.sp)
+                }
+
+                // Confirmación contra el nombre antes de conceder nada.
+                (busqueda as? UiState.Success)?.data?.let { encontrado ->
+                    Spacer(Modifier.height(12.dp))
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = AppTheme.colores.advertenciaContenedor),
+                        shape  = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(Modifier.padding(14.dp)) {
+                            Text(
+                                "¿Dar acceso a esta persona?",
+                                fontWeight = FontWeight.Bold, fontSize = 14.sp,
+                                color = AppTheme.colores.advertenciaTexto
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(encontrado.nombre, fontWeight = FontWeight.Black, fontSize = 16.sp)
+                            Text(encontrado.email, fontSize = 12.sp, color = AppTheme.colores.textoMedio)
+                            Spacer(Modifier.height(12.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                OutlinedButton(
+                                    onClick = { vm.resetBuscarSupervisor() },
+                                    enabled = !ocupado,
+                                    modifier = Modifier.weight(1f)
+                                ) { Text("No") }
+                                Button(
+                                    onClick = { vm.concederAcceso(encontrado.idSupervisor) },
+                                    enabled = !ocupado,
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colores.exito)
+                                ) { Text("Sí, dar acceso") }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    when (val a = accion) {
+        is UiState.Error   -> Text(a.message, color = AppTheme.colores.error, fontSize = 13.sp)
+        is UiState.Success -> Text(a.data, color = AppTheme.colores.exito, fontSize = 13.sp)
+        else -> Unit
+    }
+
+    if (confirmarRevocar) {
+        AlertDialog(
+            onDismissRequest = { confirmarRevocar = false },
+            confirmButton = {
+                Button(
+                    onClick = { vm.revocarAcceso(); confirmarRevocar = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colores.peligro)
+                ) { Text("Sí, quitar") }
+            },
+            dismissButton = { TextButton(onClick = { confirmarRevocar = false }) { Text("Cancelar") } },
+            title = { Text("Quitar el acceso") },
+            text = {
+                Text(
+                    "${actual?.nombreCompleto ?: "El supervisor"} dejará de ver y de registrar " +
+                        "tus cobros y pagos al instante. Puedes volver a dárselo cuando quieras."
+                )
+            }
+        )
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 //  SECCIÓN AJUSTES
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @Composable
-fun SeccionAjustes() {
+fun SeccionAjustes(vm: PagosViewModel) {
     val context = LocalContext.current
     val dataStore = remember { SessionDataStore(context) }
     val tipoAviso by dataStore.tipoAviso.collectAsStateWithLifecycle(initialValue = "notificacion")
@@ -3940,5 +4180,10 @@ fun SeccionAjustes() {
                 )
             }
         }
+
+        // ── Supervisor ─────────────────────────────────────────────────────────
+        HorizontalDivider(Modifier.padding(top = 8.dp))
+        BloqueSupervisor(vm)
+
     }
 }

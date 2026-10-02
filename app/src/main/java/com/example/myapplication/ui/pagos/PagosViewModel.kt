@@ -111,6 +111,40 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
     val historialInquilinoState: StateFlow<UiState<List<PagoHistorial>>> =
         _historialInquilinoState.asStateFlow()
 
+    // ── SUPERVISOR ────────────────────────────────────────────────────────────
+    /**
+     * Cuenta sobre la que trabaja el supervisor ahora mismo. `null` = la propia,
+     * que es el caso de cualquier otro rol.
+     *
+     * Vive aquí y no en cada pantalla para que los cargadores de cobros y
+     * servicios la respeten sin que haya que pasarla por media docena de
+     * composables: el supervisor abre una cuenta y las listas de siempre se
+     * llenan con los datos de esa cuenta.
+     */
+    private val _cuentaActiva = MutableStateFlow<CuentaSupervisada?>(null)
+    val cuentaActiva: StateFlow<CuentaSupervisada?> = _cuentaActiva.asStateFlow()
+
+    // Lado propietario: a quién le concedí acceso.
+    private val _vinculoState = MutableStateFlow<UiState<SupervisorVinculo?>>(UiState.Idle)
+    val vinculoState: StateFlow<UiState<SupervisorVinculo?>> = _vinculoState.asStateFlow()
+
+    // Resultado de buscar un supervisor por correo (para confirmar antes de conceder).
+    private val _buscarSupervisorState = MutableStateFlow<UiState<SupervisorEncontrado>>(UiState.Idle)
+    val buscarSupervisorState: StateFlow<UiState<SupervisorEncontrado>> = _buscarSupervisorState.asStateFlow()
+
+    private val _accionVinculoState = MutableStateFlow<UiState<String>>(UiState.Idle)
+    val accionVinculoState: StateFlow<UiState<String>> = _accionVinculoState.asStateFlow()
+
+    // Lado supervisor: cuentas que me dieron acceso y resumen de pendientes.
+    private val _cuentasSupervisadasState = MutableStateFlow<UiState<List<CuentaSupervisada>>>(UiState.Idle)
+    val cuentasSupervisadasState: StateFlow<UiState<List<CuentaSupervisada>>> = _cuentasSupervisadasState.asStateFlow()
+
+    private val _accionCuentaState = MutableStateFlow<UiState<String>>(UiState.Idle)
+    val accionCuentaState: StateFlow<UiState<String>> = _accionCuentaState.asStateFlow()
+
+    private val _resumenSupervisorState = MutableStateFlow<UiState<List<ResumenCuenta>>>(UiState.Idle)
+    val resumenSupervisorState: StateFlow<UiState<List<ResumenCuenta>>> = _resumenSupervisorState.asStateFlow()
+
     // Horario de limpieza
     private val _limpiezaState = MutableStateFlow<UiState<List<LimpiezaInquilino>>>(UiState.Idle)
     val limpiezaState: StateFlow<UiState<List<LimpiezaInquilino>>> = _limpiezaState.asStateFlow()
@@ -160,11 +194,18 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
     private val _escaneoGastoState = MutableStateFlow<UiState<DatosGastoEscaneado>>(UiState.Idle)
     val escaneoGastoState: StateFlow<UiState<DatosGastoEscaneado>> = _escaneoGastoState.asStateFlow()
 
+    /**
+     * Cuenta cuyos datos hay que pedir: la abierta por el supervisor, o la propia.
+     * El backend valida igualmente que tenga permiso sobre ella.
+     */
+    private suspend fun idCuentaDeTrabajo(): String? =
+        _cuentaActiva.value?.idUsuario ?: app.sessionDataStore.userId.first()
+
     fun cargarPagos() {
         viewModelScope.launch {
             _pagosState.value = UiState.Loading
             try {
-                val idUsuario = app.sessionDataStore.userId.first() ?: return@launch
+                val idUsuario = idCuentaDeTrabajo() ?: return@launch
                 val pagosBackend = AlquilerApiClient.service.getPagosPendientes(idUsuario)
                 val hoy = LocalDate.now()
                 val inquilinos = pagosBackend.map { it.toInquilinoUi(hoy) }
@@ -180,7 +221,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
         viewModelScope.launch {
             _pagosRecientesState.value = UiState.Loading
             try {
-                val idUsuario = app.sessionDataStore.userId.first() ?: return@launch
+                val idUsuario = idCuentaDeTrabajo() ?: return@launch
                 val pagosBackend = AlquilerApiClient.service.getPagosRecientes(idUsuario)
                 val hoy = LocalDate.now()
                 val inquilinos = pagosBackend.map { it.toInquilinoUi(hoy) }
@@ -554,7 +595,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
         viewModelScope.launch {
             _serviciosState.value = UiState.Loading
             try {
-                val idUsuario = app.sessionDataStore.userId.first() ?: return@launch
+                val idUsuario = idCuentaDeTrabajo() ?: return@launch
                 _serviciosState.value = UiState.Success(AlquilerApiClient.service.getServicios(idUsuario))
             } catch (e: Exception) {
                 _serviciosState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al cargar servicios"))
@@ -566,7 +607,7 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
         viewModelScope.launch {
             _serviciosRealizadosState.value = UiState.Loading
             try {
-                val idUsuario = app.sessionDataStore.userId.first() ?: return@launch
+                val idUsuario = idCuentaDeTrabajo() ?: return@launch
                 _serviciosRealizadosState.value = UiState.Success(AlquilerApiClient.service.getServiciosRealizados(idUsuario))
             } catch (e: Exception) {
                 _serviciosRealizadosState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al cargar servicios pagados"))
@@ -811,6 +852,127 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
     }
 
     fun resetHistorialInquilinoState() { _historialInquilinoState.value = UiState.Idle }
+
+    // ── SUPERVISOR · lado propietario ─────────────────────────────────────────
+
+    fun cargarVinculoSupervisor() {
+        viewModelScope.launch {
+            _vinculoState.value = UiState.Loading
+            try {
+                _vinculoState.value = UiState.Success(AlquilerApiClient.service.getSupervisorVinculo())
+            } catch (e: Exception) {
+                _vinculoState.value =
+                    UiState.Error(NetworkError.toUserMessage(e, "Error al consultar tu supervisor"))
+            }
+        }
+    }
+
+    /** Busca por correo SIN conceder nada: la app muestra el nombre para confirmar. */
+    fun buscarSupervisor(email: String) {
+        viewModelScope.launch {
+            _buscarSupervisorState.value = UiState.Loading
+            try {
+                _buscarSupervisorState.value = UiState.Success(
+                    AlquilerApiClient.service.buscarSupervisor(BuscarSupervisorRequest(email.trim()))
+                )
+            } catch (e: Exception) {
+                _buscarSupervisorState.value =
+                    UiState.Error(NetworkError.toUserMessage(e, "Error al buscar el supervisor"))
+            }
+        }
+    }
+
+    fun concederAcceso(idSupervisor: String) {
+        viewModelScope.launch {
+            _accionVinculoState.value = UiState.Loading
+            try {
+                val resp = AlquilerApiClient.service.vincularSupervisor(
+                    VincularSupervisorRequest(idSupervisor)
+                )
+                _accionVinculoState.value = UiState.Success(resp.message)
+                _buscarSupervisorState.value = UiState.Idle
+                cargarVinculoSupervisor()
+            } catch (e: Exception) {
+                _accionVinculoState.value =
+                    UiState.Error(NetworkError.toUserMessage(e, "Error al conceder el acceso"))
+            }
+        }
+    }
+
+    fun revocarAcceso() {
+        viewModelScope.launch {
+            _accionVinculoState.value = UiState.Loading
+            try {
+                val resp = AlquilerApiClient.service.revocarSupervisor()
+                _accionVinculoState.value = UiState.Success(resp.message)
+                cargarVinculoSupervisor()
+            } catch (e: Exception) {
+                _accionVinculoState.value =
+                    UiState.Error(NetworkError.toUserMessage(e, "Error al revocar el acceso"))
+            }
+        }
+    }
+
+    fun resetBuscarSupervisor() { _buscarSupervisorState.value = UiState.Idle }
+    fun resetAccionVinculo()    { _accionVinculoState.value = UiState.Idle }
+
+    // ── SUPERVISOR · lado supervisor ──────────────────────────────────────────
+
+    fun cargarCuentasSupervisadas() {
+        viewModelScope.launch {
+            _cuentasSupervisadasState.value = UiState.Loading
+            try {
+                _cuentasSupervisadasState.value =
+                    UiState.Success(AlquilerApiClient.service.getCuentasSupervisadas())
+            } catch (e: Exception) {
+                _cuentasSupervisadasState.value =
+                    UiState.Error(NetworkError.toUserMessage(e, "Error al cargar las cuentas"))
+            }
+        }
+    }
+
+    /** Marca o desmarca una cuenta. Al cambiar, el resumen del inicio deja de cuadrar. */
+    fun marcarCuenta(idUsuario: String, activo: Boolean) {
+        viewModelScope.launch {
+            _accionCuentaState.value = UiState.Loading
+            try {
+                val resp = AlquilerApiClient.service.marcarCuentaSupervisada(
+                    MarcarCuentaRequest(idUsuario, activo)
+                )
+                _accionCuentaState.value = UiState.Success(resp.message)
+                cargarCuentasSupervisadas()
+                cargarResumenSupervisor()
+            } catch (e: Exception) {
+                _accionCuentaState.value =
+                    UiState.Error(NetworkError.toUserMessage(e, "Error al guardar la selección"))
+            }
+        }
+    }
+
+    fun cargarResumenSupervisor() {
+        viewModelScope.launch {
+            _resumenSupervisorState.value = UiState.Loading
+            try {
+                _resumenSupervisorState.value =
+                    UiState.Success(AlquilerApiClient.service.getResumenSupervisor())
+            } catch (e: Exception) {
+                _resumenSupervisorState.value =
+                    UiState.Error(NetworkError.toUserMessage(e, "Error al cargar el resumen"))
+            }
+        }
+    }
+
+    fun resetAccionCuenta() { _accionCuentaState.value = UiState.Idle }
+
+    /**
+     * Abre (o cierra, con null) una cuenta administrada. Limpia las listas para
+     * que no se vea un instante los datos de la cuenta anterior.
+     */
+    fun abrirCuenta(cuenta: CuentaSupervisada?) {
+        _cuentaActiva.value = cuenta
+        _pagosState.value = UiState.Idle
+        _serviciosState.value = UiState.Idle
+    }
 
     // ── Horario de limpieza ───────────────────────────────────────────────────
 

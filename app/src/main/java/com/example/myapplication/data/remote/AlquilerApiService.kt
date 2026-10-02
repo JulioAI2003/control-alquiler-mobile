@@ -152,6 +152,30 @@ interface AlquilerApiService {
         @Query("id_inquilino") idInquilino: String
     ): List<PagoHistorial>
 
+    // --- SUPERVISOR ---
+    // Lado propietario: a quién le di acceso, buscar por correo, conceder, revocar.
+    @GET("mobile/supervisor/vinculo")
+    suspend fun getSupervisorVinculo(): SupervisorVinculo?
+
+    @POST("mobile/supervisor/buscar")
+    suspend fun buscarSupervisor(@Body body: BuscarSupervisorRequest): SupervisorEncontrado
+
+    @PUT("mobile/supervisor/vinculo")
+    suspend fun vincularSupervisor(@Body body: VincularSupervisorRequest): PagoRegistradoResponse
+
+    @DELETE("mobile/supervisor/vinculo")
+    suspend fun revocarSupervisor(): PagoRegistradoResponse
+
+    // Lado supervisor: qué cuentas me dieron acceso, cuáles administro y su resumen.
+    @GET("mobile/supervisor/cuentas")
+    suspend fun getCuentasSupervisadas(): List<CuentaSupervisada>
+
+    @PUT("mobile/supervisor/cuentas")
+    suspend fun marcarCuentaSupervisada(@Body body: MarcarCuentaRequest): PagoRegistradoResponse
+
+    @GET("mobile/supervisor/resumen")
+    suspend fun getResumenSupervisor(): List<ResumenCuenta>
+
     // --- HORARIO DE LIMPIEZA ---
 
     @GET("mobile/limpieza")
