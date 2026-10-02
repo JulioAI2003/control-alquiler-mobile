@@ -325,6 +325,18 @@ data class AgregarServicioInquilinoRequest(
 /** Holder en memoria para los servicios que el usuario agrega en el wizard (no se serializa). */
 data class ServicioNuevo(val nombre: String, val monto: Double)
 
+/** Servicio adicional ya registrado de un inquilino (GET /inquilino/servicios?id_inquilino=). */
+@Serializable
+data class ServicioInquilino(
+    @SerialName("id_servicio")  val idServicio:  String = "",
+    @SerialName("id_inquilino") val idInquilino: String = "",
+    val nombre:                                   String = "",
+    val monto:                                    String = "0",
+    val activo:                                   Boolean = true
+) {
+    val montoDouble: Double get() = monto.toDoubleOrNull() ?: 0.0
+}
+
 // ── Sección "Cuartos" (listar todos + editar) ─────────────────────────────────
 @Serializable
 data class CuartoDetalle(
@@ -709,6 +721,17 @@ data class ResumenGastoExtraMes(
     val total:    String = "0"
 ) {
     val totalDouble: Double get() = total.toDoubleOrNull() ?: 0.0
+}
+
+/** Un recibo de servicio pagado que compone el total de un mes (GET /mobile/servicios/detalle). */
+@Serializable
+data class ServicioPagadoDetalle(
+    @SerialName("id_pago")      val idPago:      String = "",
+    val nombre:                                  String = "",
+    @SerialName("monto_pagado") val montoPagado: String? = null,
+    @SerialName("fecha_pago")   val fechaPago:   String? = null
+) {
+    val montoDouble: Double get() = montoPagado?.toDoubleOrNull() ?: 0.0
 }
 
 /** Total pagado por mes en servicios de la casa (luz, agua, etc.): el "gasto mensual"

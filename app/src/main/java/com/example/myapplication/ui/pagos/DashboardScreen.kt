@@ -1582,6 +1582,7 @@ fun SeccionInquilinos(vm: PagosViewModel) {
     if (inquilinoSeleccionado != null) {
         InquilinoBottomSheet(
             inquilino     = inquilinoSeleccionado!!,
+            vm            = vm,
             retiroState   = retiroState,
             contratoState = contratoState,
             onRetirar        = { inquilinoARetirar = it },
@@ -1594,7 +1595,7 @@ fun SeccionInquilinos(vm: PagosViewModel) {
             onEditarDatos    = { inquilinoAEditar = it; inquilinoSeleccionado = null },
             onTrasladar      = { inquilinoATrasladar = it; inquilinoSeleccionado = null },
             onHistorial      = { inquilinoHistorial = it; inquilinoSeleccionado = null },
-            onDismiss        = { inquilinoSeleccionado = null; vm.resetRetiroState(); vm.resetContratoState() }
+            onDismiss        = { inquilinoSeleccionado = null; vm.resetRetiroState(); vm.resetContratoState(); vm.resetServiciosInquilinoState() }
         )
     }
 
@@ -2436,6 +2437,7 @@ fun SeccionServiciosPagados(vm: PagosViewModel) {
 @Composable
 fun InquilinoBottomSheet(
     inquilino:        InquilinoMobile,
+    vm:               PagosViewModel,
     retiroState:      UiState<String>,
     contratoState:    UiState<Uri>,
     onRetirar:        (InquilinoMobile) -> Unit,
@@ -2449,6 +2451,9 @@ fun InquilinoBottomSheet(
     onDismiss:        () -> Unit
 ) {
     val esPendiente = inquilino.estado == "pendiente_retiro"
+    val serviciosState by vm.serviciosInquilinoState.collectAsStateWithLifecycle()
+    LaunchedEffect(inquilino.idInquilino) { vm.cargarServiciosInquilino(inquilino.idInquilino) }
+    val serviciosExtra = (serviciosState as? UiState.Success)?.data.orEmpty()
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = AppTheme.colores.superficie) {
         Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding()) {
             Text("Detalle del Inquilino", fontWeight = FontWeight.Black, fontSize = 22.sp, color = AzulPrimario)
@@ -2573,6 +2578,43 @@ fun InquilinoBottomSheet(
                         colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colores.exito),
                         enabled = retiroState !is UiState.Loading
                     ) { Text("Pagar Garantía") }
+                }
+            }
+
+            // ── Servicios extra ──
+            // Solo aparece si el inquilino tiene servicios adicionales activos (ej.
+            // cochera, cable): se suman a su alquiler mensual además de la renta base.
+            if (serviciosExtra.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = AppTheme.colores.doradoContenedor),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.RoomService, null, tint = AppTheme.colores.doradoContenedorTexto)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Servicios extra", fontWeight = FontWeight.Bold,
+                                color = AppTheme.colores.doradoContenedorTexto, modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                "S/ ${"%.2f".format(serviciosExtra.sumOf { it.montoDouble })}/mes",
+                                fontWeight = FontWeight.Black, color = AppTheme.colores.doradoContenedorTexto
+                            )
+                        }
+                        serviciosExtra.forEach { s ->
+                            Spacer(Modifier.height(6.dp))
+                            Row {
+                                Text(s.nombre, fontSize = 13.sp, color = AppTheme.colores.doradoContenedorTexto, modifier = Modifier.weight(1f))
+                                Text(
+                                    "S/ ${"%.2f".format(s.montoDouble)}", fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold, color = AppTheme.colores.doradoContenedorTexto
+                                )
+                            }
+                        }
+                    }
                 }
             }
 

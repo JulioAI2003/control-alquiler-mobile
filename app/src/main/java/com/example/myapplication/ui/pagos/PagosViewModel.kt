@@ -48,6 +48,11 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
     private val _seleccionablesState = MutableStateFlow<UiState<List<InquilinoSeleccionable>>>(UiState.Idle)
     val seleccionablesState: StateFlow<UiState<List<InquilinoSeleccionable>>> = _seleccionablesState.asStateFlow()
 
+    // Servicios extra ya registrados de un inquilino (ej. cochera, cable), mostrados
+    // en su detalle solo cuando tiene alguno.
+    private val _serviciosInquilinoState = MutableStateFlow<UiState<List<ServicioInquilino>>>(UiState.Idle)
+    val serviciosInquilinoState: StateFlow<UiState<List<ServicioInquilino>>> = _serviciosInquilinoState.asStateFlow()
+
     // Estadísticas: potencial de ingresos por piso.
     private val _estadisticasState = MutableStateFlow<UiState<EstadisticasMobile>>(UiState.Idle)
     val estadisticasState: StateFlow<UiState<EstadisticasMobile>> = _estadisticasState.asStateFlow()
@@ -235,6 +240,21 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
             }
         }
     }
+
+    fun cargarServiciosInquilino(idInquilino: String) {
+        viewModelScope.launch {
+            _serviciosInquilinoState.value = UiState.Loading
+            try {
+                _serviciosInquilinoState.value = UiState.Success(
+                    AlquilerApiClient.service.getServiciosInquilino(idInquilino)
+                )
+            } catch (e: Exception) {
+                _serviciosInquilinoState.value = UiState.Error(NetworkError.toUserMessage(e, "Error al cargar los servicios"))
+            }
+        }
+    }
+
+    fun resetServiciosInquilinoState() { _serviciosInquilinoState.value = UiState.Idle }
 
     fun iniciarRetiro(idInquilino: String, todosLosCuartos: Boolean = false) {
         viewModelScope.launch {

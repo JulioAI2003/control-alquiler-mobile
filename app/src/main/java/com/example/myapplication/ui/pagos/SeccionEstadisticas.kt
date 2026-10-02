@@ -23,6 +23,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.myapplication.data.remote.AlquilerApiClient
+import com.example.myapplication.data.remote.NetworkError
 import com.example.myapplication.data.model.EstadisticaPiso
 import com.example.myapplication.data.model.EstadisticasMobile
 import com.example.myapplication.data.model.ResumenGastosExtra
@@ -345,6 +347,9 @@ private fun SeccionGastosEstadistica(vm: PagosViewModel) {
 
     val cargando = serviciosState is UiState.Loading || extraState is UiState.Loading
     val error = (serviciosState as? UiState.Error)?.message ?: (extraState as? UiState.Error)?.message
+    var mesDetalle by remember { mutableStateOf<Int?>(null) }
+
+    mesDetalle?.let { DetalleGastosMesDialog(anioActual, it) { mesDetalle = null } }
 
     when {
         cargando -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
@@ -401,7 +406,7 @@ private fun SeccionGastosEstadistica(vm: PagosViewModel) {
                         Spacer(Modifier.height(4.dp))
                         Text("Mes a mes", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = AppTheme.colores.dorado)
                     }
-                    items(meses, key = { it.mes }) { TarjetaGastoMes(it) }
+                    items(meses, key = { it.mes }) { TarjetaGastoMes(it, onClick = { mesDetalle = it.mes }) }
                 } else {
                     item {
                         Box(Modifier.fillMaxWidth().padding(top = 24.dp), contentAlignment = Alignment.Center) {
@@ -425,10 +430,11 @@ private fun SeccionGastosEstadistica(vm: PagosViewModel) {
 }
 
 @Composable
-private fun TarjetaGastoMes(gasto: GastoMes) {
+private fun TarjetaGastoMes(gasto: GastoMes, onClick: () -> Unit) {
     val proporcionMensual = if (gasto.total > 0) (gasto.mensual / gasto.total).toFloat() else 0f
 
     Card(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = AppTheme.colores.superficie),
         border = BorderStroke(1.dp, AppTheme.colores.borde),
@@ -454,5 +460,83 @@ private fun TarjetaGastoMes(gasto: GastoMes) {
                 DatoPiso("Extra", gasto.extra, ExtraColor, Modifier.weight(1f))
             }
         }
+    }
+}
+
+/** Un renglón del desglose de un mes: de qué gasto viene y cuánto aportó a la suma. */
+private data class LineaGasto(val concepto: String, val fecha: String?, val monto: Double, val extra: Boolean)
+
+private fun nombreMesLargo(mes: Int) = listOf(
+    "", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+).getOrElse(mes) { mes.toString() }
+
+/** Lista los gastos (servicios pagados + gastos extra) que forman el total del mes tocado. */
+@Composable
+private fun DetalleGastosMesDialog(anio: Int, mes: Int, onDismiss: () -> Unit) {
+    val estado by produceState<UiState<List<LineaGasto>>>(UiState.Loading, anio, mes) {
+        value = try {
+            val servicios = AlquilerApiClient.service.getDetalleServicios(anio, mes)
+            val extras = AlquilerApiClient.service.getGastosExtra(mes, anio)
+            UiState.Success(
+                (servicios.map { LineaGasto(it.nombre, it.fechaPago, it.montoDouble, false) } +
+                    extras.map { LineaGasto(it.asunto, it.fecha, it.montoDouble, true) })
+                    .sortedByDescending { it.fecha ?: "" }
+            )
+        } catch (e: Exception) {
+            UiState.Error(NetworkError.toUserMessage(e, "Error al cargar el detalle"))
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = AppTheme.colores.superficie,
+        title = { Text("Gastos de ${nombreMesLargo(mes)} $anio", fontWeight = FontWeight.Bold) },
+        text = {
+            when (val s = estado) {
+                is UiState.Success -> if (s.data.isEmpty()) {
+                    Text("Sin gastos en este mes.", color = AppTheme.colores.textoSuave)
+                } else {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(s.data) { LineaGastoFila(it) }
+                        item {
+                            HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                            Row {
+                                Text("Total", fontWeight = FontWeight.Bold, color = AppTheme.colores.texto)
+                                Spacer(Modifier.weight(1f))
+                                Text(
+                                    "S/ ${"%.2f".format(s.data.sumOf { it.monto })}",
+                                    fontWeight = FontWeight.Black,
+                                    color = AppTheme.colores.texto
+                                )
+                            }
+                        }
+                    }
+                }
+                is UiState.Error -> Text(s.message, color = AppTheme.colores.error)
+                else -> Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Cerrar") } }
+    )
+}
+
+@Composable
+private fun LineaGastoFila(linea: LineaGasto) {
+    val color = if (linea.extra) ExtraColor else MensualColor
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(8.dp).clip(RoundedCornerShape(4.dp)).background(color))
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(linea.concepto.ifBlank { "Sin descripción" }, fontSize = 14.sp, color = AppTheme.colores.texto)
+            Text(
+                (if (linea.extra) "Extra" else "Servicio") + (linea.fecha?.take(10)?.let { " · $it" } ?: ""),
+                fontSize = 11.sp,
+                color = AppTheme.colores.textoSuave
+            )
+        }
+        Text("S/ ${"%.2f".format(linea.monto)}", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = color)
     }
 }

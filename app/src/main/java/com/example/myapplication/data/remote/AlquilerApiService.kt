@@ -75,6 +75,10 @@ interface AlquilerApiService {
     @POST("inquilino/servicio")
     suspend fun agregarServicioInquilino(@Body body: AgregarServicioInquilinoRequest): okhttp3.ResponseBody
 
+    // Servicios extra ya registrados de un inquilino (detalle del inquilino).
+    @GET("inquilino/servicios")
+    suspend fun getServiciosInquilino(@Query("id_inquilino") idInquilino: String): List<ServicioInquilino>
+
     // Sección Cuartos: listar todos los cuartos del usuario y editar uno.
     @GET("mobile/cuartos")
     suspend fun getCuartos(@Query("id_usuario") idUsuario: String): List<CuartoDetalle>
@@ -96,6 +100,10 @@ interface AlquilerApiService {
     // Gasto mensual del arrendador en servicios de la casa, por mes (para Estadísticas).
     @GET("mobile/servicios/resumen")
     suspend fun getResumenServicios(@Query("anio") anio: Int): ResumenServicios
+
+    // Recibos pagados que componen el gasto mensual de un mes (detalle del resumen).
+    @GET("mobile/servicios/detalle")
+    suspend fun getDetalleServicios(@Query("anio") anio: Int, @Query("mes") mes: Int): List<ServicioPagadoDetalle>
 
     @POST("mobile/servicios/pagar")
     suspend fun pagarServicio(@Body body: PagarServicioRequest): PagoRegistradoResponse

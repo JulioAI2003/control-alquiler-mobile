@@ -92,39 +92,32 @@ fun SeccionCuartos(vm: PagosViewModel) {
     }
 
     var filtro by remember { mutableStateOf(FiltroCuarto.TODOS) }
+    var filtroPiso by remember { mutableStateOf<String?>(null) }
 
-    // Lista cargada y su filtrado por estado: alimentan el contador y la lista, así
-    // que se calculan una sola vez fuera del `when`.
+    // Lista cargada y su filtrado por estado + piso: alimentan el contador y la
+    // lista, así que se calculan una sola vez fuera del `when`.
     val cuartos = (state as? UiState.Success)?.data
-    val visibles = cuartos?.filter { filtro.acepta(it.estado) }
+    val visibles = cuartos?.filter { filtro.acepta(it.estado) && (filtroPiso == null || it.idPiso == filtroPiso) }
+
+    // Pisos disponibles, para el segundo selector.
+    val pisos = remember(cuartos) {
+        cuartos.orEmpty()
+            .map { PisoFiltro(it.idPiso, "${it.casa} · ${it.piso}") }
+            .distinctBy { it.idPiso }
+    }
+    LaunchedEffect(pisos) {
+        if (filtroPiso != null && pisos.none { it.idPiso == filtroPiso }) filtroPiso = null
+    }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         EncabezadoLista("Todos los cuartos", total = cuartos?.size, visibles = visibles?.size)
         Spacer(Modifier.height(12.dp))
 
-        // Filtro por estado. Cada opción lleva su conteo para no tener que
-        // seleccionarla solo para saber cuántos hay.
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FiltroCuarto.entries.forEach { opcion ->
-                val cuantos = cuartos?.count { opcion.acepta(it.estado) }
-                FilterChip(
-                    selected = filtro == opcion,
-                    onClick  = { filtro = opcion },
-                    label    = { Text(if (cuantos == null) opcion.etiqueta else "${opcion.etiqueta} ($cuantos)") },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = AppTheme.colores.doradoContenedor,
-                        selectedLabelColor     = AppTheme.colores.doradoContenedorTexto
-                    ),
-                    border = FilterChipDefaults.filterChipBorder(
-                        enabled  = true,
-                        selected = filtro == opcion,
-                        borderColor         = AppTheme.colores.borde,
-                        selectedBorderColor = CtAzul
-                    )
-                )
-            }
-        }
-        Spacer(Modifier.height(12.dp))
+        // 2 selectores: por estado (todos/alquilados/sin alquilar) y por piso.
+        SelectorEstadoCuarto(filtro, cuartos) { filtro = it }
+        Spacer(Modifier.height(8.dp))
+        FiltroPisos(pisos, filtroPiso) { filtroPiso = it }
+        if (pisos.size > 1) Spacer(Modifier.height(8.dp))
 
         when (val s = state) {
             is UiState.Success -> {
@@ -202,6 +195,52 @@ fun SeccionCuartos(vm: PagosViewModel) {
             title = { Text("Listo") },
             text = { Text(msg) }
         )
+    }
+}
+
+/** Selector (desplegable) de estado del cuarto: todos, alquilados o sin alquilar.
+ *  Cada opción muestra su conteo, igual que antes con los chips. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SelectorEstadoCuarto(
+    seleccionado: FiltroCuarto,
+    cuartos: List<CuartoDetalle>?,
+    onSeleccionar: (FiltroCuarto) -> Unit
+) {
+    var expandido by remember { mutableStateOf(false) }
+    fun etiquetaCon(opcion: FiltroCuarto): String {
+        val cuantos = cuartos?.count { opcion.acepta(it.estado) }
+        return if (cuantos == null) opcion.etiqueta else "${opcion.etiqueta} ($cuantos)"
+    }
+
+    ExposedDropdownMenuBox(
+        expanded = expandido,
+        onExpandedChange = { expandido = it },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        OutlinedTextField(
+            value = etiquetaCon(seleccionado),
+            onValueChange = {},
+            readOnly = true,
+            singleLine = true,
+            label = { Text("Estado") },
+            leadingIcon = { Icon(Icons.Default.FilterList, contentDescription = null, tint = CtAzul) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandido) },
+            modifier = Modifier.fillMaxWidth().menuAnchor()
+        )
+        ExposedDropdownMenu(expanded = expandido, onDismissRequest = { expandido = false }) {
+            FiltroCuarto.entries.forEach { opcion ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            etiquetaCon(opcion),
+                            fontWeight = if (seleccionado == opcion) FontWeight.Bold else FontWeight.Normal
+                        )
+                    },
+                    onClick = { onSeleccionar(opcion); expandido = false }
+                )
+            }
+        }
     }
 }
 
