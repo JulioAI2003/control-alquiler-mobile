@@ -41,6 +41,8 @@ import com.example.myapplication.data.remote.NetworkError
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 // ═════════════════════════════════════════════════════════════════════════════
 //  LOGIN VIEWMODEL (inline en el mismo archivo — simple y sin repo extra)
@@ -151,176 +153,187 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
     }
 
     Box(
-        modifier         = Modifier
+        modifier = Modifier
             .fillMaxSize()
             .background(
                 // Degradado de marca: se mantiene igual en claro y en oscuro.
                 Brush.verticalGradient(
                     listOf(Color(0xFFCBA85A), Color(0xFF8A6A12), Color(0xFF4A3A0C))
                 )
-            ),
-        contentAlignment = Alignment.Center
+            )
     ) {
-        Card(
-            modifier  = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp),
-            shape     = RoundedCornerShape(24.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
-            colors    = CardDefaults.cardColors(containerColor = AppTheme.colores.superficie)
+        // Columna desplazable con arranque centrado: mientras la tarjeta cabe se ve
+        // centrada como siempre, y cuando el teclado recorta el alto disponible pasa
+        // a poder desplazarse en vez de quedar cortada. El scroll va aquí y no en la
+        // Card porque sobre la Card la estiraría a toda la altura.
+        Column(
+            modifier            = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(
-                modifier            = Modifier.padding(28.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+            Card(
+                modifier  = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                shape     = RoundedCornerShape(24.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
+                colors    = CardDefaults.cardColors(containerColor = AppTheme.colores.superficie)
             ) {
+                Column(
+                    modifier            = Modifier.padding(28.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
 
-                // ── Logo oficial e Introducción ────────────────────────────────
-                Image(
-                    painter            = painterResource(R.drawable.logo),
-                    contentDescription = "Gestia",
-                    contentScale       = ContentScale.Fit,
-                    modifier           = Modifier
-                        .size(108.dp)
-                        .clip(RoundedCornerShape(26.dp))
-                )
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text       = "Control de Alquileres",
-                    fontSize   = 22.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color      = AppTheme.colores.dorado
-                )
-                Text(
-                    text     = "Inicia sesión para continuar",
-                    color    = AppTheme.colores.textoSuave,
-                    fontSize = 14.sp
-                )
-
-                Spacer(Modifier.height(28.dp))
-
-                // ── Email ──────────────────────────────────────────────────────
-                OutlinedTextField(
-                    value         = email,
-                    onValueChange = {
-                        email = it
-                        if (state is UiState.Error) vm.resetState()
-                    },
-                    label       = { Text("Correo electrónico") },
-                    leadingIcon = { Icon(Icons.Default.Email, null) },
-                    singleLine  = true,
-                    isError     = state is UiState.Error,
-                    modifier    = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Email,
-                        imeAction    = ImeAction.Next
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onNext = { focus.moveFocus(FocusDirection.Down) }
+                    // ── Logo oficial e Introducción ────────────────────────────────
+                    Image(
+                        painter            = painterResource(R.drawable.logo),
+                        contentDescription = "Gestia",
+                        contentScale       = ContentScale.Fit,
+                        modifier           = Modifier
+                            .size(108.dp)
+                            .clip(RoundedCornerShape(26.dp))
                     )
-                )
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text       = "Control de Alquileres",
+                        fontSize   = 22.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color      = AppTheme.colores.dorado
+                    )
+                    Text(
+                        text     = "Inicia sesión para continuar",
+                        color    = AppTheme.colores.textoSuave,
+                        fontSize = 14.sp
+                    )
 
-                Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(28.dp))
 
-                // ── Contraseña ─────────────────────────────────────────────────
-                OutlinedTextField(
-                    value         = password,
-                    onValueChange = {
-                        password = it
-                        if (state is UiState.Error) vm.resetState()
-                    },
-                    label       = { Text("Contraseña") },
-                    leadingIcon = { Icon(Icons.Default.Lock, null) },
-                    trailingIcon = {
-                        IconButton(onClick = { showPass = !showPass }) {
+                    // ── Email ──────────────────────────────────────────────────────
+                    OutlinedTextField(
+                        value         = email,
+                        onValueChange = {
+                            email = it
+                            if (state is UiState.Error) vm.resetState()
+                        },
+                        label       = { Text("Correo electrónico") },
+                        leadingIcon = { Icon(Icons.Default.Email, null) },
+                        singleLine  = true,
+                        isError     = state is UiState.Error,
+                        modifier    = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Email,
+                            imeAction    = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = { focus.moveFocus(FocusDirection.Down) }
+                        )
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    // ── Contraseña ─────────────────────────────────────────────────
+                    OutlinedTextField(
+                        value         = password,
+                        onValueChange = {
+                            password = it
+                            if (state is UiState.Error) vm.resetState()
+                        },
+                        label       = { Text("Contraseña") },
+                        leadingIcon = { Icon(Icons.Default.Lock, null) },
+                        trailingIcon = {
+                            IconButton(onClick = { showPass = !showPass }) {
+                                Icon(
+                                    imageVector        = if (showPass) Icons.Default.Visibility
+                                                         else          Icons.Default.VisibilityOff,
+                                    contentDescription = if (showPass) "Ocultar" else "Mostrar"
+                                )
+                            }
+                        },
+                        visualTransformation = if (showPass) VisualTransformation.None
+                                               else          PasswordVisualTransformation(),
+                        singleLine  = true,
+                        isError     = state is UiState.Error,
+                        modifier    = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            imeAction    = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = { focus.clearFocus(); vm.login(email, password) }
+                        )
+                    )
+
+                    // ── Mensaje de error ───────────────────────────────────────────
+                    if (state is UiState.Error) {
+                        Spacer(Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector        = if (showPass) Icons.Default.Visibility
-                                                     else          Icons.Default.VisibilityOff,
-                                contentDescription = if (showPass) "Ocultar" else "Mostrar"
+                                Icons.Default.ErrorOutline,
+                                null,
+                                tint     = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text     = (state as UiState.Error).message,
+                                color    = MaterialTheme.colorScheme.error,
+                                fontSize = 13.sp
                             )
                         }
-                    },
-                    visualTransformation = if (showPass) VisualTransformation.None
-                                           else          PasswordVisualTransformation(),
-                    singleLine  = true,
-                    isError     = state is UiState.Error,
-                    modifier    = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Password,
-                        imeAction    = ImeAction.Done
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onDone = { focus.clearFocus(); vm.login(email, password) }
-                    )
-                )
-
-                // ── Mensaje de error ───────────────────────────────────────────
-                if (state is UiState.Error) {
-                    Spacer(Modifier.height(8.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Default.ErrorOutline,
-                            null,
-                            tint     = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text     = (state as UiState.Error).message,
-                            color    = MaterialTheme.colorScheme.error,
-                            fontSize = 13.sp
-                        )
                     }
-                }
 
-                Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(24.dp))
 
-                // ── Botón Ingresar ─────────────────────────────────────────────
-                Button(
-                    onClick  = { focus.clearFocus(); vm.login(email, password) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    shape   = RoundedCornerShape(14.dp),
-                    enabled = state !is UiState.Loading,
-                    contentPadding = PaddingValues(),
-                    colors  = ButtonDefaults.buttonColors(
-                        containerColor = Color.Transparent,
-                        disabledContainerColor = Color.Transparent
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
-                ) {
-                    // Degradado dorado metalizado con texto oscuro (look premium).
-                    Box(
+                    // ── Botón Ingresar ─────────────────────────────────────────────
+                    Button(
+                        onClick  = { focus.clearFocus(); vm.login(email, password) },
                         modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.horizontalGradient(
-                                    listOf(Color(0xFFE6CF8B), Color(0xFFC8A24B), Color(0xFF8A6A12))
-                                ),
-                                RoundedCornerShape(14.dp)
-                            ),
-                        contentAlignment = Alignment.Center
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        shape   = RoundedCornerShape(14.dp),
+                        enabled = state !is UiState.Loading,
+                        contentPadding = PaddingValues(),
+                        colors  = ButtonDefaults.buttonColors(
+                            containerColor = Color.Transparent,
+                            disabledContainerColor = Color.Transparent
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
                     ) {
-                        if (state is UiState.Loading) {
-                            CircularProgressIndicator(
-                                modifier    = Modifier.size(22.dp),
-                                color       = AppTheme.colores.tinta,
-                                strokeWidth = 2.5.dp
-                            )
-                        } else {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.Login, null,
-                                    tint = AppTheme.colores.tinta,
-                                    modifier = Modifier.size(20.dp)
+                        // Degradado dorado metalizado con texto oscuro (look premium).
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.horizontalGradient(
+                                        listOf(Color(0xFFE6CF8B), Color(0xFFC8A24B), Color(0xFF8A6A12))
+                                    ),
+                                    RoundedCornerShape(14.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (state is UiState.Loading) {
+                                CircularProgressIndicator(
+                                    modifier    = Modifier.size(22.dp),
+                                    color       = AppTheme.colores.tinta,
+                                    strokeWidth = 2.5.dp
                                 )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    "Ingresar",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize   = 16.sp,
-                                    color      = AppTheme.colores.tinta
-                                )
+                            } else {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.Login, null,
+                                        tint = AppTheme.colores.tinta,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        "Ingresar",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize   = 16.sp,
+                                        color      = AppTheme.colores.tinta
+                                    )
+                                }
                             }
                         }
                     }

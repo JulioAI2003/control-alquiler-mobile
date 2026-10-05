@@ -29,6 +29,7 @@ import com.example.myapplication.data.model.PagoHistorial
 import com.example.myapplication.data.model.UiState
 import com.example.myapplication.ui.theme.AppTheme
 import com.example.myapplication.util.formatearFecha
+import androidx.compose.foundation.layout.imePadding
 
 /** Cómo se lee un recibo de un vistazo: pagado, a medias o sin tocar. */
 private enum class EstadoRecibo(val etiqueta: String) {
@@ -70,6 +71,7 @@ fun HistorialPagosSheet(
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 8.dp)
                 .navigationBarsPadding()
+                .imePadding()
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.ReceiptLong, null, tint = AppTheme.colores.dorado)

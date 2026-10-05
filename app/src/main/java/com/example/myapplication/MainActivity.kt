@@ -34,6 +34,7 @@ import com.example.myapplication.worker.RecordatorioScheduler
 import androidx.work.WorkManager
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import androidx.compose.foundation.layout.imePadding
 
 /**
  * Único Activity de la app.
@@ -99,7 +100,11 @@ class MainActivity : ComponentActivity() {
                 escalaTexto = escalaTexto
             ) {
                 Surface(
-                    modifier = Modifier.fillMaxSize(),
+                    // imePadding: con enableEdgeToEdge la ventana ya no se achica
+                    // sola al abrirse el teclado. Esto reserva su altura, el área
+                    // de contenido se encoge y las listas y formularios —que ya son
+                    // desplazables— llevan solos el campo enfocado a la vista.
+                    modifier = Modifier.fillMaxSize().imePadding(),
                     color    = MaterialTheme.colorScheme.background
                 ) {
                     val navController = rememberNavController()

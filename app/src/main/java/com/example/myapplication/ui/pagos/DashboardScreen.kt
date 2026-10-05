@@ -65,6 +65,7 @@ import com.example.myapplication.util.ImagenCompartidaBus
 import com.example.myapplication.worker.RecordatorioScheduler
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
+import androidx.compose.foundation.layout.imePadding
 
 // 🎨 PALETA DE COLORES (SEMÁFORO RESTAURADO)
 // Los tonos salen de AppTheme.colores, que ya resuelve claro/oscuro por token.
@@ -883,7 +884,7 @@ fun DetalleBottomSheet(
         )
     }
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = AppTheme.colores.superficie) {
-        Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding()) {
+        Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding().imePadding()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // 20.sp (antes 22) para que el título y los dos botones circulares
                 // quepan en una línea incluso con el tamaño de letra al máximo.
@@ -1083,7 +1084,7 @@ private fun DialogoCobrarInquilino(
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
         title = { Text("Registrar Pago") },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(inquilino.nombre, fontWeight = FontWeight.Bold)
                 Text("Saldo pendiente: S/ ${"%.2f".format(saldo)}", fontSize = 13.sp, color = AppTheme.colores.textoSuave)
                 Spacer(Modifier.height(12.dp))
@@ -1980,7 +1981,7 @@ fun SeccionCuartosLibres(vm: PagosViewModel) {
 @Composable
 fun CuartoBottomSheet(cuarto: CuartoLibre, onDismiss: () -> Unit, onAlquilar: (CuartoLibre) -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = AppTheme.colores.superficie) {
-        Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding()) {
+        Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding().imePadding()) {
             Text("Detalle del Cuarto", fontWeight = FontWeight.Black, fontSize = 22.sp, color = AzulPrimario)
             Spacer(Modifier.height(16.dp))
             Row(Modifier.padding(vertical = 8.dp)) {
@@ -2524,7 +2525,7 @@ fun InquilinoBottomSheet(
     LaunchedEffect(inquilino.idInquilino) { vm.cargarServiciosInquilino(inquilino.idInquilino) }
     val serviciosExtra = (serviciosState as? UiState.Success)?.data.orEmpty()
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = AppTheme.colores.superficie) {
-        Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding()) {
+        Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding().imePadding()) {
             Text("Detalle del Inquilino", fontWeight = FontWeight.Black, fontSize = 22.sp, color = AzulPrimario)
             Spacer(Modifier.height(16.dp))
             Row(Modifier.padding(vertical = 8.dp)) {
@@ -2831,6 +2832,7 @@ fun EditarDatosInquilinoSheet(
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp)
                 .navigationBarsPadding()
+                .imePadding()
         ) {
             Text("Editar Datos", fontWeight = FontWeight.Black, fontSize = 22.sp, color = AzulPrimario)
             Text(
@@ -3043,6 +3045,7 @@ fun TrasladarInquilinoSheet(
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp)
                 .navigationBarsPadding()
+                .imePadding()
         ) {
             Text("Trasladar Inquilino", fontWeight = FontWeight.Black, fontSize = 22.sp, color = AzulPrimario)
             Spacer(Modifier.height(4.dp))
@@ -3345,7 +3348,7 @@ fun UsuarioDetalleBottomSheet(
 ) {
     val context = LocalContext.current
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = AppTheme.colores.superficie) {
-        Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding()) {
+        Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding().imePadding()) {
             Text("Detalle del Usuario", fontWeight = FontWeight.Black, fontSize = 22.sp, color = AzulPrimario)
             Spacer(Modifier.height(16.dp))
             Row(Modifier.padding(vertical = 8.dp)) {

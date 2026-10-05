@@ -33,6 +33,8 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import retrofit2.HttpException
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 // ─── ViewModel ────────────────────────────────────────────────────────────────
 
@@ -148,6 +150,7 @@ fun CambiarPasswordScreen(onBack: () -> Unit) {
         Column(
             modifier = Modifier
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 32.dp)
                 .fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(16.dp),

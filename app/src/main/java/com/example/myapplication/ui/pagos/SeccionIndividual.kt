@@ -34,6 +34,9 @@ import com.example.myapplication.data.model.MovimientoIndividual
 import com.example.myapplication.data.model.UiState
 import com.example.myapplication.util.aMonto
 import com.example.myapplication.util.aMontoOrNull
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 // Acentos de la sección. Son propiedades composables para seguir el tema activo.
 private val IndAzul: Color
@@ -455,7 +458,7 @@ private fun textoCuentaRegresiva(minIniciales: Int): String {
 private fun DialogoDetalleIngreso(mov: MovimientoIndividual, onDismiss: () -> Unit) {
     val context = LocalContext.current
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = AppTheme.colores.superficie) {
-        Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding()) {
+        Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding().imePadding()) {
             Text("Detalle del Cobro", fontWeight = FontWeight.Black, fontSize = 22.sp, color = IndAzul)
             Spacer(Modifier.height(16.dp))
 
@@ -552,7 +555,7 @@ private fun DialogoRegistrar(
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
         title = { Text("Registrar $accion") },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(
                     "¿Registrar el $accion de \"${mov.nombre}\" por S/ ${"%.2f".format(mov.montoMostrar)}?",
                     fontSize = 14.sp
@@ -602,7 +605,7 @@ private fun DialogoConcepto(
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
         title = { Text(if (esEdicion) "Editar ${if (esIngreso) "ingreso" else "gasto"}" else "Nuevo ${if (esIngreso) "ingreso" else "gasto"}") },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(value = nombre, onValueChange = { nombre = it },
                     label = { Text(if (esIngreso) "Nombre (Ej. Internet - Juan)" else "Nombre (Ej. Netflix)") }, singleLine = true)
                 Spacer(Modifier.height(8.dp))

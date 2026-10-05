@@ -34,6 +34,7 @@ import com.example.myapplication.util.aMonto
 import com.example.myapplication.util.aMontoOrNull
 import java.time.Instant
 import java.time.ZoneOffset
+import androidx.compose.foundation.layout.imePadding
 
 // Acentos del asistente. Composables para seguir el tema activo.
 private val WzAzul: Color
@@ -142,7 +143,7 @@ fun RegistrarInquilinoWizard(
 
                 // ── Contenido del paso ──
                 Column(
-                    Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(20.dp),
+                    Modifier.weight(1f).verticalScroll(rememberScrollState()).imePadding().padding(20.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     when (step) {

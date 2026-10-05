@@ -32,6 +32,7 @@ import com.example.myapplication.util.DatosGastoEscaneado
 import com.example.myapplication.util.aMonto
 import com.example.myapplication.util.aMontoOrNull
 import java.time.LocalDate
+import androidx.compose.foundation.verticalScroll
 
 private val ExtraAcento: Color
     @Composable get() = AppTheme.colores.peligroFuerte
@@ -325,7 +326,7 @@ private fun DialogoGastoExtraForm(
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
         title = { Text(titulo) },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 if (notaEscaneo != null) {
                     Text(notaEscaneo, fontSize = 12.sp, color = AppTheme.colores.textoSuave)
                     Spacer(Modifier.height(10.dp))

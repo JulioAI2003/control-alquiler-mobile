@@ -32,6 +32,9 @@ import com.example.myapplication.data.model.CuartoDetalle
 import com.example.myapplication.util.aMonto
 import com.example.myapplication.util.aMontoOrNull
 import com.example.myapplication.data.model.UiState
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 /** Dorado de marca. Composable para seguir el tema activo. */
 private val CtAzul: Color
@@ -278,7 +281,7 @@ private fun CuartoCard(cuarto: CuartoDetalle, index: Int = 0, onClick: () -> Uni
 @Composable
 private fun CuartoDetalleSheet(cuarto: CuartoDetalle, onEditar: () -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = AppTheme.colores.superficie) {
-        Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding()) {
+        Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding().imePadding()) {
             Text("Detalle del Cuarto", fontWeight = FontWeight.Black, fontSize = 22.sp, color = CtAzul)
             Spacer(Modifier.height(16.dp))
             DetalleFila(Icons.Default.MeetingRoom, "Cuarto", "Nro. ${cuarto.nroCuarto}")
@@ -328,7 +331,7 @@ private fun EditarCuartoDialog(
         onDismissRequest = { if (!isLoading) onDismiss() },
         title = { Text("Editar Cuarto ${cuarto.nroCuarto}") },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(
                     nro, { nro = it.filter(Char::isDigit) }, label = { Text("N° de cuarto") },
                     singleLine = true, modifier = Modifier.fillMaxWidth(),
