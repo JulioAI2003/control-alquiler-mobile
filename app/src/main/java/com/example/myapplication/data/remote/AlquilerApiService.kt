@@ -32,7 +32,7 @@ interface AlquilerApiService {
     suspend fun cancelarRetiro(@Body body: IdInquilinoRequest): PagoRegistradoResponse
 
     @POST("mobile/inquilino/pagar-garantia")
-    suspend fun pagarGarantia(@Body body: IdInquilinoRequest): PagoRegistradoResponse
+    suspend fun pagarGarantia(@Body body: PagarGarantiaRequest): PagoRegistradoResponse
 
     // Deshace el pago de garantía: vuelve a quedar pendiente.
     @POST("mobile/inquilino/revertir-garantia")

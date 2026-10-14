@@ -52,6 +52,7 @@ data class PagoBackend(
     val celular:                                                 String? = null,
     val garantia:                                                Double? = null,
     @SerialName("fecha_garantia")          val fechaGarantia:         String? = null,
+    @SerialName("metodo_garantia")         val metodoGarantia:        String? = null,
     @SerialName("fecha_esperada_garantia") val fechaEsperadaGarantia: String? = null,
     // Fecha/hora en que se registró el pago (timestamp del backend). Se usa para
     // mostrar "cuándo se registró el cobro" en la sección de pagos realizados.
@@ -108,6 +109,8 @@ data class Inquilino(
     // Garantía
     val montoGarantia:    Double? = null,
     val garantiaPagada:   Boolean = true,
+    val fechaGarantia:    String? = null,   // día en que se pagó (ISO)
+    val metodoGarantia:   String? = null,   // "Yape" | "Efectivo"
     // Fecha (ISO) en que se registró el pago; solo se llena en el historial de pagos.
     val fechaPago:        String? = null
 ) {
@@ -144,10 +147,17 @@ data class InquilinoMobile(
     val estado:                                                       String = "",
     @SerialName("dias_para_retiro")        val diasParaRetiro:        Int? = null,
     @SerialName("fecha_garantia")          val fechaGarantia:         String? = null,
+    @SerialName("metodo_garantia")         val metodoGarantia:        String? = null,
     @SerialName("fecha_esperada_garantia") val fechaEsperadaGarantia: String? = null,
     @SerialName("monto_garantia")          val montoGarantia:         String? = null,
     /** Día del mes en que se le factura (1-31). */
     @SerialName("fecha_pago")              val fechaPago:             Int? = null
+)
+
+@Serializable
+data class PagarGarantiaRequest(
+    @SerialName("id_inquilino")    val idInquilino:    String,
+    @SerialName("metodo_garantia") val metodoGarantia: String
 )
 
 @Serializable

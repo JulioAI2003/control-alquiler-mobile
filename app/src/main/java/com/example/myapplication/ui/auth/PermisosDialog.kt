@@ -34,6 +34,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -113,7 +115,14 @@ fun PermisosDialog(onDismiss: () -> Unit) {
 
     val notifLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { tick++ }
+    ) { concedido ->
+        tick++
+        // Tras negarlo de forma permanente Android ya no muestra el diálogo del sistema:
+        // se lleva al usuario a los ajustes de la app para que lo active a mano.
+        if (!concedido && activity != null &&
+            !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.POST_NOTIFICATIONS)
+        ) abrirAjuste(context, Settings.ACTION_APPLICATION_DETAILS_SETTINGS, true)
+    }
 
     val notifOk = remember(tick) { notifConcedido(context) }
     val alarmaOk = remember(tick) { alarmasExactasConcedido(context) }
@@ -122,7 +131,12 @@ fun PermisosDialog(onDismiss: () -> Unit) {
     val bateriaOk = remember(tick) { bateriaConcedido(context) }
     val todoOk = notifOk && alarmaOk && overlayOk && fullOk && bateriaOk
 
-    Dialog(onDismissRequest = onDismiss) {
+    // No se puede cerrar tocando fuera ni con "atrás": solo avanza cuando están todos
+    // los permisos. Si falta alguno, el diálogo reaparece en cada regreso a la app.
+    Dialog(
+        onDismissRequest = {},
+        properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)
+    ) {
         Card(
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = AppTheme.colores.superficie),
@@ -212,8 +226,17 @@ fun PermisosDialog(onDismiss: () -> Unit) {
                 ) { Text("Abrir ajustes de la app", color = PermAzul, fontWeight = FontWeight.SemiBold, fontSize = 13.sp) }
 
                 Spacer(Modifier.height(12.dp))
+                if (!todoOk) {
+                    Text(
+                        "Debes autorizar todos los permisos para continuar.",
+                        fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                        color = AppTheme.colores.advertencia
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
                 Button(
                     onClick = onDismiss,
+                    enabled = todoOk,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
@@ -221,7 +244,7 @@ fun PermisosDialog(onDismiss: () -> Unit) {
                         contentColor = if (todoOk) AppTheme.colores.textoSobreAcento
                                        else AppTheme.colores.botonNeutroTexto
                     )
-                ) { Text(if (todoOk) "¡Listo! Continuar" else "Continuar") }
+                ) { Text(if (todoOk) "¡Listo! Continuar" else "Faltan permisos") }
             }
         }
     }

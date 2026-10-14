@@ -11,7 +11,11 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -111,12 +115,32 @@ class MainActivity : ComponentActivity() {
 
                     // Al primer arranque (o si faltan), pedir los permisos que la app necesita.
                     var mostrarPermisos by remember { mutableStateOf(faltanPermisos(this@MainActivity)) }
+
+                    // Se vuelve a validar en cada regreso a la app: si el usuario revocó un
+                    // permiso (o salió de Ajustes sin darlo), el diálogo reaparece y se
+                    // sigue pidiendo hasta que estén todos autorizados.
+                    val lifecycleOwner = LocalLifecycleOwner.current
+                    DisposableEffect(lifecycleOwner) {
+                        val obs = LifecycleEventObserver { _, e ->
+                            if (e == Lifecycle.Event.ON_RESUME) {
+                                val faltan = faltanPermisos(this@MainActivity)
+                                // Reprograma con los permisos recién concedidos (ej. alarmas
+                                // exactas), así se aplican sin reiniciar la app.
+                                if (mostrarPermisos && !faltan && !app.cachedToken.isNullOrBlank()) {
+                                    agendarRecordatorioDiario()
+                                }
+                                mostrarPermisos = faltan
+                            }
+                        }
+                        lifecycleOwner.lifecycle.addObserver(obs)
+                        onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
+                    }
+
                     if (mostrarPermisos) {
                         PermisosDialog(onDismiss = {
-                            mostrarPermisos = false
-                            // Reprograma con los permisos recién concedidos (ej. alarmas exactas),
-                            // así se aplican sin reiniciar la app.
-                            if (!app.cachedToken.isNullOrBlank()) agendarRecordatorioDiario()
+                            // "Continuar" solo se habilita con todo concedido; se revalida igual.
+                            mostrarPermisos = faltanPermisos(this@MainActivity)
+                            if (!mostrarPermisos && !app.cachedToken.isNullOrBlank()) agendarRecordatorioDiario()
                         })
                     }
 

@@ -310,11 +310,11 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
         }
     }
 
-    fun pagarGarantia(idInquilino: String) {
+    fun pagarGarantia(idInquilino: String, metodo: String) {
         viewModelScope.launch {
             _retiroState.value = UiState.Loading
             try {
-                AlquilerApiClient.service.pagarGarantia(IdInquilinoRequest(idInquilino))
+                AlquilerApiClient.service.pagarGarantia(PagarGarantiaRequest(idInquilino, metodo))
                 _retiroState.value = UiState.Success("Garantía registrada como pagada")
                 cargarInquilinos()
                 cargarPagos()
@@ -1366,6 +1366,8 @@ class PagosViewModel(private val app: MyApplication) : ViewModel() {
             periodoAnio = anio,
             montoGarantia = garantia,
             garantiaPagada = fechaGarantia != null,
+            fechaGarantia = fechaGarantia,
+            metodoGarantia = metodoGarantia,
             fechaPago = fechaPago
         )
     }

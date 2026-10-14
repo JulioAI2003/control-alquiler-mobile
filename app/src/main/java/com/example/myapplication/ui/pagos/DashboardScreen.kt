@@ -997,7 +997,10 @@ fun DetalleBottomSheet(
                             Spacer(Modifier.width(8.dp))
                             Column {
                                 Text("Garantía: S/ ${"%.2f".format(montoGar)}", fontWeight = FontWeight.Bold, color = AppTheme.colores.exitoFuerte)
-                                Text("Pagado", fontSize = 12.sp, color = AppTheme.colores.exito)
+                                Text(
+                                    textoGarantiaPagada(inquilino.fechaGarantia, inquilino.metodoGarantia),
+                                    fontSize = 12.sp, color = AppTheme.colores.exito
+                                )
                             }
                         }
                     }
@@ -1017,12 +1020,17 @@ fun DetalleBottomSheet(
                         }
                     }
                     Spacer(Modifier.height(8.dp))
+                    var elegirMetodo by remember { mutableStateOf(false) }
                     Button(
-                        onClick = { vm.pagarGarantia(inquilino.idInquilino) },
+                        onClick = { elegirMetodo = true },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colores.exito),
                         enabled = retiroState !is UiState.Loading
                     ) { Text("Pagar Garantía") }
+                    if (elegirMetodo) MetodoGarantiaDialog(
+                        onElegir = { elegirMetodo = false; vm.pagarGarantia(inquilino.idInquilino, it) },
+                        onDismiss = { elegirMetodo = false }
+                    )
                 }
             }
 
@@ -1657,7 +1665,7 @@ fun SeccionInquilinos(vm: PagosViewModel) {
             contratoState = contratoState,
             onRetirar        = { inquilinoARetirar = it },
             onCancelarRetiro = { vm.cancelarRetiro(it.idInquilino) },
-            onPagarGarantia  = { vm.pagarGarantia(it.idInquilino) },
+            onPagarGarantia  = { inq, metodo -> vm.pagarGarantia(inq.idInquilino, metodo) },
             onRevertirGarantia = { garantiaARevertir = it },
             onContrato       = { vm.descargarContrato(it) },
             // Se cierra el detalle al abrir el formulario: dos hojas apiladas
@@ -2512,7 +2520,7 @@ fun InquilinoBottomSheet(
     contratoState:    UiState<Uri>,
     onRetirar:        (InquilinoMobile) -> Unit,
     onCancelarRetiro: (InquilinoMobile) -> Unit,
-    onPagarGarantia:  (InquilinoMobile) -> Unit,
+    onPagarGarantia:  (InquilinoMobile, String) -> Unit,
     onRevertirGarantia: (InquilinoMobile) -> Unit,
     onContrato:       (InquilinoMobile) -> Unit,
     onEditarDatos:    (InquilinoMobile) -> Unit,
@@ -2616,7 +2624,10 @@ fun InquilinoBottomSheet(
                             Spacer(Modifier.width(8.dp))
                             Column(Modifier.weight(1f)) {
                                 Text("Garantía: S/ ${"%.2f".format(montoGar)}", fontWeight = FontWeight.Bold, color = AppTheme.colores.exitoFuerte)
-                                Text("Pagado", fontSize = 12.sp, color = AppTheme.colores.exito)
+                                Text(
+                                    textoGarantiaPagada(inquilino.fechaGarantia, inquilino.metodoGarantia),
+                                    fontSize = 12.sp, color = AppTheme.colores.exito
+                                )
                             }
                             // Deshace el pago si se marcó por error o con un monto que
                             // no era el real (el monto se corrige en el cuarto).
@@ -2642,12 +2653,17 @@ fun InquilinoBottomSheet(
                         }
                     }
                     Spacer(Modifier.height(8.dp))
+                    var elegirMetodo by remember { mutableStateOf(false) }
                     Button(
-                        onClick = { onPagarGarantia(inquilino) },
+                        onClick = { elegirMetodo = true },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colores.exito),
                         enabled = retiroState !is UiState.Loading
                     ) { Text("Pagar Garantía") }
+                    if (elegirMetodo) MetodoGarantiaDialog(
+                        onElegir = { elegirMetodo = false; onPagarGarantia(inquilino, it) },
+                        onDismiss = { elegirMetodo = false }
+                    )
                 }
             }
 
@@ -4189,4 +4205,32 @@ fun SeccionAjustes(vm: PagosViewModel) {
         BloqueSupervisor(vm)
 
     }
+}
+
+
+/** "Pagado el 03/10/2026 · Yape" — cuándo se canceló la garantía y con qué medio. */
+private fun textoGarantiaPagada(fechaGarantia: String?, metodo: String?): String {
+    val fecha = formatearFecha(fechaGarantia)
+    return buildString {
+        append("Pagado")
+        if (fecha.isNotEmpty()) append(" el $fecha")
+        if (!metodo.isNullOrBlank()) append(" · $metodo")
+    }
+}
+
+/** Pregunta con qué medio canceló el inquilino la garantía antes de registrarla. */
+@Composable
+private fun MetodoGarantiaDialog(onElegir: (String) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Pagar garantía") },
+        text = { Text("¿Cómo pagó el inquilino la garantía? Se registrará con la fecha de hoy.") },
+        confirmButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { onElegir("Efectivo") }) { Text("Efectivo") }
+                TextButton(onClick = { onElegir("Yape") }) { Text("Yape") }
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+    )
 }

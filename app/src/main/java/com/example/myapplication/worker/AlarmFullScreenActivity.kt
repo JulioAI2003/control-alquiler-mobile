@@ -3,6 +3,7 @@ package com.example.myapplication.worker
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -93,6 +94,21 @@ class AlarmFullScreenActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         if (!AlarmSoundService.estaActiva) finish()
+    }
+
+    /**
+     * Bajar el volumen mientras suena la alarma la silencia al instante (igual que el
+     * botón "Silenciar"). Se consume la tecla para no mover además el volumen del
+     * sistema. Con la alarma ya callada, la tecla vuelve a su comportamiento normal.
+     */
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN &&
+            AlarmSoundService.estaActiva && AlarmSoundService.sonando.value
+        ) {
+            silenciar()
+            return true
+        }
+        return super.onKeyDown(keyCode, event)
     }
 
     /**
