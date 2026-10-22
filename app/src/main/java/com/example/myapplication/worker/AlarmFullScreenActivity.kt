@@ -97,15 +97,16 @@ class AlarmFullScreenActivity : ComponentActivity() {
     }
 
     /**
-     * Bajar el volumen mientras suena la alarma la silencia al instante (igual que el
-     * botón "Silenciar"). Se consume la tecla para no mover además el volumen del
+     * Bajar el volumen mientras suena la alarma la apaga por completo (igual que
+     * "Detener alarma"). Se consume la tecla para no mover además el volumen del
      * sistema. Con la alarma ya callada, la tecla vuelve a su comportamiento normal.
+     * Fuera de esta pantalla lo cubre la sesión de medios del servicio.
      */
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN &&
             AlarmSoundService.estaActiva && AlarmSoundService.sonando.value
         ) {
-            silenciar()
+            apagarYCerrar()
             return true
         }
         return super.onKeyDown(keyCode, event)

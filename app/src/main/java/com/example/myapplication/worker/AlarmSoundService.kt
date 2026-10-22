@@ -6,6 +6,9 @@ import android.content.Intent
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.media.RingtoneManager
+import android.media.VolumeProvider
+import android.media.session.MediaSession
+import android.media.session.PlaybackState
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
@@ -20,10 +23,12 @@ import kotlinx.coroutines.flow.asStateFlow
  *  • [ACTION_SILENCIAR] — calla el sonido pero deja la alarma en pie: la pantalla
  *    y la notificación siguen visibles para poder leer los pendientes con calma.
  *  • [ACTION_STOP]      — apaga la alarma por completo y se detiene el servicio.
+ *    También se dispara con la tecla de bajar volumen (ver [activarAtajoVolumen]).
  */
 class AlarmSoundService : Service() {
 
     private var mediaPlayer: MediaPlayer? = null
+    private var mediaSession: MediaSession? = null
 
     // Datos del aviso en curso. Se guardan porque al silenciar hay que reconstruir
     // la notificación (cambian las acciones que ofrece).
@@ -43,10 +48,12 @@ class AlarmSoundService : Service() {
 
         estaActiva        = true
         descripcionActiva = descripcion
+        tituloActivo      = titulo
         _sonando.value    = true
 
         mostrarNotificacion(sonando = true)
         reproducirSonido()
+        activarAtajoVolumen()
 
         return START_NOT_STICKY
     }
@@ -130,11 +137,45 @@ class AlarmSoundService : Service() {
     }
 
     /**
+     * Una sesión de medios "remota" hace que Android le entregue a este servicio las teclas
+     * de volumen mientras suena la alarma, aunque la app no esté en primer plano ni la
+     * alarma esté a pantalla completa (solo notificación, pantalla bloqueada, etc.).
+     * Bajar el volumen apaga la alarma por completo.
+     */
+    private fun activarAtajoVolumen() {
+        if (mediaSession != null) return
+        runCatching {
+            val sesion = MediaSession(this, "AlarmaCobros")
+            sesion.setPlaybackState(
+                PlaybackState.Builder()
+                    .setState(PlaybackState.STATE_PLAYING, 0L, 1f)
+                    .build()
+            )
+            sesion.setPlaybackToRemote(object : VolumeProvider(VOLUME_CONTROL_RELATIVE, 100, 50) {
+                override fun onAdjustVolume(direction: Int) {
+                    if (direction < 0 && estaActiva) detenerAlarma()
+                }
+            })
+            sesion.isActive = true
+            mediaSession = sesion
+        }
+    }
+
+    private fun liberarAtajoVolumen() {
+        runCatching {
+            mediaSession?.isActive = false
+            mediaSession?.release()
+        }
+        mediaSession = null
+    }
+
+    /**
      * Calla el sonido dejando la alarma activa. La notificación se reconstruye sin
      * la acción "Silenciar" para que quede claro que ya no está sonando.
      */
     private fun silenciar() {
         liberarReproductor()
+        liberarAtajoVolumen()
         _sonando.value = false
         // Si el aviso ya no estaba en pie (el servicio revivió solo para esta acción),
         // no hay nada que mantener en primer plano.
@@ -145,6 +186,7 @@ class AlarmSoundService : Service() {
         estaActiva     = false
         _sonando.value = false
         liberarReproductor()
+        liberarAtajoVolumen()
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -153,6 +195,7 @@ class AlarmSoundService : Service() {
         estaActiva     = false
         _sonando.value = false
         liberarReproductor()
+        liberarAtajoVolumen()
         super.onDestroy()
     }
 
@@ -168,6 +211,7 @@ class AlarmSoundService : Service() {
         /** true mientras el aviso sigue en pie (aunque esté silenciado). */
         @Volatile var estaActiva: Boolean = false
         @Volatile var descripcionActiva: String = ""
+        @Volatile var tituloActivo: String = "Cobro pendiente"
 
         /** true solo mientras el sonido está reproduciéndose. La UI lo observa
          *  para pintar el botón de silenciar como activo o ya silenciado. */

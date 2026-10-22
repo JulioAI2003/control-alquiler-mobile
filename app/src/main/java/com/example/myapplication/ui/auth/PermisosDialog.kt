@@ -99,7 +99,7 @@ private fun abrirAjuste(ctx: Context, action: String, conPaquete: Boolean) {
  * volver de Ajustes (observa ON_RESUME).
  */
 @Composable
-fun PermisosDialog(onDismiss: () -> Unit) {
+fun PermisosDialog(onDismiss: () -> Unit, soloConsulta: Boolean = false) {
     val context = LocalContext.current
     val activity = context as? ComponentActivity
 
@@ -133,9 +133,11 @@ fun PermisosDialog(onDismiss: () -> Unit) {
 
     // No se puede cerrar tocando fuera ni con "atrás": solo avanza cuando están todos
     // los permisos. Si falta alguno, el diálogo reaparece en cada regreso a la app.
+    // Abierto desde Ajustes (soloConsulta) sí se puede cerrar libremente: es para revisar o
+    // corregir un permiso, no un paso obligatorio de arranque.
     Dialog(
-        onDismissRequest = {},
-        properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)
+        onDismissRequest = { if (soloConsulta) onDismiss() },
+        properties = DialogProperties(dismissOnBackPress = soloConsulta, dismissOnClickOutside = soloConsulta)
     ) {
         Card(
             shape = RoundedCornerShape(24.dp),
@@ -226,7 +228,7 @@ fun PermisosDialog(onDismiss: () -> Unit) {
                 ) { Text("Abrir ajustes de la app", color = PermAzul, fontWeight = FontWeight.SemiBold, fontSize = 13.sp) }
 
                 Spacer(Modifier.height(12.dp))
-                if (!todoOk) {
+                if (!todoOk && !soloConsulta) {
                     Text(
                         "Debes autorizar todos los permisos para continuar.",
                         fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
@@ -236,7 +238,7 @@ fun PermisosDialog(onDismiss: () -> Unit) {
                 }
                 Button(
                     onClick = onDismiss,
-                    enabled = todoOk,
+                    enabled = todoOk || soloConsulta,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
@@ -244,7 +246,15 @@ fun PermisosDialog(onDismiss: () -> Unit) {
                         contentColor = if (todoOk) AppTheme.colores.textoSobreAcento
                                        else AppTheme.colores.botonNeutroTexto
                     )
-                ) { Text(if (todoOk) "¡Listo! Continuar" else "Faltan permisos") }
+                ) {
+                    Text(
+                        when {
+                            soloConsulta -> "Cerrar"
+                            todoOk -> "¡Listo! Continuar"
+                            else -> "Faltan permisos"
+                        }
+                    )
+                }
             }
         }
     }

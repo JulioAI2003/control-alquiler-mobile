@@ -59,6 +59,8 @@ import com.example.myapplication.data.model.UiState
 import com.example.myapplication.data.model.UsuarioAdmin
 import com.example.myapplication.data.model.PagoUsuario
 import com.example.myapplication.data.model.GuardarAjustesRequest
+import com.example.myapplication.ui.auth.PermisosDialog
+import com.example.myapplication.ui.auth.faltanPermisos
 import com.example.myapplication.data.local.SessionDataStore
 import com.example.myapplication.data.remote.AlquilerApiClient
 import com.example.myapplication.util.ImagenCompartidaBus
@@ -4073,6 +4075,54 @@ fun SeccionAjustes(vm: PagosViewModel) {
                     )
                 }
             }
+        }
+
+        // ── Permisos ───────────────────────────────────────────────────────────
+        HorizontalDivider(Modifier.padding(top = 8.dp))
+
+        Text("Permisos", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = AzulPrimario)
+        Text(
+            "Revisa qué permisos faltan para que la alarma aparezca a pantalla completa y " +
+                "suene a la hora elegida. Desde aquí puedes ir directo al ajuste que falte.",
+            fontSize = 14.sp, color = AppTheme.colores.textoSuave
+        )
+
+        var mostrarPermisos by remember { mutableStateOf(false) }
+        // Se recalcula al cerrar el diálogo (volver de los ajustes del sistema lo reabre/refresca).
+        val faltanPerm = remember(mostrarPermisos) { faltanPermisos(context) }
+
+        Card(
+            modifier = Modifier.fillMaxWidth().bounceClick { mostrarPermisos = true },
+            colors = CardDefaults.cardColors(
+                containerColor = if (faltanPerm) AppTheme.colores.advertenciaContenedor else AppTheme.colores.superficie
+            ),
+            border = BorderStroke(
+                2.dp,
+                if (faltanPerm) AppTheme.colores.advertencia else AppTheme.colores.borde
+            ),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Security, null,
+                    modifier = Modifier.size(40.dp),
+                    tint = if (faltanPerm) AppTheme.colores.advertencia else AzulPrimario
+                )
+                Spacer(Modifier.width(16.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Permisos de la app", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(
+                        if (faltanPerm) "Faltan permisos: toca para revisarlos."
+                        else "Todos los permisos están activos.",
+                        fontSize = 13.sp, color = AppTheme.colores.textoSuave
+                    )
+                }
+                Icon(Icons.Default.ChevronRight, null, tint = AppTheme.colores.textoSuave)
+            }
+        }
+
+        if (mostrarPermisos) {
+            PermisosDialog(onDismiss = { mostrarPermisos = false }, soloConsulta = true)
         }
 
         // ── Tipo de aviso ──────────────────────────────────────────────────────

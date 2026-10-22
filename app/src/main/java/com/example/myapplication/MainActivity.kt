@@ -34,7 +34,12 @@ import com.example.myapplication.ui.auth.faltanPermisos
 import com.example.myapplication.ui.pagos.DashboardScreen
 import com.example.myapplication.ui.theme.MyApplicationTheme
 import com.example.myapplication.util.ImagenCompartidaBus
+import com.example.myapplication.worker.AlarmFullScreenActivity
+import com.example.myapplication.worker.AlarmSoundService
 import com.example.myapplication.worker.RecordatorioScheduler
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.launch
 import androidx.work.WorkManager
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -84,6 +89,25 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val app = application as MyApplication
+
+        // Si la alarma está sonando al entrar (o empieza a sonar con la app abierta), se
+        // muestra su pantalla para poder leer los pendientes y apagarla. El flujo emite el
+        // valor actual al empezar a observar, así que cubre también el regreso a la app.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                AlarmSoundService.sonando.collect { sonando ->
+                    if (sonando && AlarmSoundService.estaActiva) {
+                        startActivity(
+                            Intent(this@MainActivity, AlarmFullScreenActivity::class.java).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                                putExtra(AlarmSoundService.EXTRA_TITULO, AlarmSoundService.tituloActivo)
+                                putExtra(AlarmSoundService.EXTRA_DESCRIPCION, AlarmSoundService.descripcionActiva)
+                            }
+                        )
+                    }
+                }
+            }
+        }
 
         // Arranque en frío compartiendo una imagen (ej. captura de Yape) directamente.
         procesarIntentCompartido(intent)
