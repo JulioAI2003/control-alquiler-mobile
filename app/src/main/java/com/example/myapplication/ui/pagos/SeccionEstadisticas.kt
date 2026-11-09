@@ -339,8 +339,10 @@ private fun SeccionGastosEstadistica(vm: PagosViewModel) {
     val anioActual = remember { LocalDate.now().year }
     val serviciosState by vm.resumenServiciosState.collectAsStateWithLifecycle()
     val extraState by vm.resumenGastosExtraState.collectAsStateWithLifecycle()
+    val conceptosState by vm.conceptosServicioState.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
+        vm.cargarServiciosConceptos()
         vm.cargarResumenServicios(anioActual)
         vm.cargarResumenGastosExtra(anioActual)
     }
@@ -361,8 +363,20 @@ private fun SeccionGastosEstadistica(vm: PagosViewModel) {
                 (serviciosState as? UiState.Success)?.data,
                 (extraState as? UiState.Success)?.data
             )
-            val totalMensual = meses.sumOf { it.mensual }
-            val totalExtra = meses.sumOf { it.extra }
+            // Las tarjetas muestran el mes en curso; el acumulado del año va en el detalle
+            // y el desglose mes a mes sigue abajo.
+            val mesActual = remember { LocalDate.now().monthValue }
+            val nombreMes = nombreMesLargo(mesActual)
+            val delMes = meses.firstOrNull { it.mes == mesActual }
+            val totalMensual = delMes?.mensual ?: 0.0
+            val totalExtra = delMes?.extra ?: 0.0
+            // Gasto mensual ESTIMADO: lo que costarían este mes todos los servicios vigentes
+            // de la casa según su monto referencial (no lo efectivamente pagado).
+            val vigentes = (conceptosState as? UiState.Success)?.data
+                ?.filter { it.activo && !it.eliminado }.orEmpty()
+            val estimado = vigentes.sumOf { it.montoReferencial.toDoubleOrNull() ?: 0.0 }
+            val anualMensual = meses.sumOf { it.mensual }
+            val anualExtra = meses.sumOf { it.extra }
 
             LazyColumn(
                 Modifier.fillMaxSize(),
@@ -371,9 +385,9 @@ private fun SeccionGastosEstadistica(vm: PagosViewModel) {
             ) {
                 item {
                     TarjetaResumen(
-                        titulo = "Gastos mensuales",
-                        monto = totalMensual,
-                        detalle = "Servicios de la casa (luz, agua, etc.) en $anioActual",
+                        titulo = "Gastos mensuales estimados",
+                        monto = estimado,
+                        detalle = "${vigentes.size} servicio(s) vigentes · Pagado en $nombreMes: S/ ${"%.2f".format(totalMensual)}",
                         icono = Icons.Default.ReceiptLong,
                         acento = MensualColor,
                         fondo = AppTheme.colores.advertenciaContenedor
@@ -381,9 +395,9 @@ private fun SeccionGastosEstadistica(vm: PagosViewModel) {
                 }
                 item {
                     TarjetaResumen(
-                        titulo = "Gastos extra",
+                        titulo = "Gastos extra · $nombreMes",
                         monto = totalExtra,
-                        detalle = "Imprevistos registrados o escaneados en $anioActual",
+                        detalle = "Imprevistos en $nombreMes · Año $anioActual: S/ ${"%.2f".format(anualExtra)}",
                         icono = Icons.Default.PhotoCamera,
                         acento = ExtraColor,
                         fondo = AppTheme.colores.peligroContenedor
@@ -391,9 +405,9 @@ private fun SeccionGastosEstadistica(vm: PagosViewModel) {
                 }
                 item {
                     TarjetaResumen(
-                        titulo = "Total combinado",
+                        titulo = "Total combinado · $nombreMes",
                         monto = totalMensual + totalExtra,
-                        detalle = "Gastos mensuales + gastos extra de $anioActual",
+                        detalle = "Gastos mensuales + extra de $nombreMes · Año $anioActual: S/ ${"%.2f".format(anualMensual + anualExtra)}",
                         icono = Icons.Default.Payments,
                         acento = AppTheme.colores.dorado,
                         fondo = AppTheme.colores.doradoContenedor,
@@ -418,8 +432,8 @@ private fun SeccionGastosEstadistica(vm: PagosViewModel) {
                 item {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "\"Gastos mensuales\" son los servicios de la casa ya pagados; \"Gastos extra\" son los " +
-                            "imprevistos de Pagos registrados > Pagos extra. El total combinado es la suma de ambos.",
+                        "\"Gastos mensuales estimados\" suma el monto referencial de tus servicios vigentes (no lo pagado); \"Gastos extra\" son los " +
+                            "imprevistos de Pagos registrados > Pagos extra. El total combinado suma lo realmente pagado en servicios más los extra.",
                         fontSize = 11.sp,
                         color = AppTheme.colores.textoSuave
                     )

@@ -84,26 +84,27 @@ object NotificadorPendientes {
             "Supervisor" -> {
                 val cuentas = try { AlquilerApiClient.service.getResumenSupervisor() } catch (_: Exception) { emptyList() }
                 cuentas.forEach { c ->
-                    if (c.pendientes == 0) return@forEach
+                    // Solo se avisa de lo vencido; lo que aún no vence no genera aviso.
+                    if (c.vencidos == 0) return@forEach
                     val clave = "supervisor:${c.idUsuario}"
                     if (estaPospuesto(clave, pospuestos, hoy)) return@forEach
 
                     // Un aviso por tipo y por cuenta: así el detalle de la alarma
                     // agrupa "por cobrar" y "por pagar" como en el resto de roles.
-                    if (c.cobros > 0) {
+                    // El servidor da el monto total pendiente, no el de lo vencido: por eso
+                    // se informa la cantidad vencida y no un monto que podría incluir lo no vencido.
+                    if (c.cobrosVencidos > 0) {
                         avisos += Aviso(
-                            "$clave:cobros".hashCode(), "Cobros pendientes",
-                            "${c.nombreCompleto} · ${c.cobros} cobro(s) · ${soles("%.2f".format(c.totalCobrosNum))}" +
-                                if (c.cobrosVencidos > 0) " (${c.cobrosVencidos} vencido(s))" else "",
-                            esCobro = true, monto = c.totalCobrosNum, nombre = c.nombreCompleto
+                            "$clave:cobros".hashCode(), "Cobros vencidos",
+                            "${c.nombreCompleto} · ${c.cobrosVencidos} cobro(s) vencido(s)",
+                            esCobro = true, monto = 0.0, nombre = c.nombreCompleto
                         )
                     }
-                    if (c.servicios > 0) {
+                    if (c.serviciosVencidos > 0) {
                         avisos += Aviso(
-                            "$clave:pagos".hashCode(), "Pagos pendientes",
-                            "${c.nombreCompleto} · ${c.servicios} pago(s) · ${soles("%.2f".format(c.totalServiciosNum))}" +
-                                if (c.serviciosVencidos > 0) " (${c.serviciosVencidos} vencido(s))" else "",
-                            esCobro = false, monto = c.totalServiciosNum, nombre = c.nombreCompleto
+                            "$clave:pagos".hashCode(), "Pagos vencidos",
+                            "${c.nombreCompleto} · ${c.serviciosVencidos} pago(s) vencido(s)",
+                            esCobro = false, monto = 0.0, nombre = c.nombreCompleto
                         )
                     }
                 }

@@ -41,6 +41,13 @@ class AlarmSoundService : Service() {
         when (intent?.action) {
             ACTION_STOP      -> { detenerAlarma(); return START_NOT_STICKY }
             ACTION_SILENCIAR -> { silenciar();     return START_NOT_STICKY }
+            // El usuario deslizó la notificación mientras suena: Android 14+ lo permite aun
+            // siendo "ongoing", así que se vuelve a publicar. Si la alarma ya terminó, nada.
+            ACTION_REPUBLICAR -> {
+                if (estaActiva && _sonando.value) runCatching { mostrarNotificacion(sonando = true) }
+                else if (!estaActiva) stopSelf()
+                return START_NOT_STICKY
+            }
         }
 
         titulo      = intent?.getStringExtra(EXTRA_TITULO) ?: "Cobro pendiente"
@@ -85,8 +92,11 @@ class AlarmSoundService : Service() {
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setOngoing(true)
+            // Mientras suena no se puede ocultar: si se desliza, vuelve a aparecer. Ya
+            // silenciada sí se puede quitar, y quitarla apaga la alarma por completo.
+            .setOngoing(sonando)
             .setAutoCancel(false)
+            .setDeleteIntent(piServicio(if (sonando) ACTION_REPUBLICAR else ACTION_STOP, 3))
             .setContentIntent(fullScreenPi)
             .setFullScreenIntent(fullScreenPi, true)
             .apply {
@@ -202,6 +212,7 @@ class AlarmSoundService : Service() {
     companion object {
         const val ACTION_STOP         = "com.example.myapplication.STOP_ALARM"
         const val ACTION_SILENCIAR    = "com.example.myapplication.SILENCE_ALARM"
+        const val ACTION_REPUBLICAR   = "com.example.myapplication.REPOST_ALARM"
         const val EXTRA_TITULO        = "titulo"
         const val EXTRA_DESCRIPCION   = "descripcion"
         const val EXTRA_NOTIF_ID      = "notif_id"
